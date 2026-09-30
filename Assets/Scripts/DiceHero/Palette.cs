@@ -11,6 +11,9 @@ namespace DiceHero
 
         readonly Material glowMaterial;
 
+        /// <summary>Global emission scale: keeps saturated hues from blowing out to white under bloom + ACES.</summary>
+        public static float GlowScale = 0.55f;
+
         public Palette(Material baseMaterial, Material glowMaterial)
         {
             this.baseMaterial = baseMaterial;
@@ -23,7 +26,7 @@ namespace DiceHero
             if (cache.TryGetValue(name, out var m)) return m;
             m = new Material(glowMaterial) { name = name };
             SetBase(m, albedo ?? color * 0.3f, 0.6f, 0f);
-            m.SetColor("_EmissionColor", color * intensity);
+            m.SetColor("_EmissionColor", color * intensity * GlowScale);
             m.EnableKeyword("_EMISSION");
             cache[name] = m;
             return m;

@@ -8,11 +8,14 @@ namespace DiceHero
     {
         Gun1, Gun2, Gun3, Gun4, Gun5, Gun6,
         Explosion, BigExplosion, Hit, Deflect, Slam, MegaSlam, Dash, Hurt, WaveStart, EnemyShot, Roll,
+        Clonk, Whistle, Thud, Beep, Disposed, Repair, BossRoar, WaveClear, UiMove, UiConfirm, Upgrade, GameOver, Heartbeat,
     }
 
     /// <summary>
-    /// All audio is synthesized at startup (no audio files): one clip per sound effect plus a looping
-    /// synthwave track. Play() is a no-op until Init() has run, so batch tests stay silent.
+    /// Sound effects are synthesized at startup (no audio files). Music: if an AudioClip exists at
+    /// Resources/Music/RollPower (e.g. the original FL Studio track) it is used, otherwise a synthwave
+    /// loop is generated. The audio host survives scene reloads so music doesn't restart.
+    /// Play() is a no-op until Init() has run, so batch tests stay silent.
     /// </summary>
     public static class Sound
     {
@@ -21,29 +24,55 @@ namespace DiceHero
         static readonly Dictionary<Sfx, float> lastPlayed = new Dictionary<Sfx, float>();
         static AudioSource[] pool;
         static AudioSource music;
+        static GameObject host;
         static int next;
         static System.Random rng = new System.Random(1);
+        static float duck = 1f, duckTarget = 1f;
 
-        public static float SfxVolume = 0.8f;
-        public static float MusicVolume = 0.4f;
+        public static float SfxVolume => Settings.Sfx;
+        public static float MusicVolume => Settings.Music * 0.55f;
+        public static bool UsingCustomMusic { get; private set; }
 
-        public static void Init(GameObject host)
+        public static void Init(GameObject unused = null)
         {
+            if (host != null) return;
             if (clips.Count == 0) Build();
-            pool = new AudioSource[12];
+            host = new GameObject("Audio");
+            UnityEngine.Object.DontDestroyOnLoad(host);
+
+            pool = new AudioSource[16];
             for (int i = 0; i < pool.Length; i++)
             {
                 pool[i] = host.AddComponent<AudioSource>();
                 pool[i].playOnAwake = false;
             }
             music = host.AddComponent<AudioSource>();
-            music.clip = BuildMusic();
+            var custom = Resources.Load<AudioClip>("Music/RollPower");
+            UsingCustomMusic = custom != null;
+            music.clip = custom != null ? custom : BuildMusic();
             music.loop = true;
             music.volume = MusicVolume;
             music.Play();
+            host.AddComponent<SoundDriver>();
         }
 
-        public static void Play(Sfx s, float volume = 1f, float pitchJitter = 0.06f)
+        /// <summary>Lowers the music (pause menu, upgrade pick) or restores it.</summary>
+        public static void Duck(bool on) => duckTarget = on ? 0.35f : 1f;
+
+        public static void ApplyVolumes()
+        {
+            if (music != null) music.volume = MusicVolume * duck;
+        }
+
+        internal static void Tick(float dt)
+        {
+            duck = Mathf.MoveTowards(duck, duckTarget, dt * 2f);
+            ApplyVolumes();
+        }
+
+        public static void Play(Sfx s, float volume = 1f, float pitchJitter = 0.06f) => PlayPitch(s, volume, 1f + ((float)rng.NextDouble() * 2f - 1f) * pitchJitter);
+
+        public static void PlayPitch(Sfx s, float volume, float pitch)
         {
             if (pool == null || !clips.TryGetValue(s, out var clip)) return;
             float now = Time.unscaledTime;
@@ -51,9 +80,10 @@ namespace DiceHero
             lastPlayed[s] = now;
             var src = pool[next];
             next = (next + 1) % pool.Length;
-            src.pitch = 1f + ((float)rng.NextDouble() * 2f - 1f) * pitchJitter;
+            src.pitch = pitch;
             src.PlayOneShot(clip, volume * SfxVolume);
         }
+
 
         public static Sfx GunSound(int number) => (Sfx)(number - 1);
 
@@ -185,6 +215,102 @@ namespace DiceHero
                 var o = new Osc();
                 clips[Sfx.EnemyShot] = Make("eshot", 0.14f, t => Square(o.Next(Mathf.Lerp(520f, 260f, t / 0.14f)), 0.25f) * Env(t, 0.002f, 0.05f), 0.3f);
             }
+            BuildRollPowerSfx();
+        }
+
+        /// <summary>Bombs, boss, UI and progression sounds added for Roll Power 2.0.</summary>
+        static void BuildRollPowerSfx()
+        {
+            {   // Clonk: dice shoving a steel drum (inharmonic ring + knock)
+                var lp = new LowPass();
+                clips[Sfx.Clonk] = Make("clonk", 0.35f, t =>
+                    (Mathf.Sin(2f * Mathf.PI * 410f * t) + 0.7f * Mathf.Sin(2f * Mathf.PI * 1130f * t) + 0.4f * Mathf.Sin(2f * Mathf.PI * 1870f * t)) * Env(t, 0.001f, 0.07f)
+                    + lp.Next(Noise(), 1800f) * Env(t, 0.001f, 0.012f) * 2f, 0.6f);
+            }
+            {   // Whistle: bomb falling into the void
+                var o = new Osc();
+                clips[Sfx.Whistle] = Make("whistle", 1.0f, t => Mathf.Sin(2f * Mathf.PI * o.Next(Mathf.Lerp(1500f, 380f, t))) * Mathf.Min(1f, t * 20f) * (1f - t * 0.6f), 0.35f);
+            }
+            {   // Thud: bomb landing
+                var o = new Osc(); var lp = new LowPass();
+                clips[Sfx.Thud] = Make("thud", 0.35f, t => Mathf.Sin(2f * Mathf.PI * o.Next(Mathf.Lerp(95f, 40f, t / 0.35f))) * Env(t, 0.002f, 0.1f) + lp.Next(Noise(), 700f) * Env(t, 0.001f, 0.04f));
+            }
+            {   // Beep: fuse tick
+                clips[Sfx.Beep] = Make("beep", 0.06f, t => Mathf.Sin(2f * Mathf.PI * 1850f * t) * Env(t, 0.002f, 0.025f), 0.4f);
+            }
+            {   // Disposed: bright two-note chime
+                clips[Sfx.Disposed] = Make("disposed", 0.5f, t =>
+                {
+                    float a = Tri(988f * t) * Env(t, 0.003f, 0.12f);
+                    float s2 = t - 0.08f;
+                    float b = s2 > 0f ? Tri(1318.5f * s2) * Env(s2, 0.003f, 0.18f) : 0f;
+                    return a + b + 0.3f * Mathf.Sin(2f * Mathf.PI * 2637f * t) * Env(t, 0.002f, 0.08f);
+                }, 0.45f);
+            }
+            {   // Repair: soft rising sparkle
+                var o = new Osc();
+                clips[Sfx.Repair] = Make("repair", 0.45f, t => Mathf.Sin(2f * Mathf.PI * o.Next(Mathf.Lerp(600f, 1400f, t / 0.45f))) * Env(t, 0.02f, 0.15f) * (0.7f + 0.3f * Mathf.Sin(t * 120f)), 0.4f);
+            }
+            {   // Boss roar: detuned growl with vibrato
+                var o1 = new Osc(); var o2 = new Osc(); var lp = new LowPass();
+                clips[Sfx.BossRoar] = Make("bossroar", 1.6f, t =>
+                {
+                    float f = Mathf.Lerp(70f, 48f, t / 1.6f) * (1f + 0.04f * Mathf.Sin(t * 38f));
+                    float body = Saw(o1.Next(f)) + Saw(o2.Next(f * 1.013f));
+                    return lp.Next(body + Noise() * 0.4f, 500f + 900f * Env(t, 0.2f, 0.5f)) * Env(t, 0.08f, 0.7f);
+                });
+            }
+            {   // Wave clear: major arpeggio
+                float[] notes = { 523.25f, 659.25f, 783.99f, 1046.5f };
+                clips[Sfx.WaveClear] = Make("waveclear", 1.0f, t =>
+                {
+                    float s = 0f;
+                    for (int i = 0; i < notes.Length; i++)
+                    {
+                        float st = t - i * 0.07f;
+                        if (st > 0f) s += (Tri(notes[i] * st) + 0.25f * Square(notes[i] * st, 0.25f)) * Env(st, 0.004f, 0.3f);
+                    }
+                    return s;
+                }, 0.5f);
+            }
+            {   // UI move: tiny tick
+                clips[Sfx.UiMove] = Make("uimove", 0.04f, t => Square(1400f * t, 0.3f) * Env(t, 0.001f, 0.012f), 0.25f);
+            }
+            {   // UI confirm: two-tone blip
+                clips[Sfx.UiConfirm] = Make("uiconfirm", 0.18f, t => Square((t < 0.06f ? 880f : 1320f) * t, 0.4f) * Env(t, 0.002f, 0.07f), 0.3f);
+            }
+            {   // Upgrade: shimmering chord sweep
+                var lp = new LowPass();
+                float[] chord = { 523.25f, 659.25f, 783.99f, 987.77f };
+                clips[Sfx.Upgrade] = Make("upgrade", 1.2f, t =>
+                {
+                    float s = 0f;
+                    foreach (float f in chord) s += Saw(f * t * 1.002f) + Saw(f * t * 0.998f);
+                    return lp.Next(s, 400f + 5000f * Mathf.Clamp01(t * 3f)) * Env(t, 0.05f, 0.45f);
+                }, 0.5f);
+            }
+            {   // Game over: descending minor arpeggio
+                float[] notes = { 659.25f, 523.25f, 440f, 329.63f, 220f };
+                clips[Sfx.GameOver] = Make("gameover", 1.8f, t =>
+                {
+                    float s = 0f;
+                    for (int i = 0; i < notes.Length; i++)
+                    {
+                        float st = t - i * 0.16f;
+                        if (st > 0f) s += (Tri(notes[i] * st) + 0.3f * Saw(notes[i] * 0.5f * st)) * Env(st, 0.005f, i == notes.Length - 1 ? 0.8f : 0.25f);
+                    }
+                    return s;
+                }, 0.55f);
+            }
+            {   // Heartbeat (low integrity)
+                var o = new Osc();
+                clips[Sfx.Heartbeat] = Make("heartbeat", 0.5f, t =>
+                {
+                    float a = Env(t, 0.004f, 0.05f), st = t - 0.18f;
+                    float b = st > 0f ? Env(st, 0.004f, 0.06f) * 0.7f : 0f;
+                    return Mathf.Sin(2f * Mathf.PI * o.Next(55f)) * (a + b);
+                }, 0.7f);
+            }
         }
 
         /// <summary>Writes every sound effect and the music loop to 16-bit WAV files (for auditioning outside the game).</summary>
@@ -307,5 +433,11 @@ namespace DiceHero
             clip.SetData(data, 0);
             return clip;
         }
+    }
+
+    /// <summary>Ticks music ducking on the persistent audio host.</summary>
+    public class SoundDriver : MonoBehaviour
+    {
+        void Update() => Sound.Tick(Time.unscaledDeltaTime);
     }
 }

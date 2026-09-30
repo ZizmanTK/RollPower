@@ -2,12 +2,12 @@ using UnityEngine;
 
 namespace DiceHero
 {
-    /// <summary>Entry point: builds the whole prototype procedurally when the scene starts.</summary>
+    /// <summary>Entry point: builds the whole game procedurally when the scene starts.</summary>
     public class GameBootstrap : MonoBehaviour
     {
-        [Tooltip("Standard-shader material every runtime colour is cloned from (keeps the shader in builds).")]
+        [Tooltip("URP/Lit material every runtime colour is cloned from (keeps the shader in builds).")]
         public Material baseMaterial;
-        [Tooltip("Standard-shader material with emission enabled, cloned for all glowing parts.")]
+        [Tooltip("URP/Lit material with emission enabled, cloned for all glowing parts.")]
         public Material glowMaterial;
 
         public Palette Palette { get; private set; }
@@ -17,6 +17,7 @@ namespace DiceHero
 
         void Awake()
         {
+            if (Application.isPlaying) Sound.Init();
             BuildWorld();
         }
 
@@ -28,44 +29,41 @@ namespace DiceHero
             Dice = DiceModel.Build(Palette, null, World.PlayerStart);
             Controller = Dice.Root.gameObject.AddComponent<DiceController>();
             Controller.Init(Dice);
-            Loop = gameObject.GetComponent<GameLoop>();
-            if (Loop == null) Loop = gameObject.AddComponent<GameLoop>();
-            Loop.Init(Controller, Palette);
-            if (Application.isPlaying) Sound.Init(gameObject);
 
             var cam = Camera.main;
             if (cam != null)
             {
                 cam.clearFlags = CameraClearFlags.SolidColor;
-                cam.backgroundColor = new Color(0.02f, 0.03f, 0.06f);
+                cam.backgroundColor = World.SpaceColor;
+                cam.farClipPlane = 250f;
                 var follow = cam.GetComponent<CameraFollow>();
                 if (follow == null) follow = cam.gameObject.AddComponent<CameraFollow>();
                 follow.target = Dice.Root;
                 follow.SnapToTarget();
             }
+
+            Loop = gameObject.GetComponent<GameLoop>();
+            if (Loop == null) Loop = gameObject.AddComponent<GameLoop>();
+            Loop.Init(Controller, Palette);
         }
 
         static void SetupLighting()
         {
-            var sun = Object.FindFirstObjectByType<Light>();
+            var sun = Object.FindAnyObjectByType<Light>();
             if (sun == null) sun = new GameObject("Sun").AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.transform.rotation = Quaternion.Euler(58f, -30f, 0f);
-            sun.color = new Color(0.72f, 0.82f, 1f);
-            sun.intensity = 2.2f;
+            sun.transform.rotation = Quaternion.Euler(55f, -35f, 0f);
+            sun.color = new Color(0.9f, 0.93f, 1f);
+            sun.intensity = 2.1f;
             sun.shadows = LightShadows.Soft;
-            sun.shadowStrength = 0.85f;
+            sun.shadowStrength = 0.8f;
 
             RenderSettings.skybox = null;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.3f, 0.38f, 0.55f);
-            RenderSettings.ambientEquatorColor = new Color(0.2f, 0.24f, 0.34f);
-            RenderSettings.ambientGroundColor = new Color(0.04f, 0.05f, 0.08f);
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.02f, 0.03f, 0.06f);
-            RenderSettings.fogStartDistance = 22f;
-            RenderSettings.fogEndDistance = 55f;
+            RenderSettings.ambientSkyColor = new Color(0.32f, 0.36f, 0.48f);
+            RenderSettings.ambientEquatorColor = new Color(0.2f, 0.22f, 0.3f);
+            RenderSettings.ambientGroundColor = new Color(0.05f, 0.05f, 0.08f);
+            RenderSettings.fog = false; // open space: stars and the planet stay crisp
         }
     }
 }

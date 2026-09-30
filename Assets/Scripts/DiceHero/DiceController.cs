@@ -57,6 +57,7 @@ namespace DiceHero
         public float dashSpeed = 10f;
         public float dashCooldown = 0.9f;
         public float DashCooldownLeft { get; private set; }
+        public float DashCooldownTotal => dashCooldown * RunStats.Current.dashCooldownMul;
         public int LastRollSteps => rollSteps;
         public event Action Dashed;
         float dashTime;
@@ -70,7 +71,7 @@ namespace DiceHero
                         : velocity.sqrMagnitude > 0.1f ? velocity.normalized : Vector3.forward;
             velocity = dir * dashSpeed;
             dashTime = 0.35f;
-            DashCooldownLeft = dashCooldown;
+            DashCooldownLeft = DashCooldownTotal;
             squashVel += 3f;
             Dashed?.Invoke();
         }
@@ -80,6 +81,13 @@ namespace DiceHero
             if (rolling) return;
             velocity = Vector3.ClampMagnitude(velocity + impulse, maxSpeed);
             tripCooldown = Mathf.Max(tripCooldown, 0.6f); // getting shoved never rerolls the gun by accident
+        }
+
+        /// <summary>Soft push (e.g. recoil from shoving a bomb) that doesn't block the next trip.</summary>
+        public void Nudge(Vector3 impulse)
+        {
+            if (rolling) return;
+            velocity = Vector3.ClampMagnitude(velocity + impulse, Mathf.Max(maxSpeed, velocity.magnitude));
         }
 
         /// <summary>Debug/test helper: instantly turns the dice so face 'number' is on top.</summary>
@@ -107,8 +115,7 @@ namespace DiceHero
         Vector2 ReadInput()
         {
             if (InputOverride.HasValue) return Vector2.ClampMagnitude(InputOverride.Value, 1f);
-            var v = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-            return Vector2.ClampMagnitude(v, 1f);
+            return Controls.Move;
         }
 
         void UpdateGlide(float dt)

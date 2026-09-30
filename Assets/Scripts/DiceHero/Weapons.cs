@@ -148,12 +148,12 @@ namespace DiceHero
                 guns[n].localScale = Vector3.one * 1.4f;
             }
             ShowGun(dice.TopNumber);
-            dice.TopChanged += (oldTop, newTop) => { ShowGun(newTop); cooldown = 0.15f; Overcharge = OverchargeTime; };
+            dice.TopChanged += (oldTop, newTop) => { ShowGun(newTop); cooldown = 0.15f; Overcharge = OverchargeMax; };
         }
 
         /// <summary>Seconds of double fire rate left (granted by every fresh roll).</summary>
         public float Overcharge { get; private set; }
-        public const float OverchargeTime = 3f;
+        public float OverchargeMax => RunStats.Current.overchargeTime;
         public Enemy Target { get; private set; }
         public event System.Action<WeaponDef> Fired;
 
@@ -173,7 +173,7 @@ namespace DiceHero
                 if (!(t is Enemy e) || !e.Alive || e.spawnT < 1f) continue;
                 Vector3 d = e.pos - p; d.y = 0f;
                 float sq = d.sqrMagnitude;
-                if (Enemy.CanHit(def, e.kind)) { if (sq < bestD) { bestD = sq; best = e; } }
+                if (e.CanBeHitBy(def)) { if (sq < bestD) { bestD = sq; best = e; } }
                 else if (!e.Flying && sq < fallbackD) { fallbackD = sq; fallback = e; }
             }
             return best ?? fallback;
@@ -209,21 +209,26 @@ namespace DiceHero
         void Fire()
         {
             var def = Current;
-            cooldown = def.cooldown * (Overcharge > 0f ? 0.5f : 1f);
+            cooldown = def.cooldown / RunStats.Current.fireRateMul * (Overcharge > 0f ? 0.5f : 1f);
             Fired?.Invoke(def);
             recoil = def.number == 4 || def.number == 1 ? 1f : 0.5f;
             var ms = muzzles[def.number];
             Vector3 fwd = dice.Model.WeaponMount.forward;
 
-            for (int i = 0; i < def.shots; i++)
+            // Extra Barrel adds projectiles to multi-shot guns (and fans them out a little).
+            int extra = def.shots > 1 ? RunStats.Current.extraShots : 0;
+            int shots = def.shots + extra;
+            float spread = def.spread * (1f + extra * 0.2f) + (def.spread <= 0f ? extra * 7f : 0f);
+            for (int i = 0; i < shots; i++)
             {
                 var muzzle = ms[i % ms.Count];
-                float t = def.shots == 1 ? 0f : i / (float)(def.shots - 1) - 0.5f;
-                Vector3 dir = Quaternion.Euler(0f, t * def.spread, 0f) * fwd;
+                float t = shots == 1 ? 0f : i / (float)(shots - 1) - 0.5f;
+                Vector3 dir = Quaternion.Euler(0f, t * spread, 0f) * fwd;
                 if (def.beam) Projectiles.Beam(pal, def, muzzle.position, dir);
                 else Projectiles.Spawn(pal, def, muzzle.position, dir, i * (def.homing ? 0.06f : 0f));
             }
             foreach (var m in ms) Fx.Flash(pal, m.position, def.color, def.number == 4 ? 0.5f : 0.3f, 0.08f);
+            if (Game.I != null && (def.number == 1 || def.number == 4)) Game.I.Juice(0.07f, 0f); // heavy guns kick the camera
         }
     }
 }

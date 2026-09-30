@@ -5,7 +5,7 @@ namespace DiceHero
 {
     public enum ObstacleKind { Barrier, Conduit }
 
-    /// <summary>Something the dice trips over. Barriers roll it one face, conduits (pipes) roll it two.</summary>
+    /// <summary>Something the dice trips over. Barriers (red) roll it one face, conduits (blue pipes) roll it two.</summary>
     public class Obstacle : MonoBehaviour
     {
         public ObstacleKind kind;
@@ -22,7 +22,11 @@ namespace DiceHero
         }
     }
 
-    /// <summary>Builds the arena: neon-grid deck, armoured walls, obstacles and the tech skyline around it.</summary>
+    /// <summary>
+    /// Builds the arena: a floating lunar platform in space. Grey deck plates with craters, red barriers
+    /// and blue conduits (the colours of the jam original), a force-field fence that stops the dice but
+    /// not bombs, and a starfield with a planet far below.
+    /// </summary>
     public static class World
     {
         public const int BoardSize = 20;
@@ -40,9 +44,10 @@ namespace DiceHero
             (new Vector2(-1.8f, 7f), true),
         };
 
-        static readonly Color Cyan = Palette.Hex("#2EDBFF");
-        static readonly Color Hazard = Palette.Hex("#FF7A1A");
-        static readonly Color Magenta = Palette.Hex("#FF2E88");
+        public static readonly Color BarrierRed = Palette.Hex("#FF3B4E");
+        public static readonly Color ConduitBlue = Palette.Hex("#3D7BFF");
+        public static readonly Color FenceBlue = Palette.Hex("#6FA8FF");
+        public static readonly Color SpaceColor = Palette.Hex("#04060D");
 
         public static Transform Build(Palette pal)
         {
@@ -50,40 +55,37 @@ namespace DiceHero
             var root = new GameObject("World").transform;
             var rng = new System.Random(12);
 
-            var metalDark = pal.Get("MetalDark", Palette.Hex("#1B2029"), 0.55f, 0.7f);
-            var metalMid = pal.Get("MetalMid", Palette.Hex("#2C333F"), 0.6f, 0.8f);
-            var metalLight = pal.Get("MetalLight", Palette.Hex("#48515F"), 0.65f, 0.85f);
+            var metalDark = pal.Get("MetalDark", Palette.Hex("#1B1F27"), 0.55f, 0.7f);
+            var metalMid = pal.Get("MetalMid", Palette.Hex("#2E343F"), 0.6f, 0.8f);
+            var metalLight = pal.Get("MetalLight", Palette.Hex("#59616E"), 0.65f, 0.85f);
 
-            // Deck plates; the gaps show a glowing slab underneath, which draws the neon grid.
-            var board = Prim.MeshObject("Deck", root, MeshFactory.CheckerBoard(BoardSize, BoardSize, 1f, 0.06f, 0.3f),
-                pal.Get("DeckA", Palette.Hex("#2A323F"), 0.78f, 0.55f),
-                pal.Get("DeckB", Palette.Hex("#333C4A"), 0.78f, 0.55f));
+            // Lunar deck: two tones of grey regolith plates; the gaps show a faint glowing slab underneath.
+            var board = Prim.MeshObject("Deck", root, MeshFactory.CheckerBoard(BoardSize, BoardSize, 1f, 0.05f, 0.3f),
+                pal.Get("DeckA", Palette.Hex("#6C727D"), 0.18f, 0.05f),
+                pal.Get("DeckB", Palette.Hex("#767C87"), 0.18f, 0.05f));
             board.transform.localPosition = Vector3.zero;
-            Prim.Make(PrimitiveType.Cube, "GridGlow", root, new Vector3(0f, -0.17f, 0f), new Vector3(BoardSize, 0.3f, BoardSize),
-                pal.Glow("GridGlow", Cyan, 0.9f));
+            Prim.Make(PrimitiveType.Cube, "SeamGlow", root, new Vector3(0f, -0.17f, 0f), new Vector3(BoardSize, 0.3f, BoardSize),
+                pal.Glow("SeamGlow", Palette.Hex("#7FB2FF"), 0.3f));
+            BuildCraters(pal, root, rng);
 
-            // Outer ground far below the deck level
-            Prim.Make(PrimitiveType.Cube, "Ground", root, new Vector3(0f, -0.6f, 0f), new Vector3(140f, 0.2f, 140f),
-                pal.Get("Ground", Palette.Hex("#0A0D12"), 0.4f, 0.3f));
-
-            // Armoured border walls with a light strip
-            var stripMat = pal.Glow("WallStrip", Cyan, 2.5f);
-            float hs = HalfSize + 0.3f;
+            // Platform body under the deck, so it reads as a floating slab.
+            Prim.Make(PrimitiveType.Cube, "Hull", root, new Vector3(0f, -0.9f, 0f), new Vector3(BoardSize + 0.4f, 1.2f, BoardSize + 0.4f), metalDark);
+            Prim.Make(PrimitiveType.Cube, "HullLower", root, new Vector3(0f, -1.9f, 0f), new Vector3(BoardSize - 3f, 1f, BoardSize - 3f), metalMid);
+            var underGlow = pal.Glow("UnderGlow", UiKit.Gold, 1.6f);
             for (int side = 0; side < 4; side++)
             {
                 bool alongX = side < 2;
                 float sign = side % 2 == 0 ? 1f : -1f;
-                Vector3 pos = alongX ? new Vector3(0f, 0.2f, sign * hs) : new Vector3(sign * hs, 0.2f, 0f);
-                Vector3 size = alongX ? new Vector3(BoardSize + 1.2f, 0.9f, 0.6f) : new Vector3(0.6f, 0.9f, BoardSize + 1.2f);
-                Prim.Make(PrimitiveType.Cube, "Wall", root, pos, size, metalMid);
-                Vector3 inward = alongX ? new Vector3(0f, 0f, -sign) : new Vector3(-sign, 0f, 0f);
-                Vector3 stripSize = alongX ? new Vector3(BoardSize + 0.6f, 0.06f, 0.04f) : new Vector3(0.04f, 0.06f, BoardSize + 0.6f);
-                Prim.Make(PrimitiveType.Cube, "Strip", root, pos + inward * 0.31f + Vector3.up * 0.2f, stripSize, stripMat);
+                float hs = HalfSize + 0.21f;
+                Vector3 pos = alongX ? new Vector3(0f, -0.75f, sign * hs) : new Vector3(sign * hs, -0.75f, 0f);
+                Vector3 size = alongX ? new Vector3(BoardSize + 0.2f, 0.05f, 0.02f) : new Vector3(0.02f, 0.05f, BoardSize + 0.2f);
+                Prim.Make(PrimitiveType.Cube, "HullStrip", root, pos, size, underGlow);
             }
 
-            // Barriers (roll 1): low hazard-striped blocks.
-            var hazardMat = pal.Glow("Hazard", Hazard, 2.2f);
-            // Loose grid of barriers so there's always one to slam into nearby.
+            BuildFence(pal, root, metalMid);
+
+            // Barriers (roll 1): low blocks with red light bands.
+            var barrierMat = pal.Glow("BarrierRed", BarrierRed, 2.4f);
             var barriers = new List<Vector2>();
             for (int gx = -2; gx <= 2; gx++)
             for (int gz = -2; gz <= 2; gz++)
@@ -105,18 +107,18 @@ namespace DiceHero
                 var o = new GameObject("Barrier").transform;
                 o.SetParent(root, false);
                 o.localPosition = new Vector3(b.x, 0f, b.y);
-                Prim.Make(PrimitiveType.Cube, "Block", o, new Vector3(0f, 0.16f, 0f), new Vector3(0.66f, 0.32f, 0.66f), metalLight);
-                Prim.Make(PrimitiveType.Cube, "Top", o, new Vector3(0f, 0.33f, 0f), new Vector3(0.5f, 0.04f, 0.5f), metalDark);
-                Prim.Make(PrimitiveType.Cube, "StripeA", o, new Vector3(0f, 0.2f, 0f), new Vector3(0.68f, 0.05f, 0.68f), hazardMat);
-                Prim.Make(PrimitiveType.Cube, "StripeB", o, new Vector3(0f, 0.09f, 0f), new Vector3(0.68f, 0.05f, 0.68f), hazardMat);
+                Prim.Make(PrimitiveType.Cube, "Block", o, new Vector3(0f, 0.17f, 0f), new Vector3(0.66f, 0.34f, 0.66f), metalMid);
+                Prim.Make(PrimitiveType.Cube, "Top", o, new Vector3(0f, 0.345f, 0f), new Vector3(0.52f, 0.03f, 0.52f), metalLight);
+                Prim.Make(PrimitiveType.Cube, "Band", o, new Vector3(0f, 0.21f, 0f), new Vector3(0.68f, 0.07f, 0.68f), barrierMat);
+                Prim.Make(PrimitiveType.Cube, "Pad", o, new Vector3(0f, 0.005f, 0f), new Vector3(0.9f, 0.01f, 0.9f), pal.Glow("BarrierPad", BarrierRed, 0.25f, Palette.Hex("#3A1418")));
                 var ob = o.gameObject.AddComponent<Obstacle>();
                 ob.kind = ObstacleKind.Barrier;
                 ob.halfExtents = new Vector2(0.33f, 0.33f);
                 Obstacles.Add(ob);
             }
 
-            // Conduits (roll 2): armoured pipes with glowing rings.
-            var ringMat = pal.Glow("ConduitRing", Magenta, 2.5f);
+            // Conduits (roll 2): armoured pipes with blue rings.
+            var ringMat = pal.Glow("ConduitRing", ConduitBlue, 1.7f);
             foreach (var c in ConduitLayout)
             {
                 var o = new GameObject("Conduit").transform;
@@ -127,7 +129,7 @@ namespace DiceHero
                 Vector3 center = new Vector3(0f, 0.24f, 0f);
                 Prim.Make(PrimitiveType.Cylinder, "Pipe", o, center, new Vector3(0.46f, 1.5f, 0.46f), metalMid, rot);
                 for (int i = -2; i <= 2; i++)
-                    Prim.Make(PrimitiveType.Cylinder, "Ring", o, center + axis * (i * 0.65f), new Vector3(0.5f, 0.035f, 0.5f), ringMat, rot);
+                    Prim.Make(PrimitiveType.Cylinder, "Ring", o, center + axis * (i * 0.65f), new Vector3(0.5f, 0.04f, 0.5f), ringMat, rot);
                 foreach (float s in new[] { -1f, 1f })
                     Prim.Make(PrimitiveType.Cube, "Clamp", o, new Vector3(0f, 0.12f, 0f) + axis * (s * 1.42f),
                         c.alongX ? new Vector3(0.18f, 0.24f, 0.62f) : new Vector3(0.62f, 0.24f, 0.18f), metalLight);
@@ -137,39 +139,97 @@ namespace DiceHero
                 Obstacles.Add(ob);
             }
 
-            BuildSkyline(pal, root, rng, metalDark, metalMid);
+            BuildSpace(pal, root, rng, metalDark, metalMid);
             return root;
         }
 
-        static void BuildSkyline(Palette pal, Transform root, System.Random rng, Material dark, Material mid)
+        static void BuildCraters(Palette pal, Transform root, System.Random rng)
         {
-            var lights = new[] { pal.Glow("PylonCyan", Cyan, 3f), pal.Glow("PylonMagenta", Magenta, 3f), pal.Glow("PylonHazard", Hazard, 2.5f) };
-            var skyline = new GameObject("Skyline").transform;
-            skyline.SetParent(root, false);
-
-            // Tech pylons on the far and side edges (the near edge stays clear for the camera).
-            for (int i = 0; i < 40; i++)
+            // Subtle: a slightly darker floor and slightly lighter rim than the deck plates.
+            var floor = pal.Get("CraterFloor", Palette.Hex("#646A75"), 0.12f, 0.05f);
+            var rim = pal.Get("CraterRim", Palette.Hex("#7D838E"), 0.15f, 0.05f);
+            for (int i = 0; i < 14; i++)
             {
-                int side = rng.Next(3);
-                float along = (float)rng.NextDouble() * 40f - 20f;
-                float away = HalfSize + 2.5f + (float)rng.NextDouble() * 14f;
-                float x = side == 0 ? along : (side == 1 ? away : -away);
-                float z = side == 0 ? away : along;
-                float h = 1.5f + (float)rng.NextDouble() * (3f + away - HalfSize);
-                float w = 0.8f + (float)rng.NextDouble() * 1.6f;
-                var p = new GameObject("Pylon").transform;
-                p.SetParent(skyline, false);
-                p.localPosition = new Vector3(x, -0.5f, z);
-                Prim.Make(PrimitiveType.Cube, "Tower", p, new Vector3(0f, h * 0.5f, 0f), new Vector3(w, h, w), rng.Next(2) == 0 ? dark : mid);
-                var lm = lights[rng.Next(lights.Length)];
-                Prim.Make(PrimitiveType.Cube, "LightStrip", p, new Vector3(0f, h * 0.5f, -w * 0.5f - 0.01f), new Vector3(0.08f, h * 0.8f, 0.02f), lm);
-                Prim.Make(PrimitiveType.Cube, "Beacon", p, new Vector3(0f, h + 0.05f, 0f), new Vector3(w * 0.6f, 0.1f, w * 0.6f), lm);
+                float r = 0.25f + (float)rng.NextDouble() * (i < 2 ? 0.9f : 0.4f);
+                var p = new Vector3(((float)rng.NextDouble() - 0.5f) * (BoardSize - 2f), 0f, ((float)rng.NextDouble() - 0.5f) * (BoardSize - 2f));
+                Prim.Make(PrimitiveType.Cylinder, "CraterRim", root, p + Vector3.up * 0.004f, new Vector3(r * 2.2f, 0.004f, r * 2.2f), rim);
+                Prim.Make(PrimitiveType.Cylinder, "Crater", root, p + Vector3.up * 0.009f, new Vector3(r * 1.8f, 0.004f, r * 1.8f), floor);
+            }
+        }
+
+        /// <summary>Posts and a laser line around the edge: it stops the dice and enemies, bombs smash through.</summary>
+        static void BuildFence(Palette pal, Transform root, Material postMat)
+        {
+            var laser = pal.Glow("FenceLaser", FenceBlue, 1.3f);
+            var cap = pal.Glow("FenceCap", FenceBlue, 3f);
+            float hs = HalfSize + 0.08f;
+            for (int side = 0; side < 4; side++)
+            {
+                bool alongX = side < 2;
+                float sign = side % 2 == 0 ? 1f : -1f;
+                Vector3 c = alongX ? new Vector3(0f, 0f, sign * hs) : new Vector3(sign * hs, 0f, 0f);
+                Vector3 len = alongX ? new Vector3(BoardSize, 0.025f, 0.025f) : new Vector3(0.025f, 0.025f, BoardSize);
+                Prim.Make(PrimitiveType.Cube, "Laser", root, c + Vector3.up * 0.28f, len, laser);
+                Prim.Make(PrimitiveType.Cube, "LaserLow", root, c + Vector3.up * 0.12f, len, laser);
+                for (int i = 0; i <= BoardSize; i += 2)
+                {
+                    float a = i - HalfSize;
+                    Vector3 p = alongX ? new Vector3(a, 0f, c.z) : new Vector3(c.x, 0f, a);
+                    Prim.Make(PrimitiveType.Cube, "Post", root, p + Vector3.up * 0.2f, new Vector3(0.09f, 0.4f, 0.09f), postMat);
+                    Prim.Make(PrimitiveType.Cube, "PostCap", root, p + Vector3.up * 0.42f, new Vector3(0.1f, 0.04f, 0.1f), cap);
+                }
+            }
+        }
+
+        static void BuildSpace(Palette pal, Transform root, System.Random rng, Material dark, Material mid)
+        {
+            var space = new GameObject("Space").transform;
+            space.SetParent(root, false);
+
+            // Starfield: one combined mesh of tiny cubes scattered below and around the platform.
+            var cube = GetCubeMesh();
+            var combine = new List<CombineInstance>();
+            for (int i = 0; i < 700; i++)
+            {
+                Vector3 d = new Vector3((float)rng.NextDouble() * 2f - 1f, -(float)rng.NextDouble() * 0.9f - 0.05f, (float)rng.NextDouble() * 2f - 1f).normalized;
+                float dist = 45f + (float)rng.NextDouble() * 50f;
+                float s = 0.08f + (float)rng.NextDouble() * (i % 17 == 0 ? 0.35f : 0.14f);
+                combine.Add(new CombineInstance { mesh = cube, transform = Matrix4x4.TRS(d * dist + Vector3.forward * 12f, Quaternion.identity, Vector3.one * s) });
+            }
+            var stars = new Mesh { name = "Stars", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            stars.CombineMeshes(combine.ToArray(), true, true);
+            Prim.MeshObject("Stars", space, stars, pal.Glow("Star", Palette.Hex("#DDE8FF"), 2.2f, Color.white));
+
+            // A big planet far below, lit by the sun.
+            Prim.Make(PrimitiveType.Sphere, "Planet", space, new Vector3(-34f, -42f, 34f), Vector3.one * 44f, pal.Get("Planet", Palette.Hex("#2C4C8A"), 0.35f, 0f));
+            Prim.Make(PrimitiveType.Sphere, "PlanetHalo", space, new Vector3(-34f, -42f, 34f), Vector3.one * 46f, pal.Glow("PlanetHalo", Palette.Hex("#3D7BFF"), 0.25f, Palette.Hex("#0A1428")));
+
+            // Floating rocks around the platform.
+            var rock = pal.Get("Rock", Palette.Hex("#3E434C"), 0.1f, 0.05f);
+            for (int i = 0; i < 26; i++)
+            {
+                float ang = (float)rng.NextDouble() * Mathf.PI * 2f;
+                float r = HalfSize + 4f + (float)rng.NextDouble() * 12f;
+                var p = new Vector3(Mathf.Cos(ang) * r, -3f - (float)rng.NextDouble() * 10f, Mathf.Sin(ang) * r + 4f);
+                float s = 0.4f + (float)rng.NextDouble() * 1.6f;
+                Prim.Make(PrimitiveType.Cube, "Rock", space, p, new Vector3(s, s * 0.7f, s * 0.9f), rock,
+                    Quaternion.Euler((float)rng.NextDouble() * 360f, (float)rng.NextDouble() * 360f, (float)rng.NextDouble() * 360f));
             }
 
-            // Coloured rim lights for mood (no shadows).
-            AddPointLight(skyline, new Vector3(-12f, 4f, 12f), Cyan, 18f, 2.2f);
-            AddPointLight(skyline, new Vector3(12f, 4f, 12f), Magenta, 18f, 2f);
-            AddPointLight(skyline, new Vector3(0f, 5f, -14f), Cyan, 16f, 1.2f);
+            // Coloured rim lights for mood (no shadows): warm gold and cool blue.
+            AddPointLight(space, new Vector3(-12f, 5f, 12f), ConduitBlue, 22f, 2.4f);
+            AddPointLight(space, new Vector3(12f, 5f, 12f), Palette.Hex("#FFB347"), 22f, 1.8f);
+            AddPointLight(space, new Vector3(0f, 6f, -14f), Palette.Hex("#8FB8FF"), 18f, 1.2f);
+        }
+
+        static Mesh cubeMesh;
+        static Mesh GetCubeMesh()
+        {
+            if (cubeMesh != null) return cubeMesh;
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cubeMesh = go.GetComponent<MeshFilter>().sharedMesh;
+            Object.DestroyImmediate(go);
+            return cubeMesh;
         }
 
         static void AddPointLight(Transform parent, Vector3 pos, Color color, float range, float intensity)

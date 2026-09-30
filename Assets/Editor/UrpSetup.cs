@@ -69,17 +69,17 @@ public static class UrpSetup
         AssetDatabase.CreateAsset(profile, ProfilePath);
 
         var bloom = profile.Add<Bloom>(true);
-        bloom.intensity.Override(2.4f);
-        bloom.threshold.Override(0.85f);
+        bloom.intensity.Override(1.7f);
+        bloom.threshold.Override(1.0f);
         bloom.scatter.Override(0.72f);
 
         var tone = profile.Add<Tonemapping>(true);
         tone.mode.Override(TonemappingMode.ACES);
 
         var color = profile.Add<ColorAdjustments>(true);
-        color.postExposure.Override(0.55f);
+        color.postExposure.Override(0.35f);
         color.contrast.Override(18f);
-        color.saturation.Override(14f);
+        color.saturation.Override(22f);
 
         var vignette = profile.Add<Vignette>(true);
         vignette.intensity.Override(0.33f);
