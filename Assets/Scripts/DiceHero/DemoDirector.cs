@@ -15,7 +15,7 @@ namespace DiceHero
         GameLoop loop;
         Autopilot bot;
         string dir;
-        float t, nextShot = 6f, stateTime, limit = 240f;
+        float t, nextShot = 6f, stateTime, lastDt, limit = 240f;
         int shots;
         bool pausedOnce, godMode, howToDone;
         Screen2 lastState;
@@ -38,6 +38,7 @@ namespace DiceHero
             if (dir != null) Directory.CreateDirectory(dir);
             if (float.TryParse(Arg("-captureTime"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float lim)) limit = lim;
             godMode = Flag("-godmode");
+            if (Flag("-mute")) AudioListener.volume = 0f;
             loop.Game.Invincible = godMode;
             loop.ExternalInput = true;
             bot = new Autopilot(loop.Dice, loop.Weapons, loop.Game);
@@ -55,22 +56,25 @@ namespace DiceHero
         void Update()
         {
             if (loop == null) return;
-            float dt = Time.unscaledDeltaTime;
+            float dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f); // the first frames can take seconds while loading
             t += dt;
             if (loop.State != lastState) { lastState = loop.State; stateTime = 0f; }
             stateTime += dt;
+            lastDt = dt;
             if (t > limit) { Debug.Log($"[RollPower] demo end: wave {loop.Game.Wave}, score {loop.Game.Score}"); Application.Quit(); return; }
 
             switch (loop.State)
             {
                 case Screen2.Title:
-                    if (Near(2.5f) && !howToDone) Shot("title");
-                    if (stateTime > 3f && !howToDone) { howToDone = true; loop.DemoSetState(Screen2.HowTo); }
-                    else if (stateTime > 3f) loop.DemoStart();
+                    if (!howToDone) loop.CoverMode = stateTime < 2.2f;
+                    if (Near(1.8f) && !howToDone) Shot("cover");
+                    if (Near(2.8f) && !howToDone) Shot("title");
+                    if (stateTime > 3.6f && !howToDone) { howToDone = true; loop.DemoSetState(Screen2.HowTo); }
+                    else if (howToDone && stateTime > 3f) loop.DemoStart();
                     break;
                 case Screen2.HowTo:
-                    if (Near(1f)) Shot("howto");
-                    if (stateTime > 1.5f) loop.DemoSetState(Screen2.Title);
+                    if (Near(0.8f)) Shot("howto");
+                    if (stateTime > 2f) loop.DemoSetState(Screen2.Title);
                     break;
                 case Screen2.Playing:
                     bot.Step(Mathf.Min(dt, 0.05f));
@@ -79,12 +83,12 @@ namespace DiceHero
                     if (loop.Game.Boss != null && Near(6f)) Shot("boss");
                     break;
                 case Screen2.Paused:
-                    if (Near(0.6f)) Shot("pause");
-                    if (stateTime > 1f) loop.DemoSetState(Screen2.Playing);
+                    if (Near(0.5f)) Shot("pause");
+                    if (stateTime > 1.5f) loop.DemoSetState(Screen2.Playing);
                     break;
                 case Screen2.Upgrade:
-                    if (Near(0.8f)) Shot($"upgrade{loop.Game.Wave}");
-                    if (stateTime > 1.2f) loop.DemoPickUpgrade(0);
+                    if (Near(0.7f)) Shot($"upgrade{loop.Game.Wave}");
+                    if (stateTime > 1.6f) loop.DemoPickUpgrade(0);
                     break;
                 case Screen2.GameOver:
                     if (Near(2.2f)) Shot("gameover");
@@ -93,6 +97,6 @@ namespace DiceHero
             }
         }
 
-        bool Near(float at) => stateTime >= at && stateTime - Time.unscaledDeltaTime < at;
+        bool Near(float at) => stateTime >= at && stateTime - lastDt < at;
     }
 }

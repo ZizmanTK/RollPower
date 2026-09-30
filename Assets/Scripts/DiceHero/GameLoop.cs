@@ -122,7 +122,7 @@ namespace DiceHero
             Deck.Take(u, RunStats.Current);
             if (u.id == "hp") Game.RepairFull();
             Sound.Play(Sfx.Upgrade, 0.8f, 0f);
-            Fx.Text(Dice.transform.position + Vector3.up * 2.2f, u.name, u.color, 1.4f, 1.1f);
+            Fx.Text(Dice.transform.position + Vector3.up * 2.2f, u.name, u.color, 1.2f, 0.75f);
             hand = null;
             Game.StartNextWave();
             if (State == Screen2.Upgrade) { State = Screen2.Playing; Sound.Duck(false); }

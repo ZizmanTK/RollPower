@@ -49,7 +49,7 @@ namespace DiceHero
             var root = new GameObject("Gun" + number + "_" + def.name).transform;
             root.SetParent(parent, false);
             var dark = pal.Get("GunDark", Palette.Hex("#1A1D23"), 0.6f, 0.8f);
-            var steel = pal.Get("GunSteel", Palette.Hex("#8C96A3"), 0.75f, 0.95f);
+            var steel = pal.Get("GunSteel", Palette.Hex("#A7B1BE"), 0.7f, 0.5f);
             var glow = pal.Glow("GunGlow" + number, def.color, 3f);
 
             // Common turret base

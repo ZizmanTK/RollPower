@@ -28,8 +28,8 @@ namespace DiceHero
         /// <summary>Roll Power's hero: a polished gold die with ink-black pips and warm glowing seams.</summary>
         public static Look Hero(Palette pal) => new Look
         {
-            body = pal.Get("DiceGold", Palette.Hex("#E7A92E"), 0.82f, 0.95f),
-            plate = pal.Get("DiceGoldPlate", Palette.Hex("#C98A1C"), 0.7f, 0.9f),
+            body = pal.Get("DiceGold", Palette.Hex("#F2B63A"), 0.72f, 0.55f),
+            plate = pal.Get("DiceGoldPlate", Palette.Hex("#DDA02A"), 0.65f, 0.5f),
             pip = pal.Get("DicePip", Palette.Hex("#140D07"), 0.9f, 0f),
             seam = pal.Glow("DiceSeam", Palette.Hex("#FFD27A"), 1.6f),
         };

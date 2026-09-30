@@ -60,13 +60,33 @@ namespace DiceHero
 
     public static class Prim
     {
-        /// <summary>Creates a Unity primitive without its collider.</summary>
+        static readonly System.Collections.Generic.Dictionary<PrimitiveType, Mesh> meshes = new System.Collections.Generic.Dictionary<PrimitiveType, Mesh>();
+
+        /// <summary>
+        /// The built-in mesh for a primitive type. Using it directly (instead of GameObject.CreatePrimitive)
+        /// means no collider is ever added: the game has no physics, and WebGL strips the physics module,
+        /// where CreatePrimitive logs an error for every object.
+        /// </summary>
+        public static Mesh MeshFor(PrimitiveType type)
+        {
+            if (meshes.TryGetValue(type, out var m) && m != null) return m;
+            m = Resources.GetBuiltinResource<Mesh>(type + ".fbx");
+            if (m == null)
+            {
+                var tmp = GameObject.CreatePrimitive(type);
+                m = tmp.GetComponent<MeshFilter>().sharedMesh;
+                Object.DestroyImmediate(tmp);
+            }
+            meshes[type] = m;
+            return m;
+        }
+
+        /// <summary>Creates a primitive-shaped object (mesh + renderer, no collider).</summary>
         public static GameObject Make(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 localScale, Material mat, Quaternion? localRot = null)
         {
-            var go = GameObject.CreatePrimitive(type);
-            go.name = name;
-            var col = go.GetComponent<Collider>();
-            if (col != null) Object.DestroyImmediate(col);
+            var go = new GameObject(name);
+            go.AddComponent<MeshFilter>().sharedMesh = MeshFor(type);
+            go.AddComponent<MeshRenderer>();
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPos;
             go.transform.localRotation = localRot ?? Quaternion.identity;

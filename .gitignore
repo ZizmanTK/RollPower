@@ -47,3 +47,6 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Temporary files Unity writes during player builds
+/Assets/Resources/PerformanceTestRun*

@@ -252,6 +252,8 @@ namespace DiceHero
             G('%', "##..#", "##..#", "...#.", "..#..", ".#...", "#..##", "#..##");
             G('\'', "..#..", "..#..", ".....", ".....", ".....", ".....", ".....");
             G('×', ".....", "#...#", ".#.#.", "..#..", ".#.#.", "#...#", ".....");
+            G('[', ".###.", ".#...", ".#...", ".#...", ".#...", ".#...", ".###.");
+            G(']', ".###.", "...#.", "...#.", "...#.", "...#.", "...#.", ".###.");
             G('*', ".....", ".#.#.", "#####", "#####", ".###.", "..#..", "....."); // heart
             G('<',"...#.", "..#..", ".#...", "#....", ".#...", "..#..", "...#.");
             G('>', ".#...", "..#..", "...#.", "....#", "...#.", "..#..", ".#...");
@@ -309,6 +311,7 @@ namespace DiceHero
         public readonly List<Item> Items = new List<Item>();
         float pulse;
         Vector2 lastMouse;
+        int lastDrawFrame = -10;
 
         public Menu Add(string label) { Items.Add(new Item { label = label }); return this; }
         public Menu AddSlider(string label, Func<float> get, Action<float> set) { Items.Add(new Item { label = label, getValue = get, setValue = set }); return this; }
@@ -344,8 +347,11 @@ namespace DiceHero
         {
             int clicked = -1;
             var e = Event.current;
-            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
-            if (e.type == EventType.MouseMove || e.type == EventType.MouseDrag || e.type == EventType.Repaint) lastMouse = e.mousePosition;
+            // When a menu (re)appears, remember where the cursor is so a resting mouse doesn't steal the selection.
+            if (Time.frameCount - lastDrawFrame > 2) lastMouse = e.mousePosition;
+            lastDrawFrame = Time.frameCount;
+            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 4f;
+            if (mouseMoved) lastMouse = e.mousePosition;
             for (int i = 0; i < Items.Count; i++)
             {
                 var it = Items[i];

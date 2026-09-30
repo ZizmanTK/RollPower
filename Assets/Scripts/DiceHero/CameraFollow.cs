@@ -10,7 +10,7 @@ namespace DiceHero
     public class CameraFollow : MonoBehaviour
     {
         public Transform target;
-        public Vector3 offset = new Vector3(0f, 8.6f, -7f);
+        public Vector3 offset = new Vector3(0f, 10.4f, -8.4f);
         public float smoothTime = 0.25f;
 
         /// <summary>When true the camera orbits the arena centre (title / game over backdrop).</summary>

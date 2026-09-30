@@ -9,7 +9,11 @@ namespace DiceHero
         int upgradeMenuSel = 1;
         float uiTime;
 
+        /// <summary>Capture mode: title screen shows only the logo (itch.io cover art).</summary>
+        public bool CoverMode;
+
         static bool CanQuit => Application.platform != RuntimePlatform.WebGLPlayer;
+        static string Num(int v) => v.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
 
         void BuildMenus()
         {
@@ -137,7 +141,7 @@ namespace DiceHero
             if (Weapons.Overcharge > 0f)
             {
                 UiKit.Pixel("OVERCHARGE", 154, 146, 2.5f, def.color);
-                UiKit.Bar(new Rect(270, 148, 174, 10), Weapons.Overcharge / Weapons.OverchargeMax, def.color);
+                UiKit.Bar(new Rect(312, 149, 132, 10), Weapons.Overcharge / Weapons.OverchargeMax, def.color);
             }
             else UiKit.Pixel("ROLL TO OVERCHARGE", 154, 146, 2.5f, UiKit.Muted);
 
@@ -158,8 +162,8 @@ namespace DiceHero
             int two = Dice.PreviewTop(Vector3.forward, 2);
             UiKit.Rect(new Rect(40, 410, 408, 1), new Color(1f, 1f, 1f, 0.08f));
             UiKit.Pixel("CONDUIT", 42, 424, 2.6f, UiKit.Blue);
-            UiKit.DieFace(new Rect(146, 417, 30, 30), two, WeaponDef.All[two].color, UiKit.Ink);
-            UiKit.Pixel(WeaponDef.All[two].name, 188, 424, 2.6f, WeaponDef.All[two].color);
+            UiKit.DieFace(new Rect(162, 417, 30, 30), two, WeaponDef.All[two].color, UiKit.Ink);
+            UiKit.Pixel(WeaponDef.All[two].name, 204, 424, 2.6f, WeaponDef.All[two].color);
 
             // Integrity, score, wave, combo (top right)
             var sp = new Rect(w - 464, 24, 440, 172);
@@ -171,7 +175,7 @@ namespace DiceHero
                 UiKit.Pixel("*", w - 444 + i * 40, 42 + bob, 5f, full ? UiKit.Red : new Color(1f, 1f, 1f, 0.12f), 0f, full ? 0.18f : 0f);
             }
             UiKit.Pixel("SCORE", w - 444, 96, 2.5f, UiKit.Muted);
-            UiKit.Pixel(Game.Score.ToString("N0").Replace(" ", ","), w - 444, 116, 6f, UiKit.Gold);
+            UiKit.Pixel(Num(Game.Score), w - 444, 116, 6f, UiKit.Gold);
             UiKit.Pixel(Game.BossWave ? "BOSS WAVE" : $"WAVE {Mathf.Max(1, Game.Wave)}", w - 40, 96, 3f, Game.BossWave ? UiKit.Red : UiKit.Text, 1f);
             if (Game.Combo > 1 || Game.Chain > 1)
             {
@@ -206,11 +210,11 @@ namespace DiceHero
             if (immune != null && State == Screen2.Playing)
             {
                 float a = 0.75f + 0.25f * Mathf.Sin(uiTime * 8f);
-                UiKit.ShadowLabel(new Rect(0, 214, w, 40), $"{def.name} CAN'T HURT {immune}: ROLL FOR A NEW GUN", UiKit.BodyCenter, new Color(1f, 0.82f, 0.25f, a));
+                UiKit.ShadowLabel(new Rect(0, UiKit.H - 270, w, 40), $"{def.name} CAN'T HURT {immune}: ROLL FOR A NEW GUN", UiKit.BodyCenter, new Color(1f, 0.82f, 0.25f, a));
             }
 
             // Banner
-            if (bannerTime > 0f)
+            if (bannerTime > 0f && State == Screen2.Playing)
             {
                 float a = Mathf.Clamp01(bannerTime * 2.5f) * Mathf.Clamp01((bannerMax - bannerTime) * 8f + 0.2f);
                 float slide = Mathf.Clamp01((bannerMax - bannerTime) * 6f);
@@ -234,15 +238,18 @@ namespace DiceHero
                 UiKit.Pixel(hint, w * 0.5f, hr.y + 15, 3.2f, UiKit.Text, 0.5f);
             }
 
+            if (State != Screen2.Playing) return;
+
             // Dash (bottom centre)
             float bx = w * 0.5f - 180f;
             var dr = new Rect(bx, UiKit.H - 110, 360, 56);
             UiKit.Panel(dr, 0.72f);
             float dash = 1f - Mathf.Clamp01(Dice.DashCooldownLeft / Dice.DashCooldownTotal);
             UiKit.Pixel(dash >= 1f ? "DASH READY" : "DASH", bx + 18, dr.y + 20, 2.8f, dash >= 1f ? UiKit.Mint : UiKit.Muted);
-            UiKit.Bar(new Rect(bx + 170, dr.y + 23, 170, 10), dash, dash >= 1f ? UiKit.Mint : new Color(1f, 1f, 1f, 0.35f));
+            UiKit.Bar(new Rect(bx + 200, dr.y + 23, 142, 10), dash, dash >= 1f ? UiKit.Mint : new Color(1f, 1f, 1f, 0.35f));
 
-            UiKit.Label(new Rect(24, UiKit.H - 44, w - 48, 30), "WASD / stick  glide     SPACE / A  dash     slam barriers to roll     ESC / START  pause", UiKit.Tiny, new Color(0.7f, 0.8f, 0.95f, 0.6f));
+            if (Settings.ShowTutorial)
+                UiKit.Label(new Rect(24, UiKit.H - 44, w - 48, 30), "WASD / stick  glide     SPACE / A  dash     slam barriers to roll     ESC / START  pause", UiKit.Tiny, new Color(0.7f, 0.8f, 0.95f, 0.6f));
         }
 
         string TutorialHint()
@@ -315,14 +322,21 @@ namespace DiceHero
 
         void DrawTitle(float w)
         {
-            UiKit.Rect(new Rect(0, 0, w, UiKit.H), new Color(0.02f, 0.03f, 0.06f, 0.35f));
+            UiKit.Rect(new Rect(0, 0, w, UiKit.H), new Color(0.02f, 0.03f, 0.06f, CoverMode ? 0.15f : 0.35f));
+            if (CoverMode)
+            {
+                // Key art for the itch.io cover: logo centred, no menu.
+                DrawLogo(w, 250f, 23f);
+                UiKit.Pixel("ROLLING IS YOUR SUPERPOWER", w * 0.5f, 700f, 5f, UiKit.Text, 0.5f);
+                return;
+            }
             DrawLogo(w, 110f, 21f);
             UiKit.Pixel("ROLLING IS YOUR SUPERPOWER", w * 0.5f, 520f, 4f, UiKit.Text, 0.5f);
             int clicked = titleMenu.Draw(w * 0.5f, 600f, 520f, 76f);
             Activate(Screen2.Title, clicked);
 
             if (Settings.BestScore > 0)
-                UiKit.Pixel($"BEST {Settings.BestScore:N0}   WAVE {Settings.BestWave}".Replace(" ", ","), w * 0.5f, UiKit.H - 110f, 3.2f, UiKit.Gold, 0.5f);
+                UiKit.Pixel($"BEST {Num(Settings.BestScore)}   WAVE {Settings.BestWave}", w * 0.5f, UiKit.H - 110f, 3.2f, UiKit.Gold, 0.5f);
             UiKit.Label(new Rect(0, UiKit.H - 62, w, 30), "A GMTK Game Jam 2022 game, rebuilt  •  by ZizmanTK  •  mouse, keyboard or gamepad", UiKit.SmallCenter, UiKit.Muted);
         }
 
@@ -383,12 +397,12 @@ namespace DiceHero
             for (int n = 1; n <= 6; n++)
             {
                 var d = WeaponDef.All[n];
-                float yy = y2 + 40f + (n - 1) * 56f;
+                float yy = y2 + 40f + (n - 1) * 64f;
                 UiKit.DieFace(new Rect(x2, yy, 42, 42), n, d.color, UiKit.Ink);
-                UiKit.Pixel(d.name, x2 + 60f, yy + 4f, 3f, d.color);
-                UiKit.Label(new Rect(x2 + 60f, yy + 22f, col, 26f), d.role, UiKit.Tiny, UiKit.Text);
+                UiKit.Pixel(d.name, x2 + 60f, yy, 3f, d.color);
+                UiKit.Label(new Rect(x2 + 60f, yy + 26f, col, 26f), d.role, UiKit.Tiny, UiKit.Text);
             }
-            float y3 = y2 + 40f + 6f * 56f + 16f;
+            float y3 = y2 + 40f + 6f * 64f + 12f;
             UiKit.Pixel("KNOW YOUR ENEMY", x2, y3, 3.4f, UiKit.Muted);
             UiKit.Label(new Rect(x2, y3 + 30f, col, 150f),
                 "<b>Drones</b> fly: only 3 or 6 reach them.   <b>Tanks</b> are armoured: use 1 or 4.\n<b>Bombers</b> plant bombs.   Every 5th wave, the <b>High Roller</b> tumbles in: only the gun that matches its top number can hurt it. Slams and bombs hurt everything.",
@@ -438,16 +452,16 @@ namespace DiceHero
                     return;
                 }
             }
-            UiKit.Label(new Rect(0, UiKit.H - 80, w, 30), "click a card, press 1-3, or use left / right and ENTER / A", UiKit.SmallCenter, UiKit.Muted);
+            UiKit.Label(new Rect(0, UiKit.H - 60, w, 30), "click a card, press 1-3, or use left / right and ENTER / A", UiKit.SmallCenter, UiKit.Muted);
         }
 
         void DrawGameOver(float w)
         {
             UiKit.Pixel("DICE DESTROYED", w * 0.5f, 110f, 11f, UiKit.Red, 0.5f, 0.25f, new Color(0.3f, 0f, 0.05f));
             UiKit.Pixel("SCORE", w * 0.5f, 225f, 3.4f, UiKit.Muted, 0.5f);
-            UiKit.Pixel(Game.Score.ToString("N0").Replace(" ", ","), w * 0.5f, 258f, 11f, UiKit.Gold, 0.5f, 0.25f, UiKit.GoldDeep);
+            UiKit.Pixel(Num(Game.Score), w * 0.5f, 258f, 11f, UiKit.Gold, 0.5f, 0.25f, UiKit.GoldDeep);
             if (newBest && Mathf.Repeat(uiTime * 2f, 1f) > 0.25f) UiKit.Pixel("NEW BEST!", w * 0.5f, 350f, 4.5f, UiKit.Mint, 0.5f);
-            else if (!newBest) UiKit.Pixel($"BEST {Settings.BestScore:N0}".Replace(" ", ","), w * 0.5f, 350f, 3.4f, UiKit.Muted, 0.5f);
+            else if (!newBest) UiKit.Pixel($"BEST {Num(Settings.BestScore)}", w * 0.5f, 350f, 3.4f, UiKit.Muted, 0.5f);
 
             var r = new Rect(w * 0.5f - 380f, 410f, 760f, 200f);
             UiKit.Panel(r, 0.85f);

@@ -25,7 +25,8 @@ namespace DiceHero
         {
             Palette = new Palette(baseMaterial, glowMaterial);
             SetupLighting();
-            World.Build(Palette);
+            var world = World.Build(Palette);
+            if (Application.isPlaying) StaticBatchingUtility.Combine(world.gameObject); // hundreds of static primitives → a few batches
             Dice = DiceModel.Build(Palette, null, World.PlayerStart);
             Controller = Dice.Root.gameObject.AddComponent<DiceController>();
             Controller.Init(Dice);

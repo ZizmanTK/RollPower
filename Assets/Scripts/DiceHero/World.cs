@@ -222,15 +222,7 @@ namespace DiceHero
             AddPointLight(space, new Vector3(0f, 6f, -14f), Palette.Hex("#8FB8FF"), 18f, 1.2f);
         }
 
-        static Mesh cubeMesh;
-        static Mesh GetCubeMesh()
-        {
-            if (cubeMesh != null) return cubeMesh;
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cubeMesh = go.GetComponent<MeshFilter>().sharedMesh;
-            Object.DestroyImmediate(go);
-            return cubeMesh;
-        }
+        static Mesh GetCubeMesh() => Prim.MeshFor(PrimitiveType.Cube);
 
         static void AddPointLight(Transform parent, Vector3 pos, Color color, float range, float intensity)
         {
