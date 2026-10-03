@@ -22,6 +22,8 @@ namespace DiceHero
         public Palette Palette { get; private set; }
         public Game Game { get; private set; }
         public UpgradeDeck Deck { get; private set; }
+        /// <summary>Shows where to roll when the current gun can't hurt what's on the field.</summary>
+        public RollGuide Guide { get; private set; }
         public Screen2 State { get; private set; } = Screen2.Title;
 
         /// <summary>Batch playtests: pick upgrades automatically instead of showing the cards.</summary>
@@ -56,12 +58,13 @@ namespace DiceHero
             Dice = dice;
             Palette = pal;
             Weapons = new WeaponSystem(dice, pal);
+            Guide = new RollGuide(pal);
             Game = new Game(dice, pal, this, System.Environment.TickCount);
             Deck = new UpgradeDeck(System.Environment.TickCount + 7);
             Weapons.Fired += d => Sound.Play(Sound.GunSound(d.number), d.number == 2 ? 0.45f : 0.7f);
             dice.Dashed += () => Sound.Play(Sfx.Dash, 0.7f);
             dice.Tripped += ob => Sound.Play(Sfx.Roll, 0.8f);
-            dice.TopChanged += (o, n) => ShowBanner(null, $"ROLLED {n}: {WeaponDef.All[n].name}", 1.4f, WeaponDef.All[n].color);
+            dice.TopChanged += (o, n) => Fx.Text(dice.transform.position + Vector3.up * 2.4f, WeaponDef.All[n].name, WeaponDef.All[n].color, 1f, 0.8f);
             Game.WaveCleared += w => { upgradeDelay = 0.9f; hand = Deck.Deal(3); };
             cam = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
             BuildMenus();
@@ -237,6 +240,7 @@ namespace DiceHero
             Projectiles.Step(Palette, dt);
             Game.Step(dt);
             Fx.Step(dt);
+            Guide.Step(dt, Dice, Game, !Game.Intermission);
             if (AutoPickUpgrades && Game.Intermission && hand != null)
             {
                 if (hand.Count > 0) PickUpgrade(hand[0]);

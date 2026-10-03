@@ -90,6 +90,15 @@ namespace DiceHero
             velocity = Vector3.ClampMagnitude(velocity + impulse, Mathf.Max(maxSpeed, velocity.magnitude));
         }
 
+        /// <summary>Test helper: moves the dice and stops it dead.</summary>
+        public void Teleport(Vector3 pos)
+        {
+            transform.position = pos;
+            velocity = Vector3.zero;
+            DashCooldownLeft = 0f;
+            tripCooldown = 0f;
+        }
+
         /// <summary>Debug/test helper: instantly turns the dice so face 'number' is on top.</summary>
         public void ForceTop(int number)
         {

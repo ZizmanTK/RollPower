@@ -129,92 +129,47 @@ namespace DiceHero
         void DrawHud(float w)
         {
             var def = Weapons.Current;
+            bool playing = State == Screen2.Playing;
 
-            // Current gun
-            var wp = new Rect(24, 24, 440, 172);
-            UiKit.Panel(wp, 0.8f, Weapons.Overcharge > 0f ? new Color(def.color.r, def.color.g, def.color.b, 0.5f + 0.4f * Mathf.Sin(uiTime * 14f)) : (Color?)null);
-            UiKit.Glow(new Rect(20, 20, 136, 136), new Color(def.color.r, def.color.g, def.color.b, 0.25f));
-            UiKit.DieFace(new Rect(42, 42, 92, 92), def.number, def.color, UiKit.Ink);
-            UiKit.Pixel(def.name, 154, 48, 4f, def.color);
-            UiKit.Label(new Rect(154, 84, 300, 30), def.role, UiKit.Small, UiKit.Text);
-            UiKit.Bar(new Rect(154, 124, 290, 8), 1f - Weapons.CooldownFraction, def.color);
-            if (Weapons.Overcharge > 0f)
-            {
-                UiKit.Pixel("OVERCHARGE", 154, 146, 2.5f, def.color);
-                UiKit.Bar(new Rect(312, 149, 132, 10), Weapons.Overcharge / Weapons.OverchargeMax, def.color);
-            }
-            else UiKit.Pixel("ROLL TO OVERCHARGE", 154, 146, 2.5f, UiKit.Muted);
+            // Current gun: the die face and its name. It glows while a fresh roll overcharges it.
+            float glow = Weapons.Overcharge > 0f ? 0.4f + 0.25f * Mathf.Sin(uiTime * 14f) : 0.14f;
+            UiKit.Glow(new Rect(2, 2, 140, 140), new Color(def.color.r, def.color.g, def.color.b, glow));
+            UiKit.DieFace(new Rect(32, 32, 80, 80), def.number, def.color, UiKit.Ink);
+            UiKit.Pixel(def.name, 132, 58, 4.5f, def.color);
 
-            // Next-roll preview: what each trip direction would give.
-            var rp = new Rect(24, 210, 440, 250);
-            UiKit.Panel(rp, 0.72f);
-            UiKit.Pixel("NEXT ROLL", 40, 226, 3f, UiKit.Muted);
-            UiKit.Label(new Rect(210, 218, 240, 30), "slam in that direction", new GUIStyle(UiKit.Tiny) { alignment = TextAnchor.UpperRight }, UiKit.Muted);
-            (string label, Vector3 dir)[] dirs = { ("↑", Vector3.forward), ("→", Vector3.right), ("↓", Vector3.back), ("←", Vector3.left) };
-            for (int i = 0; i < dirs.Length; i++)
-            {
-                int n = Dice.PreviewTop(dirs[i].dir);
-                float y = 258 + i * 38;
-                UiKit.Label(new Rect(42, y - 2, 30, 34), dirs[i].label, UiKit.BodyBold, UiKit.Muted);
-                UiKit.DieFace(new Rect(76, y, 30, 30), n, WeaponDef.All[n].color, UiKit.Ink);
-                UiKit.Pixel(WeaponDef.All[n].name, 118, y + 7, 2.6f, WeaponDef.All[n].color);
-            }
-            int two = Dice.PreviewTop(Vector3.forward, 2);
-            UiKit.Rect(new Rect(40, 410, 408, 1), new Color(1f, 1f, 1f, 0.08f));
-            UiKit.Pixel("CONDUIT", 42, 424, 2.6f, UiKit.Blue);
-            UiKit.DieFace(new Rect(162, 417, 30, 30), two, WeaponDef.All[two].color, UiKit.Ink);
-            UiKit.Pixel(WeaponDef.All[two].name, 204, 424, 2.6f, WeaponDef.All[two].color);
-
-            // Integrity, score, wave, combo (top right)
-            var sp = new Rect(w - 464, 24, 440, 172);
-            UiKit.Panel(sp, 0.8f);
+            // Hearts and score (top right), no panel.
             for (int i = 0; i < Game.MaxHp; i++)
             {
                 bool full = i < Game.Hp;
                 float bob = full && Game.Hp <= 2 ? Mathf.Sin(uiTime * 10f + i) * 2f : 0f;
-                UiKit.Pixel("*", w - 444 + i * 40, 42 + bob, 5f, full ? UiKit.Red : new Color(1f, 1f, 1f, 0.12f), 0f, full ? 0.18f : 0f);
+                float x = w - 32f - (Game.MaxHp - i) * 40f;
+                UiKit.Pixel("*", x, 36 + bob, 5f, full ? UiKit.Red : new Color(1f, 1f, 1f, 0.15f), 0f, full ? 0.18f : 0f);
             }
-            UiKit.Pixel("SCORE", w - 444, 96, 2.5f, UiKit.Muted);
-            UiKit.Pixel(Num(Game.Score), w - 444, 116, 6f, UiKit.Gold);
-            UiKit.Pixel(Game.BossWave ? "BOSS WAVE" : $"WAVE {Mathf.Max(1, Game.Wave)}", w - 40, 96, 3f, Game.BossWave ? UiKit.Red : UiKit.Text, 1f);
-            if (Game.Combo > 1 || Game.Chain > 1)
+            UiKit.Pixel(Num(Game.Score), w - 36, 92, 6f, UiKit.Gold, 1f);
+            if (Game.Combo > 1)
             {
-                float k = Mathf.Clamp01(Game.ComboTimer / Game.ComboWindow);
                 Color cc = Color.Lerp(UiKit.Gold, UiKit.Red, (Game.Combo - 1) / 4f);
-                float pop = 1f + Mathf.Max(0f, Game.ComboTimer - (Game.ComboWindow - 0.15f)) * 2f;
-                UiKit.Pixel($"X{Game.Combo}", w - 40, 122, 6f * pop, cc, 1f);
-                UiKit.Bar(new Rect(w - 150, 170, 110, 6), k, cc);
+                float sw = UiKit.PixelWidth(Num(Game.Score), 6f);
+                UiKit.Pixel($"X{Game.Combo}", w - 56 - sw, 98, 4.5f, new Color(cc.r, cc.g, cc.b, 0.4f + 0.6f * Mathf.Clamp01(Game.ComboTimer)), 1f);
             }
 
-            // Boss health
+            // Boss: slim bar with the number it's weak to.
             var boss = Game.Boss;
             if (boss != null && boss.Alive)
             {
-                float bw = Mathf.Min(820f, w - 1000f);
-                var br = new Rect(w * 0.5f - bw * 0.5f, 24, bw, 96);
-                UiKit.Panel(br, 0.82f, new Color(UiKit.Red.r, UiKit.Red.g, UiKit.Red.b, 0.6f));
-                UiKit.Pixel("HIGH ROLLER", br.x + 20, br.y + 16, 4f, UiKit.Red);
-                UiKit.Bar(new Rect(br.x + 20, br.y + 56, bw - 140, 18), boss.hp / boss.maxHp, UiKit.Red, new Color(1f, 1f, 1f, 0.08f));
+                float bw = Mathf.Min(640f, w - 900f);
+                float bx = w * 0.5f - bw * 0.5f;
+                UiKit.Pixel("HIGH ROLLER", bx, 30, 3f, UiKit.Red);
+                UiKit.Bar(new Rect(bx, 58, bw, 12), boss.hp / boss.maxHp, UiKit.Red, new Color(0f, 0f, 0f, 0.4f));
                 int weak = boss.Weakness;
-                bool match = def.number == weak;
-                UiKit.Glow(new Rect(br.xMax - 118, br.y - 8, 112, 112), new Color(1f, 0.2f, 0.25f, match ? 0.5f : 0.2f));
-                UiKit.DieFace(new Rect(br.xMax - 96, br.y + 14, 68, 68), weak, match ? UiKit.Gold : WeaponDef.All[weak].color, UiKit.Ink);
-                UiKit.Pixel(match ? "MATCHED!" : "WEAK TO", br.xMax - 250, br.y + 18, 2.5f, match ? UiKit.Gold : UiKit.Muted);
+                UiKit.DieFace(new Rect(bx + bw + 16, 26, 52, 52), weak, def.number == weak ? UiKit.Gold : WeaponDef.All[weak].color, UiKit.Ink);
             }
 
-            // Bomb fuse gauges (and edge arrows for bombs off screen)
-            DrawBombGauges(w);
+            DrawBombAlerts(w);
+            if (!playing) return;
 
-            // Warning when the current gun can't hurt something on the field
-            string immune = Game.Immune(def);
-            if (immune != null && State == Screen2.Playing)
-            {
-                float a = 0.75f + 0.25f * Mathf.Sin(uiTime * 8f);
-                UiKit.ShadowLabel(new Rect(0, UiKit.H - 270, w, 40), $"{def.name} CAN'T HURT {immune}: ROLL FOR A NEW GUN", UiKit.BodyCenter, new Color(1f, 0.82f, 0.25f, a));
-            }
-
-            // Banner
-            if (bannerTime > 0f && State == Screen2.Playing)
+            // Wave banner
+            if (bannerTime > 0f)
             {
                 float a = Mathf.Clamp01(bannerTime * 2.5f) * Mathf.Clamp01((bannerMax - bannerTime) * 8f + 0.2f);
                 float slide = Mathf.Clamp01((bannerMax - bannerTime) * 6f);
@@ -222,34 +177,48 @@ namespace DiceHero
                 if (bannerTitle != null)
                 {
                     float px = 11f + (1f - slide) * 4f;
-                    UiKit.Pixel(bannerTitle, w * 0.5f, 270 - px * 3.5f, px, c, 0.5f, 0.2f);
-                    if (bannerSub != null) UiKit.Pixel(bannerSub, w * 0.5f, 340, 3.6f, new Color(1f, 1f, 1f, a), 0.5f);
+                    UiKit.Pixel(bannerTitle, w * 0.5f, 250 - px * 3.5f, px, c, 0.5f, 0.2f);
+                    if (bannerSub != null) UiKit.Pixel(bannerSub, w * 0.5f, 320, 3.6f, new Color(1f, 1f, 1f, a), 0.5f);
                 }
                 else if (bannerSub != null) UiKit.Pixel(bannerSub, w * 0.5f, 150, 4f, c, 0.5f);
             }
 
-            // Tutorial hints
-            string hint = TutorialHint();
-            if (hint != null && State == Screen2.Playing)
+            // One line at the bottom: the roll guide when the gun is wrong, otherwise a first-run hint.
+            var plan = Guide.Plan;
+            if (plan != null) DrawRollGuide(w, plan);
+            else
             {
-                float hw = UiKit.PixelWidth(hint, 3.2f) + 60f;
-                var hr = new Rect(w * 0.5f - hw * 0.5f, UiKit.H - 200, hw, 52);
-                UiKit.Panel(hr, 0.78f, new Color(UiKit.Gold.r, UiKit.Gold.g, UiKit.Gold.b, 0.5f));
-                UiKit.Pixel(hint, w * 0.5f, hr.y + 15, 3.2f, UiKit.Text, 0.5f);
+                string hint = TutorialHint();
+                if (hint != null)
+                {
+                    float hw = UiKit.PixelWidth(hint, 3.2f) + 60f;
+                    var hr = new Rect(w * 0.5f - hw * 0.5f, UiKit.H - 130, hw, 52);
+                    UiKit.Panel(hr, 0.72f);
+                    UiKit.Pixel(hint, w * 0.5f, hr.y + 15, 3.2f, UiKit.Text, 0.5f);
+                }
             }
+        }
 
-            if (State != Screen2.Playing) return;
+        /// <summary>"ROLL → FOR [die] TRI-SHOT", plus an edge arrow if the marked barrier is off screen.</summary>
+        void DrawRollGuide(float w, RollPlan plan)
+        {
+            var gun = plan.Gun;
+            const float px = 5f, die = 46f, gap = 18f;
+            string lead = "ROLL   FOR"; // the gap holds the arrow, drawn in the gun's colour
+            float lw = UiKit.PixelWidth(lead, px), nw = UiKit.PixelWidth(gun.name, px);
+            float total = lw + gap + die + gap + nw;
+            float x = w * 0.5f - total * 0.5f, y = UiKit.H - 150f;
+            float pulse = 0.5f + 0.5f * Mathf.Sin(uiTime * 6f);
+            var r = new Rect(x - 34f, y - 22f, total + 68f, 80f);
+            UiKit.Glow(new Rect(r.x - 40f, r.y - 40f, r.width + 80f, r.height + 80f), new Color(gun.color.r, gun.color.g, gun.color.b, 0.12f + 0.1f * pulse));
+            UiKit.Panel(r, 0.86f, new Color(gun.color.r, gun.color.g, gun.color.b, 0.6f + 0.4f * pulse));
+            UiKit.Pixel(lead, x, y + 1f, px, UiKit.Text);
+            UiKit.Pixel(RollAdvisor.Arrow(plan.dir), x + px * 33f - px * 3.5f, y - 7f, px * 1.4f, gun.color); // centred in the 3-space gap
+            UiKit.DieFace(new Rect(x + lw + gap, y + 17.5f - die * 0.5f, die, die), plan.top, gun.color, UiKit.Ink);
+            UiKit.Pixel(gun.name, x + lw + gap + die + gap, y + 1f, px, gun.color);
 
-            // Dash (bottom centre)
-            float bx = w * 0.5f - 180f;
-            var dr = new Rect(bx, UiKit.H - 110, 360, 56);
-            UiKit.Panel(dr, 0.72f);
-            float dash = 1f - Mathf.Clamp01(Dice.DashCooldownLeft / Dice.DashCooldownTotal);
-            UiKit.Pixel(dash >= 1f ? "DASH READY" : "DASH", bx + 18, dr.y + 20, 2.8f, dash >= 1f ? UiKit.Mint : UiKit.Muted);
-            UiKit.Bar(new Rect(bx + 200, dr.y + 23, 142, 10), dash, dash >= 1f ? UiKit.Mint : new Color(1f, 1f, 1f, 0.35f));
-
-            if (Settings.ShowTutorial)
-                UiKit.Label(new Rect(24, UiKit.H - 44, w - 48, 30), "WASD / stick  glide     SPACE / A  dash     slam barriers to roll     ESC / START  pause", UiKit.Tiny, new Color(0.7f, 0.8f, 0.95f, 0.6f));
+            if (ToCanvas(plan.obstacle.transform.position, out var p) && OffCanvas(p, w))
+                EdgeArrow(w, p, gun.color, 1f);
         }
 
         string TutorialHint()
@@ -257,46 +226,53 @@ namespace DiceHero
             if (!Settings.ShowTutorial || Game.Wave > 3 || Game.Lost) return null;
             if (Game.Rolls == 0 && Game.TimeAlive < 5f) return "GLIDE WITH WASD, ARROWS OR THE LEFT STICK";
             if (Game.Rolls == 0) return "SLAM INTO A RED BARRIER TO ROLL: THE TOP NUMBER PICKS YOUR GUN";
-            if (Game.Bombs.All.Count > 0 && Game.BombsDisposed == 0) return "SHOVE BOMBS OFF THE EDGE. LANDING A ROLL NEXT TO ONE LAUNCHES IT";
-            if (Game.Rolls < 3 && Game.TimeAlive < 40f) return "BLUE CONDUITS ROLL YOU TWICE. DASH WITH SPACE OR A";
+            if (Game.Bombs.All.Count > 0 && Game.BombsDisposed == 0) return "SHOVE BOMBS OFF THE EDGE";
+            if (Game.Rolls < 3 && Game.TimeAlive < 40f) return "SPACE OR A TO DASH";
             return null;
         }
 
-        void DrawBombGauges(float w)
+        /// <summary>A countdown over bombs about to blow, and an edge arrow for bombs off screen.</summary>
+        void DrawBombAlerts(float w)
         {
-            var camera = Camera.main;
-            if (camera == null) return;
-            float scale = Screen.height / UiKit.H;
             foreach (var b in Game.Bombs.All)
             {
-                if (b.falling) continue;
-                Vector3 world = (b.drop > 0f ? b.pos : b.pos) + Vector3.up * 1.35f;
-                Vector3 s = camera.WorldToScreenPoint(world);
-                if (s.z < 0f) continue;
-                Vector2 p = new Vector2(s.x / scale, (Screen.height - s.y) / scale);
+                if (b.falling || !ToCanvas(b.pos + Vector3.up * 1.35f, out var p)) continue;
                 float k = b.drop > 0f ? 1f : b.fuse / b.maxFuse;
                 Color c = k > 0.6f ? Palette.Hex("#3DFF7A") : k > 0.3f ? Palette.Hex("#FFD23D") : UiKit.Red;
-                bool off = p.x < 20f || p.x > w - 20f || p.y < 20f || p.y > UiKit.H - 20f;
-                if (!off)
+                if (!OffCanvas(p, w))
                 {
-                    UiKit.Bar(new Rect(p.x - 32f, p.y, 64f, 8f), k, c, new Color(0f, 0f, 0f, 0.5f));
-                    if (b.drop <= 0f && b.fuse < 3f) UiKit.Pixel(b.fuse.ToString("0.0"), p.x, p.y - 22f, 2.6f, c, 0.5f);
+                    if (b.drop <= 0f && b.fuse < 3f) UiKit.Pixel(Mathf.CeilToInt(b.fuse).ToString(), p.x, p.y - 10f, 4f, c, 0.5f);
                 }
-                else
-                {
-                    // Arrow at the screen edge pointing to the bomb.
-                    Vector2 centre = new Vector2(w * 0.5f, UiKit.H * 0.5f);
-                    Vector2 d = (p - centre).normalized;
-                    float t = Mathf.Min((w * 0.5f - 60f) / Mathf.Max(0.001f, Mathf.Abs(d.x)), (UiKit.H * 0.5f - 60f) / Mathf.Max(0.001f, Mathf.Abs(d.y)));
-                    Vector2 e = centre + d * t;
-                    float blink = k < 0.3f ? (Mathf.Repeat(uiTime * 6f, 1f) > 0.5f ? 1f : 0.35f) : 1f;
-                    UiKit.Glow(new Rect(e.x - 34f, e.y - 34f, 68f, 68f), new Color(c.r, c.g, c.b, 0.45f * blink));
-                    var m = GUI.matrix;
-                    GUIUtility.RotateAroundPivot(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, e * scale);
-                    UiKit.Pixel(">", e.x, e.y - 10.5f, 3f, new Color(c.r, c.g, c.b, blink), 0.5f);
-                    GUI.matrix = m;
-                }
+                else EdgeArrow(w, p, c, k < 0.3f ? (Mathf.Repeat(uiTime * 6f, 1f) > 0.5f ? 1f : 0.35f) : 1f);
             }
+        }
+
+        /// <summary>World point → virtual canvas position (false when behind the camera).</summary>
+        bool ToCanvas(Vector3 world, out Vector2 p)
+        {
+            p = default;
+            var camera = Camera.main;
+            if (camera == null) return false;
+            Vector3 s = camera.WorldToScreenPoint(world);
+            if (s.z < 0f) return false;
+            float scale = Screen.height / UiKit.H;
+            p = new Vector2(s.x / scale, (Screen.height - s.y) / scale);
+            return true;
+        }
+
+        static bool OffCanvas(Vector2 p, float w) => p.x < 20f || p.x > w - 20f || p.y < 20f || p.y > UiKit.H - 20f;
+
+        void EdgeArrow(float w, Vector2 p, Color c, float alpha)
+        {
+            Vector2 centre = new Vector2(w * 0.5f, UiKit.H * 0.5f);
+            Vector2 d = (p - centre).normalized;
+            float t = Mathf.Min((w * 0.5f - 60f) / Mathf.Max(0.001f, Mathf.Abs(d.x)), (UiKit.H * 0.5f - 60f) / Mathf.Max(0.001f, Mathf.Abs(d.y)));
+            Vector2 e = centre + d * t;
+            UiKit.Glow(new Rect(e.x - 34f, e.y - 34f, 68f, 68f), new Color(c.r, c.g, c.b, 0.45f * alpha));
+            var m = GUI.matrix;
+            GUIUtility.RotateAroundPivot(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, e * (Screen.height / UiKit.H));
+            UiKit.Pixel("→", e.x, e.y - 10.5f, 3f, new Color(c.r, c.g, c.b, alpha), 0.5f);
+            GUI.matrix = m;
         }
 
         // ---------------- Screens ----------------
@@ -380,7 +356,7 @@ namespace DiceHero
             (string head, string body, Color c)[] rules =
             {
                 ("GLIDE", "WASD, arrows or left stick. You slide like on ice, so plan your turns.", UiKit.Text),
-                ("ROLL", "Slam into a <b>red barrier</b> to roll once, or a <b>blue conduit</b> to roll twice. The number on top picks your gun, and every landing sends out a shockwave.", UiKit.Red),
+                ("ROLL", "Slam into a <b>red barrier</b> to roll once, or a <b>blue conduit</b> to roll twice. The number on top picks your gun. When your gun can't hurt what's on the field, a glowing arrow marks the barrier to slam.", UiKit.Red),
                 ("SHOOT", "Guns aim and fire on their own. A fresh roll overcharges the gun: double fire rate for a few seconds.", UiKit.Gold),
                 ("BOMBS", "Barrel bombs light up green, yellow, then red. Shove them off the edge of the platform for points. A blast hurts everything nearby, enemies included.", UiKit.Red),
                 ("DASH", "SPACE, SHIFT or A. Dash into barriers for a sure roll, or into bombs for a big shove.", UiKit.Mint),

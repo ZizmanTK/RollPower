@@ -25,6 +25,8 @@ Unity **6000.6.3f1**, URP. Everything (meshes, materials, UI, sound) is generate
 - **High Roller boss** every 5th wave: a giant die that tumbles toward you. Only the gun matching its top number hurts it.
 - **Bomber** enemy, **combo multiplier** (x5), **12 stackable upgrades** picked between waves.
 - **Game feel**: hit-stop, trauma camera shake, debris and sparks, damage numbers, post-FX pulses, 14 new sounds.
+- **Roll guide**: when your gun can't hurt what's on the field, an arrow marks the barrier to slam and one line says "ROLL → FOR TRI-SHOT".
+- **Minimal HUD**: just your gun, hearts, score (and the boss bar on boss waves).
 - **Menus**: title, how to play, pause, settings (music, SFX, shake, fullscreen, hints), game over with best score.
 - **New look**: gold hero die, lunar platform floating in space, red barriers and blue conduits like the original.
 
@@ -45,6 +47,7 @@ Other batch commands (`-executeMethod DiceHeroSetup.<name>`):
 - `Setup`: rebuild the scene, URP asset and post-FX profile
 - `Preview -previewOut out.png`: render the arena
 - `PlayTest -previewOut dir [-playSeconds 240] [-godmode]`: the autopilot plays the real game, logs every wave
+- `TestRollGuide`: for drones, tanks and the boss, and every starting face, follows the on-screen roll guide and checks it lands a gun that hurts them (exit code 1 on failure)
 - `MakeItchAssets -assetsIn captures -assetsOut Builds/itch`: cover (630x500), icon and 1920x1080 screenshots
 
 ## Capture mode (screenshots / smoke test of the real player)

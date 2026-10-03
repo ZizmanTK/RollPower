@@ -107,44 +107,21 @@ namespace DiceHero
             dice.InputOverride = v.sqrMagnitude > 0.01f ? new Vector2(v.x, v.z).normalized : Vector2.zero;
         }
 
+        /// <summary>Follows the same advice the on-screen roll guide shows.</summary>
         void PlanRoll(Vector3 p)
         {
-            float best = float.MaxValue;
-            Vector3[] dirs = { Vector3.forward, Vector3.back, Vector3.left, Vector3.right };
-            foreach (var ob in World.Obstacles)
-            {
-                foreach (var d in dirs)
-                {
-                    int top = dice.PreviewTop(d, ob.RollSteps);
-                    int gain = Hurtable(WeaponDef.All[top]) - Hurtable(weapons.Current);
-                    if (gain <= 0) continue;
-                    float half = Mathf.Abs(d.x) > 0f ? ob.halfExtents.x : ob.halfExtents.y;
-                    // Conduits only make sense to cross, not to hit end-on.
-                    float across = Mathf.Abs(d.x) > 0f ? ob.halfExtents.y : ob.halfExtents.x;
-                    if (across > 1f) continue;
-                    Vector3 ap = ob.transform.position - d * (half + 1.9f);
-                    float lim = World.HalfSize - 0.8f;
-                    if (Mathf.Abs(ap.x) > lim || Mathf.Abs(ap.z) > lim) continue;
-                    if (Blocked(ap)) continue;
-                    float cost = (ap - p).magnitude - gain * 2f;
-                    if (cost < best) { best = cost; goalOb = ob; goalDir = d; approachPoint = ap; }
-                }
-            }
-            if (best < float.MaxValue) SetMode(Mode.Approach);
+            var plan = RollAdvisor.Best(dice, game);
+            if (plan == null) return;
+            goalOb = plan.obstacle;
+            goalDir = plan.dir;
+            approachPoint = plan.approach;
+            SetMode(Mode.Approach);
         }
 
         static bool Blocked(Vector3 pos)
         {
             foreach (var ob in World.Obstacles) if (ob.Overlaps(pos, 0.7f)) return true;
             return false;
-        }
-
-        int Hurtable(WeaponDef w)
-        {
-            int n = 0;
-            foreach (var e in game.Enemies)
-                if (e.Alive && e.CanBeHitBy(w)) n += e.kind == EnemyKind.Mite ? 1 : e.kind == EnemyKind.Boss ? 6 : 2;
-            return n;
         }
 
         void Kite(Vector3 p, float dt)

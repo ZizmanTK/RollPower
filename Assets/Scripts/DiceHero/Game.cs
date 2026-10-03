@@ -170,7 +170,7 @@ namespace DiceHero
             // Shuffle so the focus type trickles in with the rest.
             for (int i = list.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (list[i], list[j]) = (list[j], list[i]); }
             foreach (var k in list) spawnQueue.Enqueue(k);
-            loop.ShowBanner($"WAVE {Wave}", Enemy.Hint(Focus), 3.2f, UiKit.Gold);
+            loop.ShowBanner($"WAVE {Wave}", $"{Enemy.Plural(Focus)} INCOMING", 3.2f, UiKit.Gold);
             Sound.Play(Sfx.WaveStart, 0.7f, 0f);
         }
 
@@ -546,7 +546,6 @@ namespace DiceHero
             }
             if (b.tumbles % 3 == 0)
                 for (int i = 0; i < 1 + b.tier; i++) Spawn(EnemyKind.Mite, e.pos + Quaternion.Euler(0f, i * 120f, 0f) * Vector3.forward * 1.6f);
-            if (b.tumbles % 2 == 0) loop.ShowBanner(null, $"WEAK TO {e.Weakness}: {WeaponDef.All[e.Weakness].name}", 1.6f, WeaponDef.All[e.Weakness].color);
         }
 
         static Vector3 SnapAxis(Vector3 v)

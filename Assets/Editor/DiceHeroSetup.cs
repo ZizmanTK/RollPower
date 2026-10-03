@@ -276,6 +276,70 @@ public static class DiceHeroSetup
     }
 
     /// <summary>
+    /// Batch mode test of the roll guide. For each problem enemy (drones, tanks, the boss) and each of the
+    /// six starting faces: if the current gun can't hurt the enemies, the guide must suggest a roll; the dice
+    /// then follows it (line up, dash, slam) and must land on the suggested face with a gun that hurts them.
+    /// Exits with code 1 if any case fails.
+    /// </summary>
+    public static void TestRollGuide()
+    {
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        int pass = 0, fail = 0, skipped = 0;
+        const float dt = 1f / 60f;
+        foreach (var kind in new[] { EnemyKind.Drone, EnemyKind.Tank, EnemyKind.Boss })
+        for (int start = 1; start <= 6; start++)
+        {
+            var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
+            boot.BuildWorld();
+            var loop = boot.Loop;
+            var game = loop.Game;
+            var dice = boot.Controller;
+            game.ManualSpawning = true;
+            game.Invincible = true;
+            dice.InputOverride = Vector2.zero;
+            dice.ForceTop(start);
+
+            if (kind == EnemyKind.Boss)
+            {
+                var b = game.Spawn(EnemyKind.Boss, new Vector3(0f, 0f, 6f));
+                b.boss.rest = 999f; // keep its number fixed during the test
+            }
+            else for (int i = 0; i < 3; i++) game.Spawn(kind, new Vector3(-6f + i * 6f, 0f, 8.5f));
+
+            loop.Step(dt, false);
+            var gun = WeaponDef.All[dice.TopNumber];
+            string label = $"{kind,-6} start {start} ({gun.name})";
+            if (game.Immune(gun) == null)
+            {
+                if (loop.Guide.Plan != null) { fail++; Debug.LogError($"[RollPower] FAIL {label}: guide shown although the gun already works"); }
+                else { skipped++; Debug.Log($"[RollPower] ok   {label}: gun already works, no guide"); }
+                continue;
+            }
+            var plan = loop.Guide.Plan;
+            if (plan == null) { fail++; Debug.LogError($"[RollPower] FAIL {label}: wrong gun but no guide"); continue; }
+            string advice = $"ROLL {RollAdvisor.Arrow(plan.dir)} FOR {plan.Gun.name} via {plan.obstacle.kind}";
+
+            // Follow the advice like a player would: line up behind the marked obstacle and dash into it.
+            dice.Teleport(plan.approach);
+            dice.InputOverride = new Vector2(plan.dir.x, plan.dir.z);
+            int landed = -1;
+            System.Action<int, int> onRoll = (o, n) => { if (landed < 0) landed = n; };
+            dice.TopChanged += onRoll;
+            for (int f = 0; f < 180 && landed < 0; f++)
+            {
+                if (f == 2) dice.Dash();
+                loop.Step(dt, false);
+            }
+            dice.TopChanged -= onRoll;
+            bool hurts = landed > 0 && game.Immune(WeaponDef.All[landed]) == null;
+            if (landed == plan.top && hurts) { pass++; Debug.Log($"[RollPower] PASS {label}: {advice} -> landed {landed}"); }
+            else { fail++; Debug.LogError($"[RollPower] FAIL {label}: {advice} -> landed {landed}, gun hurts enemies: {hurts}"); }
+        }
+        Debug.Log($"[RollPower] TestRollGuide: {pass} passed, {fail} failed, {skipped} cases where the gun already worked");
+        if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
+    }
+
+    /// <summary>
     /// Batch mode: turns in-player captures (-assetsIn folder, from RollPower.exe -capture) into itch.io page
     /// assets in -assetsOut: cover.png (630x500 from the *_cover shot), icon.png (512x512) and 1920x1080 screenshots.
     /// </summary>

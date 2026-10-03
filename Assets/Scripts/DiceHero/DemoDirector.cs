@@ -15,9 +15,10 @@ namespace DiceHero
         GameLoop loop;
         Autopilot bot;
         string dir;
-        float t, nextShot = 6f, stateTime, lastDt, limit = 240f;
+        float t, nextShot = 6f, nextGuide, stateTime, lastDt, limit = 240f;
         int shots;
         bool pausedOnce, godMode, howToDone;
+        int guideShots;
         Screen2 lastState;
 
         public static bool Requested => Arg("-capture") != null || Flag("-autoplay");
@@ -81,6 +82,7 @@ namespace DiceHero
                     if (t > nextShot) { nextShot = t + 9f; Shot($"wave{loop.Game.Wave}"); }
                     if (!pausedOnce && loop.Game.Wave >= 2 && stateTime > 3f) { pausedOnce = true; loop.DemoSetState(Screen2.Paused); }
                     if (loop.Game.Boss != null && Near(6f)) Shot("boss");
+                    if (loop.Guide.Plan != null && guideShots < 3 && t > nextGuide) { guideShots++; nextGuide = t + 12f; Shot("guide"); }
                     break;
                 case Screen2.Paused:
                     if (Near(0.5f)) Shot("pause");
