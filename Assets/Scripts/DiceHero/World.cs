@@ -37,7 +37,7 @@ namespace DiceHero
         public static readonly Vector3 PlayerStart = new Vector3(0f, 0f, -6f);
         static Vector2 PlayerStart2D => new Vector2(PlayerStart.x, PlayerStart.z);
 
-        static readonly (Vector2 pos, bool alongX)[] ConduitLayout =
+        internal static readonly (Vector2 pos, bool alongX)[] ConduitLayout =
         {
             (new Vector2(5.4f, 1.8f), false),
             (new Vector2(-5.4f, -3.6f), true),
@@ -51,6 +51,7 @@ namespace DiceHero
 
         public static Transform Build(Palette pal)
         {
+            if (Art.Theme != 0) return WorldThemes.Build(pal);
             Obstacles.Clear();
             var root = new GameObject("World").transform;
             var rng = new System.Random(12);
@@ -158,10 +159,11 @@ namespace DiceHero
         }
 
         /// <summary>Posts and a laser line around the edge: it stops the dice and enemies, bombs smash through.</summary>
-        static void BuildFence(Palette pal, Transform root, Material postMat)
+        internal static void BuildFence(Palette pal, Transform root, Material postMat, Color? color = null)
         {
-            var laser = pal.Glow("FenceLaser", FenceBlue, 1.3f);
-            var cap = pal.Glow("FenceCap", FenceBlue, 3f);
+            Color fc = color ?? FenceBlue;
+            var laser = pal.Glow("FenceLaser" + Art.Theme, fc, 1.3f);
+            var cap = pal.Glow("FenceCap" + Art.Theme, fc, 3f);
             float hs = HalfSize + 0.08f;
             for (int side = 0; side < 4; side++)
             {
@@ -222,9 +224,9 @@ namespace DiceHero
             AddPointLight(space, new Vector3(0f, 6f, -14f), Palette.Hex("#8FB8FF"), 18f, 1.2f);
         }
 
-        static Mesh GetCubeMesh() => Prim.MeshFor(PrimitiveType.Cube);
+        internal static Mesh GetCubeMesh() => Prim.MeshFor(PrimitiveType.Cube);
 
-        static void AddPointLight(Transform parent, Vector3 pos, Color color, float range, float intensity)
+        internal static void AddPointLight(Transform parent, Vector3 pos, Color color, float range, float intensity)
         {
             var l = new GameObject("RimLight").AddComponent<Light>();
             l.transform.SetParent(parent, false);

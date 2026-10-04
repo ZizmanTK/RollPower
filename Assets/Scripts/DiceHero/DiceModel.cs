@@ -34,7 +34,7 @@ namespace DiceHero
             seam = pal.Glow("DiceSeam", Palette.Hex("#FFD27A"), 1.6f),
         };
 
-        public static DiceModel Build(Palette pal, Transform parent, Vector3 position) => Build(pal, parent, position, Hero(pal), 1f);
+        public static DiceModel Build(Palette pal, Transform parent, Vector3 position) => Build(pal, parent, position, Art.Dice(pal), 1f);
 
         public static DiceModel Build(Palette pal, Transform parent, Vector3 position, Look look, float size)
         {
@@ -58,7 +58,8 @@ namespace DiceHero
                 Vector3 n = FaceNormals[f];
                 // Slightly recessed plate on each face, with the pips on top of it.
                 Prim.Make(PrimitiveType.Cube, "Plate", m.Body, n * 0.49f, Vector3.one * 0.84f - Abs(n) * 0.83f, look.plate);
-                AddPips(m.Body, n, FaceNumbers[f], look.pip);
+                AddPips(m.Body, n, FaceNumbers[f], Art.PipsInGunColour && look.body == Art.Dice(pal).body
+                    ? pal.Glow("PipGun" + FaceNumbers[f], WeaponDef.All[FaceNumbers[f]].color, 3.2f) : look.pip);
             }
 
             // Glowing seams along the 12 rounded edges.
@@ -68,9 +69,17 @@ namespace DiceHero
             for (int s2 = -1; s2 <= 1; s2 += 2)
             {
                 Vector3 pos = axis == 0 ? new Vector3(0f, s1 * e, s2 * e) : axis == 1 ? new Vector3(s1 * e, 0f, s2 * e) : new Vector3(s1 * e, s2 * e, 0f);
-                Vector3 sz = axis == 0 ? new Vector3(0.78f, 0.03f, 0.03f) : axis == 1 ? new Vector3(0.03f, 0.78f, 0.03f) : new Vector3(0.03f, 0.03f, 0.78f);
+                float t = Art.SeamThickness;
+                Vector3 sz = axis == 0 ? new Vector3(0.78f, t, t) : axis == 1 ? new Vector3(t, 0.78f, t) : new Vector3(t, t, 0.78f);
                 Prim.Make(PrimitiveType.Cube, "Seam", m.Body, pos, sz, look.seam);
             }
+
+            if (Art.Theme == 2) // armour: dark corner caps with a gold bolt
+                for (int i = 0; i < 8; i++)
+                {
+                    var c = new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1) * 0.43f;
+                    Prim.Make(PrimitiveType.Cube, "Corner", m.Body, c, Vector3.one * 0.2f, look.seam);
+                }
 
             // Guns hover over the top face so the top number stays readable.
             m.WeaponMount = new GameObject("WeaponMount").transform;

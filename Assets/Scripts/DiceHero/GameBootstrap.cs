@@ -35,7 +35,7 @@ namespace DiceHero
             if (cam != null)
             {
                 cam.clearFlags = CameraClearFlags.SolidColor;
-                cam.backgroundColor = World.SpaceColor;
+                cam.backgroundColor = Art.Space;
                 cam.farClipPlane = 250f;
                 var follow = cam.GetComponent<CameraFollow>();
                 if (follow == null) follow = cam.gameObject.AddComponent<CameraFollow>();
@@ -65,6 +65,7 @@ namespace DiceHero
             RenderSettings.ambientEquatorColor = new Color(0.2f, 0.22f, 0.3f);
             RenderSettings.ambientGroundColor = new Color(0.05f, 0.05f, 0.08f);
             RenderSettings.fog = false; // open space: stars and the planet stay crisp
+            if (Art.Theme != 0) Art.Light(sun);
         }
     }
 }

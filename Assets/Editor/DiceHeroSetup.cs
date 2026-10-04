@@ -214,6 +214,62 @@ public static class DiceHeroSetup
                   $"kills {game.Kills}, bombs {bombs} (disposed {game.BombsDisposed}), best combo x{game.BestCombo}, score {game.Score}");
     }
 
+    /// <summary>
+    /// Batch mode, art-direction prototypes (-theme N): plays 16 s with the autopilot and saves gameplay frames,
+    /// then a close-up of the die and a lineup of the six guns (-previewOut folder, 1920x1080).
+    /// </summary>
+    public static void ArtShots()
+    {
+        string outDir = GetArg("-previewOut") ?? Path.GetFullPath("artshots");
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
+        boot.BuildWorld();
+        var loop = boot.Loop;
+        loop.AutoPickUpgrades = true;
+        loop.Game.Invincible = true;
+        var bot = new Autopilot(boot.Controller, loop.Weapons, loop.Game);
+        var cam = Camera.main.GetComponent<CameraFollow>();
+        const float dt = 1f / 30f;
+        for (int frame = 0; frame <= 30 * 16; frame++)
+        {
+            bot.Step(dt);
+            loop.Step(dt, true);
+            if (frame > 0 && frame % 60 == 0) { cam.SnapToTarget(); RenderCamera(cam.GetComponent<Camera>(), Path.Combine(outDir, $"play{frame / 60:00}.png"), 1920, 1080); }
+        }
+
+        // Die close-up, three-quarter view from the front-right.
+        var c = Camera.main;
+        var diePos = boot.Dice.Root.position + Vector3.up * 0.8f;
+        cam.enabled = false;
+        float fov = c.fieldOfView;
+        c.fieldOfView = 30f;
+        c.transform.position = diePos + new Vector3(2.6f, 2.2f, -3.4f);
+        c.transform.LookAt(diePos);
+        RenderCamera(c, Path.Combine(outDir, "die.png"), 1920, 1080);
+
+        // Gun lineup on a dark plinth, away from the arena.
+        var line = new GameObject("GunLineup").transform;
+        line.position = new Vector3(0f, 0f, -60f);
+        var plinth = boot.Palette.Get("LineupPlinth", Art.Theme == 1 ? new Color(0.42f, 0.45f, 0.5f) : new Color(0.08f, 0.09f, 0.11f), 0.6f, 0.3f);
+        Prim.Make(PrimitiveType.Cube, "Plinth", line, new Vector3(0f, -0.3f, 0f), new Vector3(9f, 0.2f, 2.2f), plinth);
+        for (int n = 1; n <= 6; n++)
+        {
+            var g = GunModels.Build(n, boot.Palette, line, new System.Collections.Generic.List<Transform>());
+            g.localPosition = new Vector3((n - 3.5f) * 1.45f, 0f, 0f);
+            g.localRotation = Quaternion.Euler(0f, 145f, 0f);
+            g.localScale *= 1.25f;
+        }
+        var key = new GameObject("LineupLight").AddComponent<Light>();
+        key.type = LightType.Point; key.range = 12f; key.intensity = 3f; key.color = Color.white;
+        key.transform.position = line.position + new Vector3(-2f, 4f, -3f);
+        c.fieldOfView = 28f;
+        c.transform.position = line.position + new Vector3(0f, 4.2f, -9.5f);
+        c.transform.LookAt(line.position + Vector3.up * 0.1f);
+        RenderCamera(c, Path.Combine(outDir, "guns.png"), 1920, 1080);
+        c.fieldOfView = fov;
+        Debug.Log("[RollPower] ArtShots theme " + Art.Theme + " -> " + outDir);
+    }
+
     static void Shot(CameraFollow cam, string dir, int frame)
     {
         cam.SnapToTarget();

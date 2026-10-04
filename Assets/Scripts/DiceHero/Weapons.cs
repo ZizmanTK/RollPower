@@ -48,9 +48,9 @@ namespace DiceHero
             var def = WeaponDef.All[number];
             var root = new GameObject("Gun" + number + "_" + def.name).transform;
             root.SetParent(parent, false);
-            var dark = pal.Get("GunDark", Palette.Hex("#1A1D23"), 0.6f, 0.8f);
-            var steel = pal.Get("GunSteel", Palette.Hex("#A7B1BE"), 0.7f, 0.5f);
-            var glow = pal.Glow("GunGlow" + number, def.color, 3f);
+            var (dark, steel, glowPower, scale) = Art.Gun(pal);
+            var glow = pal.Glow("GunGlow" + Art.Theme + "_" + number, def.color, glowPower);
+            root.localScale = Vector3.one * scale;
 
             // Common turret base
             Prim.Make(PrimitiveType.Cylinder, "Base", root, new Vector3(0f, -0.12f, 0f), new Vector3(0.42f, 0.06f, 0.42f), dark);
