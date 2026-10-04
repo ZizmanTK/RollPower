@@ -3,10 +3,8 @@ using UnityEngine;
 namespace DiceHero
 {
     /// <summary>
-    /// Obstacles, floor decor and backdrop for the navy theme (Art.Theme 3), using the Everspace 2 kit:
-    /// white armour panels, dark insets, orange trim, cyan lights. The trip-over obstacles carry glowing pips
-    /// that say how far they roll the die: barriers show one pip (roll 1), conduits show two (roll 2).
-    /// Footprints match World.Build exactly.
+    /// Obstacles, floor decor and backdrop for the navy theme (Art.Theme 3), each built from a referenced game
+    /// (see the canvas "Guns & obstacles" page). Footprints match World.Build exactly.
     /// </summary>
     public static class NavyProps
     {
@@ -26,80 +24,143 @@ namespace DiceHero
         static void P(PrimitiveType t, Transform parent, Vector3 pos, Vector3 scale, Material m, Quaternion? rot = null)
             => Prim.Make(t, t.ToString(), parent, pos, scale, m, rot);
 
-        /// <summary>Roll-1 obstacle: white armoured block, orange trim, one glowing pip on top.</summary>
+        /// <summary>
+        /// Roll-1 obstacle, from the SYNTHETIK vent boxes: dark block with ribbed sides, a round fan vent with
+        /// radial fins on top, corner bolts, an orange warning label. Thin orange top edge so it reads on navy.
+        /// </summary>
         public static void Barrier(Palette pal, Transform o)
         {
             Mats(pal);
-            P(PrimitiveType.Cube, o, new Vector3(0f, 0.005f, 0f), new Vector3(0.92f, 0.01f, 0.92f), pal.Glow("NPPad", Palette.Hex("#FF5A2A"), 0.22f, Palette.Hex("#2A1610")));
-            P(PrimitiveType.Cube, o, new Vector3(0f, 0.04f, 0f), new Vector3(0.7f, 0.08f, 0.7f), inset);
-            P(PrimitiveType.Cube, o, new Vector3(0f, 0.2f, 0f), new Vector3(0.62f, 0.26f, 0.62f), panel);
-            foreach (float a in new[] { 0f, 90f, 180f, 270f })
-            {
-                var r = Quaternion.Euler(0f, a, 0f);
-                P(PrimitiveType.Cube, o, r * new Vector3(0f, 0.18f, 0.311f), new Vector3(0.36f, 0.1f, 0.01f), inset, r);
-                P(PrimitiveType.Cube, o, r * new Vector3(0.2f, 0.18f, 0.312f), new Vector3(0.04f, 0.1f, 0.01f), trim, r);
-            }
-            P(PrimitiveType.Cube, o, new Vector3(0f, 0.32f, 0f), new Vector3(0.64f, 0.03f, 0.64f), trim);
-            P(PrimitiveType.Cube, o, new Vector3(0f, 0.338f, 0f), new Vector3(0.44f, 0.01f, 0.44f), navy);
-            P(PrimitiveType.Cylinder, o, new Vector3(0f, 0.344f, 0f), new Vector3(0.13f, 0.006f, 0.13f), orange);
+            var box = pal.Get("NPBox", Palette.Hex("#141B24"), 0.45f, 0.3f);
+            var rib = pal.Get("NPRib", Palette.Hex("#34404F"), 0.5f, 0.3f);
+            var bolt = pal.Get("NPBolt", Palette.Hex("#9AA6B4"), 0.6f, 0.5f);
+            P(PrimitiveType.Cube, o, new Vector3(0f, 0.005f, 0f), new Vector3(0.9f, 0.01f, 0.9f), pal.Glow("NPPad", Palette.Hex("#FF5A2A"), 0.22f, Palette.Hex("#2A1610")));
+            P(PrimitiveType.Cube, o, new Vector3(0f, 0.17f, 0f), new Vector3(0.64f, 0.34f, 0.64f), box);
+            for (int i = 0; i < 5; i++)
+                P(PrimitiveType.Cube, o, new Vector3(0f, 0.05f + i * 0.055f, 0f), new Vector3(0.66f, 0.018f, 0.66f), rib);
+            P(PrimitiveType.Cube, o, new Vector3(0f, 0.341f, 0f), new Vector3(0.66f, 0.012f, 0.66f), orange);
+            P(PrimitiveType.Cube, o, new Vector3(0f, 0.345f, 0f), new Vector3(0.6f, 0.012f, 0.6f), box);
+            P(PrimitiveType.Cylinder, o, new Vector3(0f, 0.352f, 0f), new Vector3(0.44f, 0.006f, 0.44f), inset);
+            for (int i = 0; i < 10; i++)
+                P(PrimitiveType.Cube, o, new Vector3(0f, 0.357f, 0f), new Vector3(0.4f, 0.006f, 0.025f), rib, Quaternion.Euler(0f, i * 18f, 0f));
+            P(PrimitiveType.Cylinder, o, new Vector3(0f, 0.362f, 0f), new Vector3(0.1f, 0.01f, 0.1f), bolt);
+            foreach (float bx in new[] { -0.26f, 0.26f })
+            foreach (float bz in new[] { -0.26f, 0.26f })
+                P(PrimitiveType.Cylinder, o, new Vector3(bx, 0.356f, bz), new Vector3(0.05f, 0.012f, 0.05f), bolt);
+            P(PrimitiveType.Cube, o, new Vector3(-0.12f, 0.12f, -0.33f), new Vector3(0.1f, 0.07f, 0.01f), amber);
         }
 
-        /// <summary>Roll-2 obstacle: dark armoured pipe with white collars, cyan rings, end housings with two pips.</summary>
+        /// <summary>
+        /// Roll-2 obstacle, from the SYNTHETIK pipe racks: three grey pipes stacked in a triangle with yellow bands,
+        /// open dark pipe ends, dark steel rack frames, and two yellow diamond labels on each end frame.
+        /// </summary>
         public static void Conduit(Palette pal, Transform o, bool alongX)
         {
             Mats(pal);
+            var pipe = pal.Get("NPPipe", Palette.Hex("#5E6B7C"), 0.5f, 0.4f);
+            var rack = pal.Get("NPRack", Palette.Hex("#1E2834"), 0.45f, 0.3f);
+            var rackTop = pal.Get("NPRackTop", Palette.Hex("#D8DEE6"), 0.5f, 0.1f);
+            var band = pal.Get("NPBand", Palette.Hex("#FFB020"), 0.45f, 0.1f);
             Quaternion rot = alongX ? Quaternion.Euler(0f, 0f, 90f) : Quaternion.Euler(90f, 0f, 0f);
             Vector3 axis = alongX ? Vector3.right : Vector3.forward, side = alongX ? Vector3.forward : Vector3.right;
-            Vector3 c = new Vector3(0f, 0.24f, 0f);
-            P(PrimitiveType.Cylinder, o, c, new Vector3(0.42f, 1.36f, 0.42f), inset, rot);
-            for (int i = -2; i <= 2; i++)
+            var tubes = new[] { side * -0.12f + Vector3.up * 0.12f, side * 0.12f + Vector3.up * 0.12f, Vector3.up * 0.33f };
+            foreach (var c in tubes)
             {
-                P(PrimitiveType.Cylinder, o, c + axis * (i * 0.6f), new Vector3(0.5f, 0.06f, 0.5f), panel, rot);
-                P(PrimitiveType.Cylinder, o, c + axis * (i * 0.6f + 0.045f), new Vector3(0.505f, 0.012f, 0.505f), trim, rot);
+                P(PrimitiveType.Cylinder, o, c, new Vector3(0.23f, 1.42f, 0.23f), pipe, rot);
+                foreach (float s in new[] { -1f, 1f })
+                    P(PrimitiveType.Cylinder, o, c + axis * (s * 1.425f), new Vector3(0.15f, 0.01f, 0.15f), inset, rot);
+                for (int i = -2; i <= 2; i++)
+                    P(PrimitiveType.Cylinder, o, c + axis * (i * 0.55f), new Vector3(0.24f, 0.05f, 0.24f), band, rot);
             }
-            for (int i = -2; i < 2; i++)
-                P(PrimitiveType.Cylinder, o, c + axis * ((i + 0.5f) * 0.6f), new Vector3(0.45f, 0.018f, 0.45f), cyan, rot);
+            foreach (float a in new[] { -1.05f, 0f, 1.05f })
+            {
+                Vector3 p = axis * a;
+                foreach (float s in new[] { -1f, 1f })
+                    P(PrimitiveType.Cube, o, p + side * (s * 0.25f) + Vector3.up * 0.26f, axis * 0.07f + side * 0.04f + Vector3.up * 0.52f, rack);
+                P(PrimitiveType.Cube, o, p + Vector3.up * 0.52f, axis * 0.08f + side * 0.56f + Vector3.up * 0.04f, rackTop);
+            }
             foreach (float s in new[] { -1f, 1f })
-            {
-                Vector3 h = axis * (s * 1.4f);
-                P(PrimitiveType.Cube, o, h + Vector3.up * 0.29f, axis * 0.22f + side * 0.6f + Vector3.up * 0.58f, panel);
-                P(PrimitiveType.Cube, o, h + Vector3.up * 0.26f + axis * (s * 0.112f), axis * 0.01f + side * 0.44f + Vector3.up * 0.3f, inset);
-                P(PrimitiveType.Cube, o, h + Vector3.up * 0.585f, axis * 0.2f + side * 0.58f + Vector3.up * 0.012f, navy);
-                foreach (float q in new[] { -0.12f, 0.12f })
-                    P(PrimitiveType.Cylinder, o, h + side * q + Vector3.up * 0.593f, new Vector3(0.12f, 0.005f, 0.12f), cyan);
-            }
+            foreach (float q in new[] { -0.08f, 0.08f })
+                P(PrimitiveType.Cube, o, axis * (s * 1.05f) + side * q + Vector3.up * 0.545f, new Vector3(0.08f, 0.008f, 0.08f), band, Quaternion.Euler(0f, 45f, 0f));
         }
 
-        /// <summary>Floor and platform decor: landing ring at the start, corner pylons, hull lights.</summary>
+        /// <summary>
+        /// Floor and platform decor. Landing ring at the start (Everspace 2 hangar). Painted bay outlines with
+        /// diagonal hatching and plus marks (SYNTHETIK floor). Floor grates and round hatch covers (The Ascent).
+        /// Canister clusters with yellow bands on the corner outriggers (SYNTHETIK).
+        /// </summary>
         public static void Decor(Palette pal, Transform root)
         {
             Mats(pal);
             float H = World.HalfSize;
-            // Landing pad ring around the start point (Everspace hangar pad).
+            var paint = pal.Get("NPPaint", Palette.Hex("#3E5B7E"), 0.5f, 0f);
+            var grate = pal.Get("NPGrate", Palette.Hex("#0E1622"), 0.4f, 0.4f);
+            var slat = pal.Get("NPSlat", Palette.Hex("#3A4A5E"), 0.5f, 0.4f);
+            var hatch = pal.Get("NPHatch", Palette.Hex("#2C4260"), 0.6f, 0.3f);
+            var can = pal.Get("NPCan", Palette.Hex("#141B24"), 0.5f, 0.3f);
+
+            // Landing ring around the start point.
             var start = World.PlayerStart;
             int seg = 40;
             for (int i = 0; i < seg; i++)
             {
-                if (i % 10 == 9) continue; // gaps like a hangar pad marking
+                if (i % 10 == 9) continue;
                 float a = i * 360f / seg;
                 var p = start + Quaternion.Euler(0f, a, 0f) * Vector3.forward * 1.7f;
                 P(PrimitiveType.Cube, root, p + Vector3.up * 0.007f, new Vector3(2f * Mathf.PI * 1.7f / seg * 1.05f, 0.008f, 0.07f), trim, Quaternion.Euler(0f, a, 0f));
             }
-            foreach (float a in new[] { 0f, 90f, 180f, 270f })
-                P(PrimitiveType.Cube, root, start + Quaternion.Euler(0f, a, 0f) * Vector3.forward * 2.05f + Vector3.up * 0.007f, new Vector3(0.06f, 0.008f, 0.4f), trim, Quaternion.Euler(0f, a, 0f));
 
-            // Corner pylons on small outrigger platforms, outside the play area.
+            // Painted bays: outline, hatched corner, plus marks.
+            foreach (var (cx, cz, w, d) in new[] { (-5.5f, 4.5f, 4.2f, 3.2f), (5.5f, -4.6f, 4.2f, 3.2f) })
+            {
+                var c = new Vector3(cx, 0.006f, cz);
+                foreach (float s in new[] { -1f, 1f })
+                {
+                    P(PrimitiveType.Cube, root, c + new Vector3(0f, 0f, s * d * 0.5f), new Vector3(w, 0.006f, 0.06f), paint);
+                    P(PrimitiveType.Cube, root, c + new Vector3(s * w * 0.5f, 0f, 0f), new Vector3(0.06f, 0.006f, d), paint);
+                }
+                for (int k = 0; k < 5; k++)
+                    P(PrimitiveType.Cube, root, c + new Vector3(w * 0.5f - 0.35f - k * 0.22f, 0f, d * 0.5f - 0.35f), new Vector3(0.07f, 0.006f, 0.6f), paint, Quaternion.Euler(0f, 45f, 0f));
+                foreach (var (px, pz) in new[] { (-0.6f, -0.4f), (0.7f, 0.3f) })
+                {
+                    P(PrimitiveType.Cube, root, c + new Vector3(px, 0f, pz), new Vector3(0.3f, 0.006f, 0.05f), paint);
+                    P(PrimitiveType.Cube, root, c + new Vector3(px, 0f, pz), new Vector3(0.05f, 0.006f, 0.3f), paint);
+                }
+            }
+
+            // Floor grates.
+            foreach (var (gx, gz, alongX) in new[] { (-7.5f, -1.2f, false), (7.6f, 2.4f, false), (0.9f, 7.9f, true), (-2.8f, -8.1f, true) })
+            {
+                var c = new Vector3(gx, 0.007f, gz);
+                P(PrimitiveType.Cube, root, c, alongX ? new Vector3(2.2f, 0.008f, 0.7f) : new Vector3(0.7f, 0.008f, 2.2f), grate);
+                for (int k = -8; k <= 8; k++)
+                    P(PrimitiveType.Cube, root, c + (alongX ? new Vector3(k * 0.12f, 0.004f, 0f) : new Vector3(0f, 0.004f, k * 0.12f)),
+                        alongX ? new Vector3(0.04f, 0.008f, 0.62f) : new Vector3(0.62f, 0.008f, 0.04f), slat);
+            }
+
+            // Round hatch covers with bolts.
+            foreach (var (hx, hz) in new[] { (-2.6f, 2.2f), (3.4f, 5.6f), (-6.8f, -6.6f), (6.9f, -0.6f) })
+            {
+                var c = new Vector3(hx, 0.006f, hz);
+                P(PrimitiveType.Cylinder, root, c, new Vector3(0.9f, 0.006f, 0.9f), slat);
+                P(PrimitiveType.Cylinder, root, c + Vector3.up * 0.002f, new Vector3(0.78f, 0.006f, 0.78f), hatch);
+                for (int k = 0; k < 6; k++)
+                    P(PrimitiveType.Cylinder, root, c + Quaternion.Euler(0f, k * 60f, 0f) * Vector3.forward * 0.32f + Vector3.up * 0.004f, new Vector3(0.05f, 0.006f, 0.05f), slat);
+            }
+
+            // Canister clusters on the corner outriggers, outside the play area.
             foreach (float sx in new[] { -1f, 1f })
             foreach (float sz in new[] { -1f, 1f })
             {
                 var b = new Vector3(sx * (H + 1.1f), 0f, sz * (H + 1.1f));
                 P(PrimitiveType.Cube, root, b + Vector3.down * 0.25f, new Vector3(1.6f, 0.5f, 1.6f), navy);
-                P(PrimitiveType.Cube, root, b + new Vector3(-sx * 0.6f, -0.2f, 0f), new Vector3(1.0f, 0.2f, 0.4f), inset);
-                P(PrimitiveType.Cube, root, b + Vector3.up * 1.2f, new Vector3(0.42f, 2.4f, 0.42f), panel);
-                P(PrimitiveType.Cube, root, b + new Vector3(0f, 1.2f, -sz * 0.212f), new Vector3(0.12f, 2f, 0.01f), cyan);
-                P(PrimitiveType.Cube, root, b + Vector3.up * 1.9f, new Vector3(0.46f, 0.06f, 0.46f), trim);
-                P(PrimitiveType.Cube, root, b + Vector3.up * 2.5f, new Vector3(0.3f, 0.2f, 0.3f), inset);
-                P(PrimitiveType.Sphere, root, b + Vector3.up * 2.7f, Vector3.one * 0.18f, amber);
+                foreach (var (ox, oz, h) in new[] { (-0.35f, -0.3f, 0.7f), (0.3f, -0.35f, 0.55f), (0f, 0.35f, 0.8f) })
+                {
+                    var p = b + new Vector3(ox, h * 0.5f, oz);
+                    P(PrimitiveType.Cylinder, root, p, new Vector3(0.42f, h * 0.5f, 0.42f), can);
+                    P(PrimitiveType.Cylinder, root, p + Vector3.up * (h * 0.18f), new Vector3(0.43f, 0.06f, 0.43f), amber);
+                    P(PrimitiveType.Cylinder, root, p + Vector3.up * (h * 0.5f), new Vector3(0.3f, 0.01f, 0.3f), inset);
+                }
             }
         }
 
