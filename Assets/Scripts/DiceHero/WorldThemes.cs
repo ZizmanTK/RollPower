@@ -22,7 +22,7 @@ namespace DiceHero
             {
                 1 => (pal.Get("T1DeckA", Palette.Hex("#5E6470"), 0.35f, 0.1f), pal.Get("T1DeckB", Palette.Hex("#6A707C"), 0.35f, 0.1f), Palette.Hex("#9FD8FF")),
                 2 => (pal.Get("T2DeckA", Palette.Hex("#4A4F57"), 0.35f, 0.2f), pal.Get("T2DeckB", Palette.Hex("#545961"), 0.35f, 0.2f), Palette.Hex("#FF9A3C")),
-                _ => (pal.Get("T3DeckA", Palette.Hex("#07080D"), 0.92f, 0.3f), pal.Get("T3DeckB", Palette.Hex("#0B0D14"), 0.92f, 0.3f), Palette.Hex("#2FE6FF")),
+                _ => (pal.Get("T3DeckA", Palette.Hex("#1A3350"), 0.8f, 0.15f), pal.Get("T3DeckB", Palette.Hex("#1A3350"), 0.8f, 0.15f), Palette.Hex("#29B6F6")),
             };
             // One continuous deck surface: no tile pattern.
             Prim.Make(PrimitiveType.Cube, "Deck", root, new Vector3(0f, -0.15f, 0f), new Vector3(N, 0.3f, N), deckA);
@@ -31,7 +31,7 @@ namespace DiceHero
             var hullMid = pal.Get("T" + t + "HullMid", t == 1 ? Palette.Hex("#2C3242") : Palette.Hex("#1A1D23"), 0.5f, 0.7f);
             Prim.Make(PrimitiveType.Cube, "Hull", root, new Vector3(0f, -0.9f, 0f), new Vector3(N + 0.4f, 1.2f, N + 0.4f), hullDark);
             Prim.Make(PrimitiveType.Cube, "HullLower", root, new Vector3(0f, -1.9f, 0f), new Vector3(N - 3f, 1f, N - 3f), hullMid);
-            Color edge = t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FF8A1E") : Palette.Hex("#FF2BD6");
+            Color edge = t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FF8A1E") : Palette.Hex("#29B6F6");
             var edgeGlow = pal.Glow("T" + t + "Edge", edge, 1.8f);
             for (int side = 0; side < 4; side++)
             {
@@ -45,7 +45,7 @@ namespace DiceHero
             else if (t == 2) IndustrialMarkings(pal, root);
             else NeonGrid(pal, root);
 
-            World.BuildFence(pal, root, hullMid, t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FFB547") : Palette.Hex("#2FE6FF"));
+            World.BuildFence(pal, root, hullMid, t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FFB547") : Palette.Hex("#29B6F6"));
             Obstacles(pal, root, t);
             Backdrop(pal, root, t);
             return root;
@@ -140,8 +140,8 @@ namespace DiceHero
         /// <summary>Nex Machina / Geometry Wars: black glass with a few long neon frame lines (no per-tile grid).</summary>
         static void NeonGrid(Palette pal, Transform root)
         {
-            var cyan = pal.Glow("T3Grid", Palette.Hex("#2FB8FF"), 1.4f);
-            var violet = pal.Glow("T3GridMajor", Palette.Hex("#7A5CFF"), 1.8f);
+            var cyan = pal.Glow("T3Grid", Palette.Hex("#2F8FC0"), 1.4f);
+            var violet = pal.Glow("T3GridMajor", Palette.Hex("#29B6F6"), 1.8f);
             Frame(root, H - 0.7f, 0.06f, violet);
             Frame(root, H - 3.2f, 0.035f, cyan);
             // Diagonal light strips from the corners toward the middle.
@@ -186,12 +186,12 @@ namespace DiceHero
                     clamp = pal.Get("T2Clamp", Palette.Hex("#E8B21E"), 0.35f, 0.2f);
                     break;
                 default:
-                    block = pal.Get("T3Block", Palette.Hex("#090A10"), 0.95f, 0.2f);
-                    top = pal.Glow("T3BlockTop", red, 2.8f);
-                    band = pal.Glow("T3Band", red, 3.4f);
-                    pipe = pal.Get("T3Pipe", Palette.Hex("#090A10"), 0.95f, 0.2f);
+                    block = pal.Get("T3Block", Palette.Hex("#10243A"), 0.8f, 0.1f);
+                    top = pal.Get("T3BlockTop", Palette.Hex("#1F3D5E"), 0.8f, 0.1f);
+                    band = pal.Glow("T3Band", Palette.Hex("#FF5A2A"), 1.5f);
+                    pipe = pal.Get("T3Pipe", Palette.Hex("#10243A"), 0.8f, 0.1f);
                     ring = pal.Glow("T3PipeRing", blue, 3.4f);
-                    clamp = pal.Get("T3Clamp", Palette.Hex("#151827"), 0.9f, 0.2f);
+                    clamp = pal.Get("T3Clamp", Palette.Hex("#FFB020"), 0.5f, 0.1f);
                     break;
             }
 
@@ -211,7 +211,7 @@ namespace DiceHero
                 {
                     Prim.Make(PrimitiveType.Cube, "Block", o, new Vector3(0f, 0.17f, 0f), new Vector3(0.66f, 0.34f, 0.66f), block);
                     Prim.Make(PrimitiveType.Cube, "Top", o, new Vector3(0f, 0.345f, 0f), new Vector3(t == 3 ? 0.62f : 0.52f, 0.03f, t == 3 ? 0.62f : 0.52f), top);
-                    Prim.Make(PrimitiveType.Cube, "Band", o, new Vector3(0f, t == 3 ? 0.02f : 0.21f, 0f), new Vector3(0.68f, t == 3 ? 0.03f : 0.07f, 0.68f), band);
+                    Prim.Make(PrimitiveType.Cube, "Band", o, new Vector3(0f, t == 3 ? 0.26f : 0.21f, 0f), new Vector3(0.69f, t == 3 ? 0.12f : 0.07f, 0.69f), band);
                 }
                 Prim.Make(PrimitiveType.Cube, "Pad", o, new Vector3(0f, 0.005f, 0f), new Vector3(0.9f, 0.01f, 0.9f), pal.Glow("T" + t + "Pad", red, 0.25f, Palette.Hex("#3A1418")));
                 var ob = o.gameObject.AddComponent<Obstacle>();
@@ -284,7 +284,7 @@ namespace DiceHero
             }
             var stars = new Mesh { name = "Stars", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             stars.CombineMeshes(combine.ToArray(), true, true);
-            Prim.MeshObject("Stars", space, stars, pal.Glow("T" + t + "Star", t == 3 ? Palette.Hex("#C9B8FF") : Palette.Hex("#DDE8FF"), 2f, Color.white));
+            Prim.MeshObject("Stars", space, stars, pal.Glow("T" + t + "Star", t == 3 ? Palette.Hex("#CFE6FF") : Palette.Hex("#DDE8FF"), 2f, Color.white));
 
             if (t == 1)
             {
@@ -324,8 +324,8 @@ namespace DiceHero
             else
             {
                 // Floating voxel blocks with neon edges.
-                var dark = pal.Get("T3Voxel", Palette.Hex("#0A0B12"), 0.9f, 0.2f);
-                Material[] edges = { pal.Glow("T3VoxEdgeA", Palette.Hex("#FF2BD6"), 2.4f), pal.Glow("T3VoxEdgeB", Palette.Hex("#2FE6FF"), 2.4f) };
+                var dark = pal.Get("T3Voxel", Palette.Hex("#132A44"), 0.8f, 0.1f);
+                Material[] edges = { pal.Glow("T3VoxEdgeA", Palette.Hex("#29B6F6"), 2.2f), pal.Glow("T3VoxEdgeB", Palette.Hex("#FFB020"), 2f) };
                 for (int i = 0; i < 40; i++)
                 {
                     float ang = (float)rng.NextDouble() * Mathf.PI * 2f, r = H + 3f + (float)rng.NextDouble() * 15f;
@@ -344,9 +344,9 @@ namespace DiceHero
                         Prim.Make(PrimitiveType.Cube, "EdgeZ", o, new Vector3(q, y, 0f) * s, new Vector3(0.04f, 0.04f, s), e);
                     }
                 }
-                World.AddPointLight(space, new Vector3(-12f, 5f, 12f), Palette.Hex("#FF2BD6"), 22f, 2.4f);
-                World.AddPointLight(space, new Vector3(12f, 5f, 12f), Palette.Hex("#2FE6FF"), 22f, 2.4f);
-                World.AddPointLight(space, new Vector3(0f, 6f, -13f), Palette.Hex("#7A5CFF"), 20f, 1.6f);
+                World.AddPointLight(space, new Vector3(-12f, 5f, 12f), Palette.Hex("#29B6F6"), 24f, 2.6f);
+                World.AddPointLight(space, new Vector3(12f, 5f, 12f), Palette.Hex("#FFB020"), 24f, 1.8f);
+                World.AddPointLight(space, new Vector3(0f, 6f, -13f), Palette.Hex("#E6F2FA"), 22f, 1.8f);
             }
         }
     }

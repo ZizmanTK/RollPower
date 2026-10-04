@@ -24,7 +24,7 @@ namespace DiceHero
         {
             1 => Palette.Hex("#0A0E1C"),
             2 => Palette.Hex("#07080B"),
-            3 => Palette.Hex("#020205"),
+            3 => Palette.Hex("#06101A"),
             _ => World.SpaceColor,
         };
 
@@ -44,9 +44,9 @@ namespace DiceHero
                     RenderSettings.ambientEquatorColor = new Color(0.14f, 0.14f, 0.15f);
                     break;
                 case 3:
-                    sun.color = Palette.Hex("#B8C8FF"); sun.intensity = 0.45f;
-                    RenderSettings.ambientSkyColor = new Color(0.12f, 0.14f, 0.24f);
-                    RenderSettings.ambientEquatorColor = new Color(0.06f, 0.06f, 0.1f);
+                    sun.color = Palette.Hex("#DCEBFF"); sun.intensity = 1.3f;
+                    RenderSettings.ambientSkyColor = new Color(0.3f, 0.4f, 0.55f);
+                    RenderSettings.ambientEquatorColor = new Color(0.16f, 0.22f, 0.3f);
                     break;
             }
         }
@@ -69,10 +69,10 @@ namespace DiceHero
             },
             3 => new DiceModel.Look
             {
-                body = pal.Get("A3DiceBody", Palette.Hex("#0C0E15"), 0.95f, 0.2f),
-                plate = pal.Get("A3DicePlate", Palette.Hex("#141826"), 0.95f, 0.1f),
+                body = pal.Get("A3DiceBody", Palette.Hex("#0B1A2A"), 0.85f, 0.1f),
+                plate = pal.Get("A3DicePlate", Palette.Hex("#10243A"), 0.85f, 0.1f),
                 pip = pal.Glow("A3DicePip", Color.white, 3f),
-                seam = pal.Glow("A3DiceSeam", Palette.Hex("#7A5CFF"), 2.2f),
+                seam = pal.Glow("A3DiceSeam", Palette.Hex("#29B6F6"), 2.2f),
             },
             _ => DiceModel.Hero(pal),
         };
@@ -87,7 +87,7 @@ namespace DiceHero
         {
             1 => (pal.Get("A1GunDark", Palette.Hex("#2A2F3A"), 0.7f, 0.3f), pal.Get("A1GunBody", Palette.Hex("#F2F4F8"), 0.85f, 0f), 3f, 1f),
             2 => (pal.Get("A2GunDark", Palette.Hex("#2A2E35"), 0.5f, 0.3f), pal.Get("A2GunBody", Palette.Hex("#E8B21E"), 0.5f, 0.25f), 2.2f, 1.15f),
-            3 => (pal.Get("A3GunDark", Palette.Hex("#08090E"), 0.9f, 0.3f), pal.Get("A3GunBody", Palette.Hex("#151827"), 0.9f, 0.2f), 4.5f, 1f),
+            3 => (pal.Get("A3GunDark", Palette.Hex("#0B1A2A"), 0.8f, 0.1f), pal.Get("A3GunBody", Palette.Hex("#DDE8F0"), 0.7f, 0.1f), 3f, 1f),
             _ => (pal.Get("GunDark", Palette.Hex("#1A1D23"), 0.6f, 0.8f), pal.Get("GunSteel", Palette.Hex("#A7B1BE"), 0.7f, 0.5f), 3f, 1f),
         };
     }
