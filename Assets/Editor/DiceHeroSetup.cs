@@ -217,7 +217,8 @@ public static class DiceHeroSetup
     static void Shot(CameraFollow cam, string dir, int frame)
     {
         cam.SnapToTarget();
-        RenderCamera(cam.GetComponent<Camera>(), Path.Combine(dir, $"f{frame:000}.png"), 640, 360);
+        int w = int.TryParse(GetArg("-shotWidth"), out int sw) ? sw : 640; // -shotWidth 1920 for mock-up backgrounds
+        RenderCamera(cam.GetComponent<Camera>(), Path.Combine(dir, $"f{frame:000}.png"), w, w * 9 / 16);
     }
 
     /// <summary>Batch mode: synthesizes all sounds + music and writes them as WAV files (-previewOut folder).</summary>
