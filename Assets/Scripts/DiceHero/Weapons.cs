@@ -51,6 +51,7 @@ namespace DiceHero
             var (dark, steel, glowPower, scale) = Art.Gun(pal);
             var glow = pal.Glow("GunGlow" + Art.Theme + "_" + number, def.color, glowPower);
             root.localScale = Vector3.one * scale;
+            if (Art.Theme == 3) { GunsNeon.Build(number, pal, root, muzzles); return root; }
 
             // Common turret base
             Prim.Make(PrimitiveType.Cylinder, "Base", root, new Vector3(0f, -0.12f, 0f), new Vector3(0.42f, 0.06f, 0.42f), dark);

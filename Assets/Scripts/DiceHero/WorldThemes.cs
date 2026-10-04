@@ -43,7 +43,7 @@ namespace DiceHero
 
             if (t == 1) ArenaRings(pal, root);
             else if (t == 2) IndustrialMarkings(pal, root);
-            else NeonGrid(pal, root);
+            else { NeonGrid(pal, root); NavyProps.Decor(pal, root); }
 
             World.BuildFence(pal, root, hullMid, t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FFB547") : Palette.Hex("#29B6F6"));
             Obstacles(pal, root, t);
@@ -200,7 +200,8 @@ namespace DiceHero
                 var o = new GameObject("Barrier").transform;
                 o.SetParent(root, false);
                 o.localPosition = new Vector3(b.x, 0f, b.y);
-                if (t == 2)
+                if (t == 3) NavyProps.Barrier(pal, o);
+                else if (t == 2)
                 {
                     // Jersey barrier: wider base, narrow top, red/white stripes.
                     Prim.Make(PrimitiveType.Cube, "Base", o, new Vector3(0f, 0.08f, 0f), new Vector3(0.72f, 0.16f, 0.72f), block);
@@ -213,7 +214,7 @@ namespace DiceHero
                     Prim.Make(PrimitiveType.Cube, "Top", o, new Vector3(0f, 0.345f, 0f), new Vector3(t == 3 ? 0.62f : 0.52f, 0.03f, t == 3 ? 0.62f : 0.52f), top);
                     Prim.Make(PrimitiveType.Cube, "Band", o, new Vector3(0f, t == 3 ? 0.26f : 0.21f, 0f), new Vector3(0.69f, t == 3 ? 0.12f : 0.07f, 0.69f), band);
                 }
-                Prim.Make(PrimitiveType.Cube, "Pad", o, new Vector3(0f, 0.005f, 0f), new Vector3(0.9f, 0.01f, 0.9f), pal.Glow("T" + t + "Pad", red, 0.25f, Palette.Hex("#3A1418")));
+                if (t != 3) Prim.Make(PrimitiveType.Cube, "Pad", o, new Vector3(0f, 0.005f, 0f), new Vector3(0.9f, 0.01f, 0.9f), pal.Glow("T" + t + "Pad", red, 0.25f, Palette.Hex("#3A1418")));
                 var ob = o.gameObject.AddComponent<Obstacle>();
                 ob.kind = ObstacleKind.Barrier;
                 ob.halfExtents = new Vector2(0.33f, 0.33f);
@@ -228,12 +229,16 @@ namespace DiceHero
                 Quaternion rot = c.alongX ? Quaternion.Euler(0f, 0f, 90f) : Quaternion.Euler(90f, 0f, 0f);
                 Vector3 axis = c.alongX ? Vector3.right : Vector3.forward;
                 Vector3 center = new Vector3(0f, 0.24f, 0f);
+                if (t == 3) NavyProps.Conduit(pal, o, c.alongX);
+                else
+                {
                 Prim.Make(PrimitiveType.Cylinder, "Pipe", o, center, new Vector3(t == 2 ? 0.52f : 0.46f, 1.5f, t == 2 ? 0.52f : 0.46f), pipe, rot);
                 for (int i = -2; i <= 2; i++)
                     Prim.Make(PrimitiveType.Cylinder, "Ring", o, center + axis * (i * 0.65f), new Vector3(0.5f, 0.04f, 0.5f) * (t == 2 ? 1.12f : 1f), ring, rot);
                 foreach (float s in new[] { -1f, 1f })
                     Prim.Make(PrimitiveType.Cube, "Clamp", o, new Vector3(0f, 0.12f, 0f) + axis * (s * 1.42f),
                         c.alongX ? new Vector3(0.18f, 0.24f, 0.62f) : new Vector3(0.62f, 0.24f, 0.18f), clamp);
+                }
                 var ob = o.gameObject.AddComponent<Obstacle>();
                 ob.kind = ObstacleKind.Conduit;
                 ob.halfExtents = c.alongX ? new Vector2(1.5f, 0.24f) : new Vector2(0.24f, 1.5f);
@@ -321,33 +326,7 @@ namespace DiceHero
                 World.AddPointLight(space, new Vector3(11f, 5f, 11f), Palette.Hex("#FFB547"), 22f, 1.8f);
                 World.AddPointLight(space, new Vector3(0f, 6f, -13f), Palette.Hex("#2FD6C8"), 20f, 1.4f);
             }
-            else
-            {
-                // Floating voxel blocks with neon edges.
-                var dark = pal.Get("T3Voxel", Palette.Hex("#132A44"), 0.8f, 0.1f);
-                Material[] edges = { pal.Glow("T3VoxEdgeA", Palette.Hex("#29B6F6"), 2.2f), pal.Glow("T3VoxEdgeB", Palette.Hex("#FFB020"), 2f) };
-                for (int i = 0; i < 40; i++)
-                {
-                    float ang = (float)rng.NextDouble() * Mathf.PI * 2f, r = H + 3f + (float)rng.NextDouble() * 15f;
-                    var p = new Vector3(Mathf.Cos(ang) * r, -2f - (float)rng.NextDouble() * 10f, Mathf.Sin(ang) * r + 4f);
-                    float s = 0.6f + (float)rng.NextDouble() * 1.8f;
-                    var o = new GameObject("Voxel").transform;
-                    o.SetParent(space, false);
-                    o.localPosition = p;
-                    o.localRotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 90f, 0f);
-                    Prim.Make(PrimitiveType.Cube, "Block", o, Vector3.zero, Vector3.one * s, dark);
-                    var e = edges[i % 2];
-                    foreach (float y in new[] { -0.5f, 0.5f })
-                    foreach (float q in new[] { -0.5f, 0.5f })
-                    {
-                        Prim.Make(PrimitiveType.Cube, "EdgeX", o, new Vector3(0f, y, q) * s, new Vector3(s, 0.04f, 0.04f), e);
-                        Prim.Make(PrimitiveType.Cube, "EdgeZ", o, new Vector3(q, y, 0f) * s, new Vector3(0.04f, 0.04f, s), e);
-                    }
-                }
-                World.AddPointLight(space, new Vector3(-12f, 5f, 12f), Palette.Hex("#29B6F6"), 24f, 2.6f);
-                World.AddPointLight(space, new Vector3(12f, 5f, 12f), Palette.Hex("#FFB020"), 24f, 1.8f);
-                World.AddPointLight(space, new Vector3(0f, 6f, -13f), Palette.Hex("#E6F2FA"), 22f, 1.8f);
-            }
+            else NavyProps.Backdrop(pal, space, rng);
         }
     }
 }

@@ -250,7 +250,7 @@ public static class DiceHeroSetup
         // Gun lineup on a dark plinth, away from the arena.
         var line = new GameObject("GunLineup").transform;
         line.position = new Vector3(0f, 0f, -60f);
-        var plinth = boot.Palette.Get("LineupPlinth", Art.Theme == 1 ? new Color(0.42f, 0.45f, 0.5f) : new Color(0.08f, 0.09f, 0.11f), 0.6f, 0.3f);
+        var plinth = boot.Palette.Get("LineupPlinth", Art.Theme == 1 ? new Color(0.42f, 0.45f, 0.5f) : Art.Theme == 3 ? new Color(0.1f, 0.2f, 0.31f) : new Color(0.08f, 0.09f, 0.11f), 0.6f, 0.3f);
         Prim.Make(PrimitiveType.Cube, "Plinth", line, new Vector3(0f, -0.3f, 0f), new Vector3(9f, 0.2f, 2.2f), plinth);
         for (int n = 1; n <= 6; n++)
         {
@@ -266,6 +266,30 @@ public static class DiceHeroSetup
         c.transform.position = line.position + new Vector3(0f, 4.2f, -9.5f);
         c.transform.LookAt(line.position + Vector3.up * 0.1f);
         RenderCamera(c, Path.Combine(outDir, "guns.png"), 1920, 1080);
+        // Same lineup seen from the gameplay camera angle (silhouettes as the player sees them).
+        c.fieldOfView = 30f;
+        c.transform.position = line.position + new Vector3(0f, 7.6f, -6.2f);
+        c.transform.LookAt(line.position);
+        RenderCamera(c, Path.Combine(outDir, "guns_top.png"), 1920, 1080);
+
+        if (Art.Theme == 3)
+        {
+            // Obstacle close-up: barrier (roll 1) and conduit (roll 2) on a strip of deck.
+            var props = new GameObject("PropLineup").transform;
+            props.position = new Vector3(0f, 0f, -90f);
+            Prim.Make(PrimitiveType.Cube, "Deck", props, new Vector3(0f, -0.15f, 0f), new Vector3(9f, 0.3f, 5f), boot.Palette.Get("T3DeckA", Color.black));
+            var b = new GameObject("Barrier").transform; b.SetParent(props, false); b.localPosition = new Vector3(-2.2f, 0f, 0f);
+            NavyProps.Barrier(boot.Palette, b);
+            var cd = new GameObject("Conduit").transform; cd.SetParent(props, false); cd.localPosition = new Vector3(1.2f, 0f, 0.3f);
+            NavyProps.Conduit(boot.Palette, cd, true);
+            var pl = new GameObject("PropLight").AddComponent<Light>();
+            pl.type = LightType.Point; pl.range = 12f; pl.intensity = 3f; pl.color = Color.white;
+            pl.transform.position = props.position + new Vector3(-2f, 4f, -3f);
+            c.fieldOfView = 30f;
+            c.transform.position = props.position + new Vector3(0f, 4.2f, -6.4f);
+            c.transform.LookAt(props.position + Vector3.up * 0.2f);
+            RenderCamera(c, Path.Combine(outDir, "props.png"), 1920, 1080);
+        }
         c.fieldOfView = fov;
         Debug.Log("[RollPower] ArtShots theme " + Art.Theme + " -> " + outDir);
     }
