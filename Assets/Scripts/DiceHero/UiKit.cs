@@ -5,7 +5,7 @@ using UnityEngine;
 namespace DiceHero
 {
     /// <summary>
-    /// Roll Power's IMGUI look: a chunky 5x7 pixel font for headlines, rounded glass panels and
+    /// Roll Power's IMGUI look: the Rajdhani typeface (OFL), SVG icons, rounded glass panels and
     /// a menu widget that works with mouse, keyboard and gamepad. Everything is laid out on a
     /// 1080-pixel-tall virtual canvas and scaled to the real screen.
     /// </summary>
@@ -13,7 +13,7 @@ namespace DiceHero
     {
         public static readonly Color Gold = Palette.Hex("#FFC940");
         public static readonly Color GoldDeep = Palette.Hex("#E08A1E");
-        public static readonly Color Ink = Palette.Hex("#0A0E19");
+        public static readonly Color Ink = Palette.Hex("#0B1A2A");
         public static readonly Color Text = Palette.Hex("#E8EEF8");
         public static readonly Color Muted = Palette.Hex("#8FA0BA");
         public static readonly Color Red = Palette.Hex("#FF3B4E");
@@ -57,9 +57,9 @@ namespace DiceHero
             glow = RadialGlow(64);
             panelStyle = new GUIStyle { normal = { background = rounded }, border = new RectOffset(16, 16, 16, 16) };
             borderStyle = new GUIStyle { normal = { background = roundedBorder }, border = new RectOffset(16, 16, 16, 16) };
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Body = new GUIStyle { font = font, fontSize = 26, normal = { textColor = Color.white }, wordWrap = true, richText = true };
-            BodyBold = new GUIStyle(Body) { fontStyle = FontStyle.Bold };
+            EnsureFonts();
+            Body = new GUIStyle { font = fontMedium, fontSize = 26, normal = { textColor = Color.white }, wordWrap = true, richText = true };
+            BodyBold = new GUIStyle(Body) { font = fontBold };
             Small = new GUIStyle(Body) { fontSize = 21 };
             Tiny = new GUIStyle(Body) { fontSize = 17 };
             BodyCenter = new GUIStyle(BodyBold) { alignment = TextAnchor.MiddleCenter };
@@ -152,115 +152,178 @@ namespace DiceHero
             Label(r, text, style, c);
         }
 
-        // ------------------------------------------------------------------ pixel font
+        // ------------------------------------------------------------------ text (Rajdhani)
 
-        const int GW = 5, GH = 7;
-        static Dictionary<char, string[]> glyphs;
+        static Font fontMedium, fontSemi, fontBold;
+        static readonly Dictionary<long, GUIStyle> textStyles = new Dictionary<long, GUIStyle>();
 
-        /// <summary>Width of a pixel-font string at the given pixel size.</summary>
-        public static float PixelWidth(string s, float px) => s.Length == 0 ? 0f : (s.Length * (GW + 1) - 1) * px;
-
-        /// <summary>Draws blocky pixel text. 'align' 0 = left, 0.5 = centre, 1 = right of x.</summary>
-        public static void Pixel(string s, float x, float y, float px, Color c, float align = 0f, float shadow = 0.18f, Color? shadowColor = null)
+        static void EnsureFonts()
         {
-            if (Event.current.type != EventType.Repaint) return;
-            EnsureGlyphs();
-            s = s.ToUpperInvariant();
-            x -= PixelWidth(s, px) * align;
-            if (shadow > 0f) DrawPixels(s, x + px * shadow * 2.2f, y + px * shadow * 3f, px, shadowColor ?? new Color(0f, 0f, 0f, 0.55f * c.a));
-            DrawPixels(s, x, y, px, c);
+            if (fontBold != null) return;
+            fontMedium = Resources.Load<Font>("Fonts/Rajdhani-Medium");
+            fontSemi = Resources.Load<Font>("Fonts/Rajdhani-SemiBold");
+            fontBold = Resources.Load<Font>("Fonts/Rajdhani-Bold");
+            var legacy = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (fontMedium == null) fontMedium = legacy;
+            if (fontSemi == null) fontSemi = fontMedium;
+            if (fontBold == null) fontBold = fontSemi;
         }
 
-        static void DrawPixels(string s, float x, float y, float px, Color c)
+        /// <summary>weight: 0 medium, 1 semibold, 2 bold.</summary>
+        public static GUIStyle TextStyle(int size, int weight = 2)
         {
-            GUI.color = c;
-            float cx = x;
-            foreach (char ch in s)
+            EnsureFonts();
+            long key = size * 4L + weight;
+            if (textStyles.TryGetValue(key, out var st)) return st;
+            st = new GUIStyle
             {
-                if (glyphs.TryGetValue(ch, out var rows))
-                    for (int gy = 0; gy < GH; gy++)
-                    {
-                        string row = rows[gy];
-                        int run = -1;
-                        for (int gx = 0; gx <= GW; gx++)
-                        {
-                            bool on = gx < GW && row[gx] == '#';
-                            if (on && run < 0) run = gx;
-                            if (!on && run >= 0)
-                            {
-                                // One rect per horizontal run keeps draw calls low.
-                                GUI.DrawTexture(new Rect(cx + run * px, y + gy * px, (gx - run) * px + 0.5f, px + 0.5f), White);
-                                run = -1;
-                            }
-                        }
-                    }
-                cx += (GW + 1) * px;
+                font = weight == 2 ? fontBold : weight == 1 ? fontSemi : fontMedium,
+                fontSize = size, normal = { textColor = Color.white }, clipping = TextClipping.Overflow, wordWrap = false, richText = false,
+            };
+            textStyles[key] = st;
+            return st;
+        }
+
+        public static float TextWidth(string s, int size, int weight = 2) => s.Length == 0 ? 0f : TextStyle(size, weight).CalcSize(new GUIContent(s)).x;
+
+        /// <summary>Single-line text whose cap height starts at y. align: 0 left, 0.5 centre, 1 right.</summary>
+        public static void Line(string s, float x, float y, int size, Color c, float align = 0f, int weight = 2, float shadow = 0f)
+        {
+            var st = TextStyle(size, weight);
+            float wdt = st.CalcSize(new GUIContent(s)).x;
+            var r = new Rect(x - wdt * align, y - size * 0.24f, wdt + 4f, size * 1.4f);
+            if (shadow > 0f) Label(new Rect(r.x + shadow, r.y + shadow * 1.4f, r.width, r.height), s, st, new Color(0f, 0f, 0f, 0.6f * c.a));
+            Label(r, s, st, c);
+        }
+
+        // Legacy pixel-font API, now drawn with Rajdhani: px is the old pixel size (cap height = 7 * px).
+        static int SizeFor(float px) => Mathf.Max(10, Mathf.RoundToInt(px * 10.4f));
+        static int WeightFor(float px) => px >= 4f ? 2 : 1;
+
+        /// <summary>Width of a headline string at the given (legacy) pixel size.</summary>
+        public static float PixelWidth(string s, float px) => TextWidth(s, SizeFor(px), WeightFor(px));
+
+        public static void Pixel(string s, float x, float y, float px, Color c, float align = 0f, float shadow = 0.18f, Color? shadowColor = null)
+        {
+            if (string.IsNullOrEmpty(s)) return;
+            int size = SizeFor(px);
+            var st = TextStyle(size, WeightFor(px));
+            float wdt = st.CalcSize(new GUIContent(s)).x;
+            var r = new Rect(x - wdt * align, y - size * 0.24f, wdt + 4f, size * 1.4f);
+            if (shadow > 0f) Label(new Rect(r.x + px * shadow * 2.2f, r.y + px * shadow * 3f, r.width, r.height), s, st, shadowColor ?? new Color(0f, 0f, 0f, 0.55f * c.a));
+            Label(r, s, st, c);
+        }
+
+        // ------------------------------------------------------------------ icons, diamonds, keycaps, chamfered panels
+
+        static readonly Dictionary<string, Texture2D> icons = new Dictionary<string, Texture2D>();
+        static Texture2D chamfer, chamferBorder;
+        static GUIStyle chamferStyle, chamferBorderStyle;
+
+        /// <summary>An SVG icon from Resources/Icons (imported as a texture).</summary>
+        public static Texture2D Icon(string name)
+        {
+            if (icons.TryGetValue(name, out var t)) return t;
+            t = Resources.Load<Texture2D>("Icons/" + name);
+            icons[name] = t;
+            return t;
+        }
+
+        /// <summary>Draws an icon tinted with c, optionally rotated (degrees, clockwise on screen).</summary>
+        public static void DrawIcon(Rect r, string name, Color c, float angle = 0f)
+        {
+            var t = Icon(name);
+            if (t == null || Event.current.type != EventType.Repaint) return;
+            var m = GUI.matrix;
+            if (angle != 0f) Rotate(angle, r.center);
+            GUI.color = c;
+            GUI.DrawTexture(r, t, ScaleMode.ScaleToFit, true);
+            GUI.color = Color.white;
+            GUI.matrix = m;
+        }
+
+        /// <summary>Rotates following GUI drawing around a point on the virtual canvas (GUIUtility.RotateAroundPivot expects screen pixels).</summary>
+        static void Rotate(float angle, Vector2 pivot)
+        {
+            var m = GUI.matrix;
+            Vector3 p = m.MultiplyPoint3x4(pivot);
+            GUI.matrix = Matrix4x4.Translate(p) * Matrix4x4.Rotate(Quaternion.Euler(0f, 0f, angle)) * Matrix4x4.Translate(-p) * m;
+        }
+
+        /// <summary>A filled diamond (square rotated 45°) whose corners touch a box of the given size.</summary>
+        public static void Diamond(Vector2 c, float size, Color col)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            var m = GUI.matrix;
+            Rotate(45f, c);
+            float s = size * 0.7071f;
+            GUI.color = col;
+            GUI.DrawTexture(new Rect(c.x - s * 0.5f, c.y - s * 0.5f, s, s), White);
+            GUI.color = Color.white;
+            GUI.matrix = m;
+        }
+
+        /// <summary>Everspace-style emblem: gold diamond with a dark inner diamond.</summary>
+        public static void Emblem(Vector2 c, float size)
+        {
+            Diamond(c, size + 4f, new Color(0.16f, 0.11f, 0.03f, 1f));
+            Diamond(c, size, Palette.Hex("#E8B04A"));
+            Diamond(c, size * 0.74f, Palette.Hex("#1A1A1E"));
+        }
+
+        /// <summary>A light keycap with a label (keyboard prompt).</summary>
+        public static float Keycap(float x, float y, string label, float h = 30f)
+        {
+            int size = Mathf.RoundToInt(h * 0.6f);
+            float wdt = Mathf.Max(h, TextWidth(label, size) + 12f);
+            Rect(new Rect(x, y, wdt, h), Palette.Hex("#E6EBF0"));
+            Line(label, x + wdt * 0.5f, y + h * 0.22f, size, Palette.Hex("#101418"), 0.5f);
+            return wdt;
+        }
+
+        /// <summary>Riftbreaker-style panel: navy fill, cut top-left and bottom-right corners, thin border.</summary>
+        public static void ChamferPanel(Rect r, Color fill, Color border)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            if (chamfer == null)
+            {
+                chamfer = ChamferTex(64, 18, 0f);
+                chamferBorder = ChamferTex(64, 18, 2.2f);
+                chamferStyle = new GUIStyle { normal = { background = chamfer }, border = new RectOffset(22, 22, 22, 22) };
+                chamferBorderStyle = new GUIStyle { normal = { background = chamferBorder }, border = new RectOffset(22, 22, 22, 22) };
             }
+            GUI.color = fill;
+            chamferStyle.Draw(r, false, false, false, false);
+            GUI.color = border;
+            chamferBorderStyle.Draw(r, false, false, false, false);
             GUI.color = Color.white;
         }
 
-        static void EnsureGlyphs()
+        static Texture2D ChamferTex(int size, float cut, float border)
         {
-            if (glyphs != null) return;
-            glyphs = new Dictionary<char, string[]>();
-            void G(char c, params string[] rows) => glyphs[c] = rows;
-            G('A', ".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#");
-            G('B', "####.", "#...#", "#...#", "####.", "#...#", "#...#", "####.");
-            G('C', ".###.", "#...#", "#....", "#....", "#....", "#...#", ".###.");
-            G('D', "####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####.");
-            G('E', "#####", "#....", "#....", "####.", "#....", "#....", "#####");
-            G('F', "#####", "#....", "#....", "####.", "#....", "#....", "#....");
-            G('G', ".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".####");
-            G('H', "#...#", "#...#", "#...#", "#####", "#...#", "#...#", "#...#");
-            G('I', "#####", "..#..", "..#..", "..#..", "..#..", "..#..", "#####");
-            G('J', "..###", "...#.", "...#.", "...#.", "#..#.", "#..#.", ".##..");
-            G('K', "#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#");
-            G('L', "#....", "#....", "#....", "#....", "#....", "#....", "#####");
-            G('M', "#...#", "##.##", "#.#.#", "#.#.#", "#...#", "#...#", "#...#");
-            G('N', "#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#");
-            G('O', ".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###.");
-            G('P', "####.", "#...#", "#...#", "####.", "#....", "#....", "#....");
-            G('Q', ".###.", "#...#", "#...#", "#...#", "#.#.#", "#..#.", ".##.#");
-            G('R', "####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#");
-            G('S', ".####", "#....", "#....", ".###.", "....#", "....#", "####.");
-            G('T', "#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#..");
-            G('U', "#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###.");
-            G('V', "#...#", "#...#", "#...#", "#...#", "#...#", ".#.#.", "..#..");
-            G('W', "#...#", "#...#", "#...#", "#.#.#", "#.#.#", "##.##", "#...#");
-            G('X', "#...#", "#...#", ".#.#.", "..#..", ".#.#.", "#...#", "#...#");
-            G('Y', "#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#..");
-            G('Z', "#####", "....#", "...#.", "..#..", ".#...", "#....", "#####");
-            G('0', ".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###.");
-            G('1', "..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###.");
-            G('2', ".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####");
-            G('3', "####.", "....#", "....#", ".###.", "....#", "....#", "####.");
-            G('4', "...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#.");
-            G('5', "#####", "#....", "####.", "....#", "....#", "#...#", ".###.");
-            G('6', ".###.", "#....", "#....", "####.", "#...#", "#...#", ".###.");
-            G('7', "#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#...");
-            G('8', ".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###.");
-            G('9', ".###.", "#...#", "#...#", ".####", "....#", "....#", ".###.");
-            G(' ', ".....", ".....", ".....", ".....", ".....", ".....", ".....");
-            G('-', ".....", ".....", ".....", ".###.", ".....", ".....", ".....");
-            G('+', ".....", "..#..", "..#..", "#####", "..#..", "..#..", ".....");
-            G('!', "..#..", "..#..", "..#..", "..#..", "..#..", ".....", "..#..");
-            G('?', ".###.", "#...#", "....#", "...#.", "..#..", ".....", "..#..");
-            G('.', ".....", ".....", ".....", ".....", ".....", ".....", "..#..");
-            G(',', ".....", ".....", ".....", ".....", ".....", "..#..", ".#...");
-            G(':', ".....", "..#..", ".....", ".....", ".....", "..#..", ".....");
-            G('/', "....#", "....#", "...#.", "..#..", ".#...", "#....", "#....");
-            G('%', "##..#", "##..#", "...#.", "..#..", ".#...", "#..##", "#..##");
-            G('\'', "..#..", "..#..", ".....", ".....", ".....", ".....", ".....");
-            G('×', ".....", "#...#", ".#.#.", "..#..", ".#.#.", "#...#", ".....");
-            G('↑', "..#..", ".###.", "#.#.#", "..#..", "..#..", "..#..", "..#..");
-            G('↓', "..#..", "..#..", "..#..", "..#..", "#.#.#", ".###.", "..#..");
-            G('→', ".....", "..#..", "...#.", "#####", "...#.", "..#..", ".....");
-            G('←', ".....", "..#..", ".#...", "#####", ".#...", "..#..", ".....");
-            G('[', ".###.", ".#...", ".#...", ".#...", ".#...", ".#...", ".###.");
-            G(']', ".###.", "...#.", "...#.", "...#.", "...#.", "...#.", ".###.");
-            G('*', ".....", ".#.#.", "#####", "#####", ".###.", "..#..", "....."); // heart
-            G('<',"...#.", "..#..", ".#...", "#....", ".#...", "..#..", "...#.");
-            G('>', ".#...", "..#..", "...#.", "....#", "...#.", "..#..", ".#...");
+            var t = new Texture2D(size, size, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave, wrapMode = TextureWrapMode.Clamp };
+            const float k = 0.70710678f;
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float fx = x + 0.5f, fy = size - (y + 0.5f); // fy: distance from the top edge
+                float d = Mathf.Min(Mathf.Min(fx, size - fx), Mathf.Min(fy, size - fy));
+                d = Mathf.Min(d, (fx + fy - cut) * k);                       // top-left cut
+                d = Mathf.Min(d, ((size - fx) + (size - fy) - cut) * k);     // bottom-right cut
+                float a = Mathf.Clamp01(d + 0.5f);
+                if (border > 0f) a *= Mathf.Clamp01(border - d + 0.5f);
+                t.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+            t.Apply();
+            return t;
+        }
+
+        /// <summary>Horizontal strip that fades out to the right (Everspace objective highlight).</summary>
+        public static void FadeStrip(Rect r, Color c, int steps = 12)
+        {
+            float sw = r.width / steps;
+            for (int i = 0; i < steps; i++)
+                Rect(new Rect(r.x + i * sw, r.y, sw + 0.5f, r.height), new Color(c.r, c.g, c.b, c.a * (1f - i / (float)steps)));
         }
 
         // ------------------------------------------------------------------ dice pip icon

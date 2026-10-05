@@ -54,6 +54,8 @@ namespace DiceHero
         float spawnTimer;
         public EnemyKind Focus { get; private set; }
         public bool BossWave => Wave > 0 && Wave % 5 == 0;
+        /// <summary>Enemies on the field plus those still queued for this wave.</summary>
+        public int EnemiesLeft => Enemies.Count + spawnQueue.Count;
 
         public Game(DiceController dice, Palette pal, GameLoop loop, int seed = 3)
         {

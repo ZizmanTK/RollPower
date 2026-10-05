@@ -17,7 +17,7 @@ namespace DiceHero
         {
             var a = System.Environment.GetCommandLineArgs();
             int i = System.Array.IndexOf(a, "-theme");
-            return i >= 0 && i + 1 < a.Length && int.TryParse(a[i + 1], out int t) ? t : 0;
+            return i >= 0 && i + 1 < a.Length && int.TryParse(a[i + 1], out int t) ? t : 3; // 3 (navy) is the default look; -theme 0 restores 2.0
         }
 
         public static Color Space => Theme switch

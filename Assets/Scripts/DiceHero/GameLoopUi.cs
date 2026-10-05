@@ -126,43 +126,76 @@ namespace DiceHero
 
         // ---------------- HUD ----------------
 
+        // HUD palette (style 6 "Starship", from Everspace 2; upgrade screen style 7 "Mech ops", from The Riftbreaker).
+        static readonly Color HudMuted = Palette.Hex("#AFC2C4"), HudTeal = Palette.Hex("#1F7F78"), HudMint = Palette.Hex("#46D3A6"),
+            HudAmber = Palette.Hex("#F2B565"), HudHull = Palette.Hex("#E8323C"), HudOrange = Palette.Hex("#F29A2E"), HudCyan = Palette.Hex("#29B6F6");
+
         void DrawHud(float w)
         {
             var def = Weapons.Current;
             bool playing = State == Screen2.Playing;
 
-            // Current gun: the die face and its name. It glows while a fresh roll overcharges it.
-            float glow = Weapons.Overcharge > 0f ? 0.4f + 0.25f * Mathf.Sin(uiTime * 14f) : 0.14f;
-            UiKit.Glow(new Rect(2, 2, 140, 140), new Color(def.color.r, def.color.g, def.color.b, glow));
-            UiKit.DieFace(new Rect(32, 32, 80, 80), def.number, def.color, UiKit.Ink);
-            UiKit.Pixel(def.name, 132, 58, 4.5f, def.color);
+            // Emblem: gold diamond with the current gun's icon. It pulses while a fresh roll overcharges the gun.
+            var em = new Vector2(63f, 63f);
+            if (Weapons.Overcharge > 0f)
+                UiKit.Glow(new Rect(em.x - 70, em.y - 70, 140, 140), new Color(def.color.r, def.color.g, def.color.b, 0.35f + 0.2f * Mathf.Sin(uiTime * 14f)));
+            UiKit.Emblem(em, 80f);
+            UiKit.DrawIcon(new Rect(em.x - 17, em.y - 17, 34, 34), "ui_gun" + def.number, def.color);
 
-            // Hearts and score (top right), no panel.
+            // Hull bar (one cell per heart), then the combo timer bar.
+            float bx = 112f;
+            UiKit.Line("HULL", bx, 30, 15, HudMuted, 0f, 1);
+            UiKit.Line($"{Game.Hp}/{Game.MaxHp}", bx + 48, 26, 21, Game.Hp <= 2 ? HudHull : UiKit.Text, 0f, 2);
+            float cellW = (330f - (Game.MaxHp - 1) * 3f) / Game.MaxHp;
             for (int i = 0; i < Game.MaxHp; i++)
             {
                 bool full = i < Game.Hp;
-                float bob = full && Game.Hp <= 2 ? Mathf.Sin(uiTime * 10f + i) * 2f : 0f;
-                float x = w - 32f - (Game.MaxHp - i) * 40f;
-                UiKit.Pixel("*", x, 36 + bob, 5f, full ? UiKit.Red : new Color(1f, 1f, 1f, 0.15f), 0f, full ? 0.18f : 0f);
+                float flash = full && Game.Hp <= 2 ? 0.6f + 0.4f * Mathf.Sin(uiTime * 10f) : 1f;
+                UiKit.Rect(new Rect(bx + i * (cellW + 3f), 54, cellW, 9), full ? new Color(HudHull.r, HudHull.g, HudHull.b, flash) : new Color(1f, 1f, 1f, 0.12f));
             }
-            UiKit.Pixel(Num(Game.Score), w - 36, 92, 6f, UiKit.Gold, 1f);
-            if (Game.Combo > 1)
+            bool combo = Game.Combo > 1;
+            UiKit.Bar(new Rect(bx, 68, 310, 7), combo ? Game.ComboTimer / Game.ComboWindow : 0f, HudOrange, new Color(1f, 1f, 1f, 0.1f));
+            if (combo) UiKit.Line($"COMBO ×{Game.Combo}", bx, 82, 15, HudAmber, 0f, 2);
+
+            // Objective list: wave (highlighted), enemies left, score, gun.
+            float ly = 112f;
+            UiKit.FadeStrip(new Rect(24, ly, 440, 34), new Color(HudTeal.r, HudTeal.g, HudTeal.b, 0.8f));
+            UiKit.Diamond(new Vector2(42, ly + 17), 16, HudMint);
+            UiKit.Line(Game.BossWave ? $"WAVE {Game.Wave} · BOSS" : $"WAVE {Game.Wave}", 60, ly + 10, 22, UiKit.Text, 0f, 2, 1.5f);
+            (string text, Color c)[] rows =
             {
-                Color cc = Color.Lerp(UiKit.Gold, UiKit.Red, (Game.Combo - 1) / 4f);
-                float sw = UiKit.PixelWidth(Num(Game.Score), 6f);
-                UiKit.Pixel($"X{Game.Combo}", w - 56 - sw, 98, 4.5f, new Color(cc.r, cc.g, cc.b, 0.4f + 0.6f * Mathf.Clamp01(Game.ComboTimer)), 1f);
+                (Game.EnemiesLeft == 1 ? "1 enemy left" : $"{Game.EnemiesLeft} enemies left", UiKit.Text),
+                ("Score  " + Num(Game.Score), HudAmber),
+                (Title(def.name), def.color),
+            };
+            for (int i = 0; i < rows.Length; i++)
+            {
+                float y = ly + 40 + i * 30;
+                UiKit.Diamond(new Vector2(42, y + 12), 13, new Color(0.9f, 0.95f, 0.95f, 0.9f));
+                UiKit.Diamond(new Vector2(42, y + 12), 7, new Color(0.04f, 0.08f, 0.1f, 1f));
+                UiKit.Line(rows[i].text, 60, y + 6, 20, rows[i].c, 0f, 1, 1.5f);
             }
 
-            // Boss: slim bar with the number it's weak to.
+            // Pause prompt, top right.
+            var pc = new Vector2(w - 60f, 60f);
+            UiKit.Emblem(pc, 70f);
+            UiKit.DrawIcon(new Rect(pc.x - 13, pc.y - 13, 26, 26), "ui_pause", UiKit.Text);
+            float kw = UiKit.TextWidth("ESC", 18) + 12f;
+            UiKit.Keycap(pc.x - 48f - kw, pc.y - 15f, "ESC");
+
+            // Boss: name, bar and the number it's weak to.
             var boss = Game.Boss;
             if (boss != null && boss.Alive)
             {
-                float bw = Mathf.Min(640f, w - 900f);
-                float bx = w * 0.5f - bw * 0.5f;
-                UiKit.Pixel("HIGH ROLLER", bx, 30, 3f, UiKit.Red);
-                UiKit.Bar(new Rect(bx, 58, bw, 12), boss.hp / boss.maxHp, UiKit.Red, new Color(0f, 0f, 0f, 0.4f));
+                float bw = Mathf.Min(600f, w - 1100f);
+                float bossX = w * 0.5f - bw * 0.5f;
+                UiKit.Line("HIGH ROLLER", w * 0.5f, 28, 24, UiKit.Text, 0.5f, 2, 2f);
+                UiKit.Rect(new Rect(bossX - 2, 60, bw + 4, 14), new Color(0f, 0f, 0f, 0.6f));
+                UiKit.Rect(new Rect(bossX, 62, bw * Mathf.Clamp01(boss.hp / boss.maxHp), 10), HudHull);
                 int weak = boss.Weakness;
-                UiKit.DieFace(new Rect(bx + bw + 16, 26, 52, 52), weak, def.number == weak ? UiKit.Gold : WeaponDef.All[weak].color, UiKit.Ink);
+                UiKit.DieFace(new Rect(bossX + bw + 18, 40, 46, 46), weak, def.number == weak ? UiKit.Gold : WeaponDef.All[weak].color, UiKit.Ink);
+                UiKit.Line("WEAK TO", bossX + bw + 70, 46, 14, HudMuted, 0f, 1);
+                UiKit.Line(weak.ToString(), bossX + bw + 70, 62, 20, UiKit.Text, 0f, 2);
             }
 
             DrawBombAlerts(w);
@@ -199,27 +232,46 @@ namespace DiceHero
             }
         }
 
-        /// <summary>"ROLL → FOR [die] TRI-SHOT", plus an edge arrow if the marked barrier is off screen.</summary>
+        /// <summary>Everspace-style ability row: ROLL [arrow tile] FOR [gun tile] GUN NAME, with key prompts under the tiles.</summary>
         void DrawRollGuide(float w, RollPlan plan)
         {
             var gun = plan.Gun;
-            const float px = 5f, die = 46f, gap = 18f;
-            string lead = "ROLL   FOR"; // the gap holds the arrow, drawn in the gun's colour
-            float lw = UiKit.PixelWidth(lead, px), nw = UiKit.PixelWidth(gun.name, px);
-            float total = lw + gap + die + gap + nw;
-            float x = w * 0.5f - total * 0.5f, y = UiKit.H - 150f;
+            const float tile = 66f, gap = 16f;
+            float lw = UiKit.TextWidth("ROLL", 28), fw = UiKit.TextWidth("FOR", 28), nw = UiKit.TextWidth(gun.name, 30);
+            float total = lw + gap + tile + gap + fw + gap + tile + gap + nw;
+            float x = w * 0.5f - total * 0.5f, ty = UiKit.H - 150f;
             float pulse = 0.5f + 0.5f * Mathf.Sin(uiTime * 6f);
-            var r = new Rect(x - 34f, y - 22f, total + 68f, 80f);
-            UiKit.Glow(new Rect(r.x - 40f, r.y - 40f, r.width + 80f, r.height + 80f), new Color(gun.color.r, gun.color.g, gun.color.b, 0.12f + 0.1f * pulse));
-            UiKit.Panel(r, 0.86f, new Color(gun.color.r, gun.color.g, gun.color.b, 0.6f + 0.4f * pulse));
-            UiKit.Pixel(lead, x, y + 1f, px, UiKit.Text);
-            UiKit.Pixel(RollAdvisor.Arrow(plan.dir), x + px * 33f - px * 3.5f, y - 7f, px * 1.4f, gun.color); // centred in the 3-space gap
-            UiKit.DieFace(new Rect(x + lw + gap, y + 17.5f - die * 0.5f, die, die), plan.top, gun.color, UiKit.Ink);
-            UiKit.Pixel(gun.name, x + lw + gap + die + gap, y + 1f, px, gun.color);
+            UiKit.Glow(new Rect(x - 80f, ty - 50f, total + 160f, tile + 140f), new Color(gun.color.r, gun.color.g, gun.color.b, 0.08f + 0.08f * pulse));
+
+            UiKit.Line("ROLL", x, ty + 22, 28, UiKit.Text, 0f, 2, 2f);
+            x += lw + gap;
+            var at = new Rect(x, ty, tile, tile);
+            UiKit.Rect(at, new Color(0.08f, 0.16f, 0.18f, 0.92f));
+            UiKit.Rect(new Rect(at.x, at.y, at.width, 2), new Color(0.92f, 0.95f, 0.95f, 0.45f));
+            UiKit.DrawIcon(new Rect(at.x + 13, at.y + 13, 40, 40), "ui_arrow", UiKit.Text, ArrowAngle(plan.dir));
+            float kw = UiKit.TextWidth(KeyFor(plan.dir), 18) + 12f;
+            UiKit.Keycap(at.center.x - Mathf.Max(30f, kw) * 0.5f, at.yMax + 8, KeyFor(plan.dir));
+            x += tile + gap;
+
+            UiKit.Line("FOR", x, ty + 22, 28, UiKit.Text, 0f, 2, 2f);
+            x += fw + gap;
+            var gt = new Rect(x, ty, tile, tile);
+            UiKit.Rect(gt, new Color(gun.color.r * 0.35f, gun.color.g * 0.35f, gun.color.b * 0.35f, 0.95f));
+            UiKit.Rect(new Rect(gt.x, gt.y, gt.width, 2), gun.color);
+            UiKit.DrawIcon(new Rect(gt.x + 13, gt.y + 13, 40, 40), "ui_gun" + gun.number, gun.color);
+            UiKit.Keycap(gt.center.x - 15f, gt.yMax + 8, plan.top.ToString());
+            x += tile + gap;
+
+            UiKit.Line(gun.name, x, ty + 21, 30, gun.color, 0f, 2, 2f);
 
             if (ToCanvas(plan.obstacle.transform.position, out var p) && OffCanvas(p, w))
                 EdgeArrow(w, p, gun.color, 1f);
         }
+
+        // World +Z is screen up (the camera looks down the arena's +Z axis).
+        static float ArrowAngle(Vector3 d) => d.z > 0.5f ? -90f : d.z < -0.5f ? 90f : d.x > 0f ? 0f : 180f;
+        static string KeyFor(Vector3 d) => d.z > 0.5f ? "↑" : d.z < -0.5f ? "↓" : d.x > 0f ? "→" : "←";
+        static string Title(string caps) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(caps.ToLowerInvariant());
 
         string TutorialHint()
         {
@@ -388,13 +440,36 @@ namespace DiceHero
             if (Event.current.type == EventType.MouseDown && Event.current.button == 0) { State = howToReturn; Event.current.Use(); }
         }
 
+        // Upgrade categories and their colours (style 7).
+        static string Category(UpgradeDef u)
+        {
+            switch (u.id)
+            {
+                case "dmg": case "rate": case "over": case "barrel": return "GUNS";
+                case "slam": case "dash": case "loaded": return "ROLLS";
+                case "hp": return "DEFENCE";
+                default: return "BOMBS";
+            }
+        }
+
+        static Color CategoryColor(string cat) => cat == "GUNS" ? Palette.Hex("#FF6A3D") : cat == "ROLLS" ? Palette.Hex("#29B6F6")
+            : cat == "DEFENCE" ? Palette.Hex("#3BD16F") : Palette.Hex("#FFB020");
+
+        static readonly Color Panel7 = Palette.Hex("#0B1A2A"), Border7 = Palette.Hex("#2F8FC0"), Text7 = Palette.Hex("#B9D2E2"), Muted7 = Palette.Hex("#8FB4CC");
+
         void DrawUpgrade(float w)
         {
             if (hand == null || hand.Count == 0) return;
-            UiKit.Pixel(Game.BossWave ? "HIGH ROLLER DOWN!" : $"WAVE {Game.Wave} CLEARED", w * 0.5f, 150f, 10f, UiKit.Gold, 0.5f, 0.25f, UiKit.GoldDeep);
-            UiKit.Pixel("CHOOSE AN UPGRADE", w * 0.5f, 250f, 4f, UiKit.Text, 0.5f);
 
-            float cw = 400f, ch = 460f, gap = 40f;
+            // Title plate.
+            string sub = Game.BossWave ? "HIGH ROLLER DOWN" : $"WAVE {Game.Wave} CLEARED";
+            float tw = Mathf.Max(UiKit.TextWidth("PICK ONE UPGRADE", 46) + 100f, 520f);
+            var tr = new Rect(w * 0.5f - tw * 0.5f, 84f, tw, 104f);
+            UiKit.ChamferPanel(tr, new Color(Panel7.r, Panel7.g, Panel7.b, 0.94f), Border7);
+            UiKit.Line(sub, w * 0.5f, tr.y + 18, 20, Palette.Hex("#3BD16F"), 0.5f, 2);
+            UiKit.Line("PICK ONE UPGRADE", w * 0.5f, tr.y + 48, 46, UiKit.Text, 0.5f, 2);
+
+            float cw = 400f, ch = 590f, gap = 40f;
             float total = hand.Count * cw + (hand.Count - 1) * gap;
             float x0 = w * 0.5f - total * 0.5f;
             var e = Event.current;
@@ -402,24 +477,53 @@ namespace DiceHero
             {
                 var u = hand[i];
                 bool sel = upgradeMenuSel == i;
-                float lift = sel ? -14f - Mathf.Sin(uiTime * 4f) * 3f : 0f;
-                var r = new Rect(x0 + i * (cw + gap), 330f + lift, cw, ch);
+                string cat = Category(u);
+                Color cc = CategoryColor(cat);
+                int lvl = Deck.Level(u);
+                float lift = sel ? -10f - Mathf.Sin(uiTime * 4f) * 3f : 0f;
+                var r = new Rect(x0 + i * (cw + gap), 236f + lift, cw, ch);
                 if (r.Contains(e.mousePosition) && (e.type == EventType.MouseMove || e.type == EventType.Repaint) && upgradeMenuSel != i && e.delta.sqrMagnitude > 0f)
                 { upgradeMenuSel = i; Sound.Play(Sfx.UiMove, 0.4f, 0f); }
-                if (sel) UiKit.Glow(new Rect(r.x - 60, r.y - 60, r.width + 120, r.height + 120), new Color(u.color.r, u.color.g, u.color.b, 0.22f));
-                UiKit.Panel(r, 0.94f, sel ? u.color : new Color(1f, 1f, 1f, 0.12f));
-                UiKit.Rect(new Rect(r.x + 3, r.y + 3, r.width - 6, 12), u.color);
 
-                // Icon: a die face in the upgrade's colour, pips = next level.
-                int lvl = Deck.Level(u) + 1;
-                UiKit.Glow(new Rect(r.center.x - 90, r.y + 40, 180, 180), new Color(u.color.r, u.color.g, u.color.b, 0.3f));
-                UiKit.DieFace(new Rect(r.center.x - 52, r.y + 78, 104, 104), Mathf.Clamp(lvl, 1, 6), u.color, UiKit.Ink);
+                if (sel) UiKit.Glow(new Rect(r.x - 50, r.y - 50, r.width + 100, r.height + 100), new Color(HudCyan.r, HudCyan.g, HudCyan.b, 0.16f));
+                UiKit.ChamferPanel(r, new Color(Panel7.r, Panel7.g, Panel7.b, 0.97f), sel ? HudCyan : Border7);
+                if (sel) UiKit.ChamferPanel(new Rect(r.x + 2, r.y + 2, r.width - 4, r.height - 4), new Color(0f, 0f, 0f, 0f), HudCyan);
 
-                float px = Mathf.Min(4f, (cw - 40f) / UiKit.PixelWidth(u.name, 1f));
-                UiKit.Pixel(u.name, r.center.x, r.y + 226, px, u.color, 0.5f);
-                UiKit.Label(new Rect(r.x + 30, r.y + 270, cw - 60, 100), u.desc, new GUIStyle(UiKit.Body) { alignment = TextAnchor.UpperCenter }, UiKit.Text);
-                UiKit.Pixel(u.maxLevel > 1 ? $"LEVEL {lvl} / {u.maxLevel}" : "UNIQUE", r.center.x, r.yMax - 76, 2.6f, UiKit.Muted, 0.5f);
-                UiKit.Pixel($"[{i + 1}]", r.center.x, r.yMax - 44, 3f, sel ? UiKit.Gold : UiKit.Muted, 0.5f);
+                float px = r.x + 26f, py = r.y + 26f, inner = cw - 52f;
+                UiKit.Line(cat, px, py, 18, cc, 0f, 2);
+                string badge = lvl == 0 ? "NEW" : $"LV {lvl} → {lvl + 1}";
+                Color bc = lvl == 0 ? Palette.Hex("#3BD16F") : Palette.Hex("#FFB020");
+                float bw = UiKit.TextWidth(badge, 16) + 16f;
+                var br = new Rect(r.xMax - 26f - bw, py - 4f, bw, 24f);
+                UiKit.Rect(new Rect(br.x, br.y, br.width, 1.5f), bc); UiKit.Rect(new Rect(br.x, br.yMax - 1.5f, br.width, 1.5f), bc);
+                UiKit.Rect(new Rect(br.x, br.y, 1.5f, br.height), bc); UiKit.Rect(new Rect(br.xMax - 1.5f, br.y, 1.5f, br.height), bc);
+                UiKit.Line(badge, br.center.x, br.y + 6f, 16, bc, 0.5f, 2);
+
+                // Icon tile.
+                var it = new Rect(px, r.y + 66f, inner, 180f);
+                UiKit.Rect(it, new Color(0.03f, 0.08f, 0.14f, 1f));
+                UiKit.Glow(new Rect(it.center.x - 140, it.center.y - 110, 280, 220), new Color(cc.r, cc.g, cc.b, 0.28f));
+                UiKit.Rect(new Rect(it.x, it.y, it.width, 1), new Color(Border7.r, Border7.g, Border7.b, 0.7f));
+                UiKit.Rect(new Rect(it.x, it.yMax - 1, it.width, 1), new Color(Border7.r, Border7.g, Border7.b, 0.7f));
+                UiKit.DrawIcon(new Rect(it.center.x - 70, it.center.y - 70, 140, 140), "up_" + u.id, Color.white);
+
+                // Name and description.
+                int ns = UiKit.TextWidth(u.name, 34) > inner ? 28 : 34;
+                UiKit.Line(u.name, px, r.y + 270f, ns, UiKit.Text, 0f, 2);
+                UiKit.Label(new Rect(px, r.y + 316f, inner, 130f), Sentence(u.desc), new GUIStyle(UiKit.TextStyle(23, 0)) { wordWrap = true }, Text7);
+
+                // Level track: owned levels, then the one this card adds.
+                float ty = r.yMax - 118f;
+                UiKit.Line("LEVEL", px, ty, 16, Muted7, 0f, 2);
+                UiKit.Line(u.maxLevel > 1 ? $"{lvl} → {lvl + 1} / {u.maxLevel}" : "UNIQUE", r.xMax - 26f, ty - 2f, 19, UiKit.Text, 1f, 2);
+                float segW = (inner - (u.maxLevel - 1) * 4f) / u.maxLevel;
+                for (int s = 0; s < u.maxLevel; s++)
+                {
+                    Color sc = s < lvl ? Border7 : s == lvl ? cc : new Color(0f, 0f, 0f, 0.45f);
+                    UiKit.Rect(new Rect(px + s * (segW + 4f), ty + 26f, segW, 12f), sc);
+                }
+                float kx = UiKit.Keycap(px, r.yMax - 58f, (i + 1).ToString(), 28f);
+                UiKit.Line("SELECT", px + kx + 10f, r.yMax - 51f, 18, sel ? HudCyan : Muted7, 0f, 2);
 
                 if (e.type == EventType.MouseDown && e.button == 0 && r.Contains(e.mousePosition))
                 {
@@ -428,8 +532,12 @@ namespace DiceHero
                     return;
                 }
             }
-            UiKit.Label(new Rect(0, UiKit.H - 60, w, 30), "click a card, press 1-3, or use left / right and ENTER / A", UiKit.SmallCenter, UiKit.Muted);
+            float hy = UiKit.H - 46f;
+            UiKit.Line("Click a card, press 1-3, or use ← → and ENTER / A", w * 0.5f, hy, 19, Muted7, 0.5f, 1);
         }
+
+        /// <summary>"+25% weapon damage" → "+25% weapon damage." (descriptions are stored as short phrases).</summary>
+        static string Sentence(string s) => s.Length > 0 && !s.EndsWith(".") ? char.ToUpperInvariant(s[0]) + s.Substring(1) + "." : s;
 
         void DrawGameOver(float w)
         {
