@@ -290,6 +290,32 @@ public static class DiceHeroSetup
             c.transform.LookAt(props.position + Vector3.up * 0.2f);
             RenderCamera(c, Path.Combine(outDir, "props.png"), 1920, 1080);
         }
+
+        // Enemy lineup: crawler, drone, tank, mite, bomber on a strip of deck.
+        {
+            var en = new GameObject("EnemyLineup").transform;
+            en.position = new Vector3(0f, 0f, -120f);
+            Prim.Make(PrimitiveType.Cube, "Deck", en, new Vector3(0f, -0.15f, 0f), new Vector3(11f, 0.3f, 5f), Art.Theme == 3 ? boot.Palette.Get("T3DeckA", Color.black) : plinth);
+            var kinds = new[] { EnemyKind.Crawler, EnemyKind.Drone, EnemyKind.Tank, EnemyKind.Mite, EnemyKind.Bomber };
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                var x = (i - 2) * 2f;
+                var en1 = EnemyModels.Create(kinds[i], boot.Palette, en.position + new Vector3(x, 0f, 0f));
+                en1.t.localScale = Vector3.one * (kinds[i] == EnemyKind.Mite ? 1.6f : 1f);
+                en1.t.rotation = Quaternion.Euler(0f, 200f, 0f);
+                if (kinds[i] == EnemyKind.Drone) en1.t.position += Vector3.down * 1.4f;
+            }
+            var el = new GameObject("EnemyLight").AddComponent<Light>();
+            el.type = LightType.Point; el.range = 14f; el.intensity = 3f; el.color = Color.white;
+            el.transform.position = en.position + new Vector3(-2f, 5f, -4f);
+            c.fieldOfView = 30f;
+            c.transform.position = en.position + new Vector3(0f, 4.6f, -9f);
+            c.transform.LookAt(en.position + Vector3.up * 0.5f);
+            RenderCamera(c, Path.Combine(outDir, "enemies.png"), 1920, 1080);
+            c.transform.position = en.position + new Vector3(0f, 9.5f, -7.6f);
+            c.transform.LookAt(en.position);
+            RenderCamera(c, Path.Combine(outDir, "enemies_top.png"), 1920, 1080);
+        }
         c.fieldOfView = fov;
         Debug.Log("[RollPower] ArtShots theme " + Art.Theme + " -> " + outDir);
     }

@@ -137,48 +137,51 @@ namespace DiceHero
             var accent = pal.Glow("EnemyAccent", Red, 1.6f, Palette.Hex("#5A0D16"));
             var armour = pal.Get("EnemyArmour", Palette.Hex("#C8913E"), 0.75f, 0.95f);
 
+            // Navy theme: same stats, model rebuilt from references (NavyEnemies); the 2.0 parts go to a discarded parent.
+            bool navy = Art.Theme == 3 && kind != EnemyKind.Boss;
+            Transform mroot = navy ? new GameObject("Discard").transform : root;
             switch (kind)
             {
                 case EnemyKind.Crawler:
                     e.hp = 3f; e.speed = 2.5f; e.radius = 0.4f;
-                    Prim.Make(PrimitiveType.Sphere, "Shell", root, new Vector3(0f, 0.38f, 0f), new Vector3(0.8f, 0.5f, 0.8f), hull);
-                    Prim.Make(PrimitiveType.Cylinder, "Band", root, new Vector3(0f, 0.36f, 0f), new Vector3(0.82f, 0.03f, 0.82f), accent);
-                    Prim.Make(PrimitiveType.Cube, "Visor", root, new Vector3(0f, 0.42f, 0.33f), new Vector3(0.4f, 0.08f, 0.12f), eye);
+                    Prim.Make(PrimitiveType.Sphere, "Shell", mroot, new Vector3(0f, 0.38f, 0f), new Vector3(0.8f, 0.5f, 0.8f), hull);
+                    Prim.Make(PrimitiveType.Cylinder, "Band", mroot, new Vector3(0f, 0.36f, 0f), new Vector3(0.82f, 0.03f, 0.82f), accent);
+                    Prim.Make(PrimitiveType.Cube, "Visor", mroot, new Vector3(0f, 0.42f, 0.33f), new Vector3(0.4f, 0.08f, 0.12f), eye);
                     for (int i = 0; i < 4; i++)
                     {
                         float a = 45f + i * 90f;
                         var d = Quaternion.Euler(0f, a, 0f) * Vector3.forward;
-                        Prim.Make(PrimitiveType.Cube, "Leg", root, d * 0.42f + Vector3.up * 0.15f, new Vector3(0.1f, 0.3f, 0.1f), dark, Quaternion.Euler(0f, a, 25f));
+                        Prim.Make(PrimitiveType.Cube, "Leg", mroot, d * 0.42f + Vector3.up * 0.15f, new Vector3(0.1f, 0.3f, 0.1f), dark, Quaternion.Euler(0f, a, 25f));
                     }
                     break;
                 case EnemyKind.Drone:
                     e.hp = 3f; e.speed = 3f; e.radius = 0.5f;
-                    Prim.Make(PrimitiveType.Cylinder, "Disc", root, new Vector3(0f, 2.1f, 0f), new Vector3(0.9f, 0.08f, 0.9f), hull);
-                    Prim.Make(PrimitiveType.Cylinder, "Rim", root, new Vector3(0f, 2.1f, 0f), new Vector3(0.94f, 0.03f, 0.94f), accent);
-                    Prim.Make(PrimitiveType.Sphere, "Core", root, new Vector3(0f, 2.05f, 0f), new Vector3(0.45f, 0.35f, 0.45f), dark);
-                    Prim.Make(PrimitiveType.Sphere, "Eye", root, new Vector3(0f, 1.95f, 0.12f), new Vector3(0.2f, 0.16f, 0.2f), eye);
+                    Prim.Make(PrimitiveType.Cylinder, "Disc", mroot, new Vector3(0f, 2.1f, 0f), new Vector3(0.9f, 0.08f, 0.9f), hull);
+                    Prim.Make(PrimitiveType.Cylinder, "Rim", mroot, new Vector3(0f, 2.1f, 0f), new Vector3(0.94f, 0.03f, 0.94f), accent);
+                    Prim.Make(PrimitiveType.Sphere, "Core", mroot, new Vector3(0f, 2.05f, 0f), new Vector3(0.45f, 0.35f, 0.45f), dark);
+                    Prim.Make(PrimitiveType.Sphere, "Eye", mroot, new Vector3(0f, 1.95f, 0.12f), new Vector3(0.2f, 0.16f, 0.2f), eye);
                     foreach (var d in new[] { Vector3.left, Vector3.right, Vector3.forward, Vector3.back })
-                        Prim.Make(PrimitiveType.Cylinder, "Rotor", root, new Vector3(0f, 2.2f, 0f) + d * 0.55f, new Vector3(0.35f, 0.01f, 0.35f), eye);
+                        Prim.Make(PrimitiveType.Cylinder, "Rotor", mroot, new Vector3(0f, 2.2f, 0f) + d * 0.55f, new Vector3(0.35f, 0.01f, 0.35f), eye);
                     // Ground marker so players can see where the drone is.
-                    Prim.Make(PrimitiveType.Cylinder, "Marker", root, new Vector3(0f, 0.02f, 0f), new Vector3(0.8f, 0.005f, 0.8f), pal.Glow("DroneMarker", Red, 0.8f, Red));
+                    Prim.Make(PrimitiveType.Cylinder, "Marker", mroot, new Vector3(0f, 0.02f, 0f), new Vector3(0.8f, 0.005f, 0.8f), pal.Glow("DroneMarker", Red, 0.8f, Red));
                     break;
                 case EnemyKind.Tank:
                     e.hp = 7f; e.speed = 1.3f; e.radius = 0.65f;
-                    Prim.Make(PrimitiveType.Cube, "Treads", root, new Vector3(0f, 0.18f, 0f), new Vector3(1.1f, 0.36f, 1.2f), dark);
-                    Prim.Make(PrimitiveType.Cube, "Hull", root, new Vector3(0f, 0.5f, 0f), new Vector3(0.95f, 0.36f, 1.0f), armour);
-                    Prim.Make(PrimitiveType.Cube, "Plate", root, new Vector3(0f, 0.5f, 0.52f), new Vector3(1.0f, 0.4f, 0.08f), armour, Quaternion.Euler(-20f, 0f, 0f));
-                    Prim.Make(PrimitiveType.Cylinder, "Turret", root, new Vector3(0f, 0.78f, 0f), new Vector3(0.5f, 0.1f, 0.5f), hull);
-                    Prim.Make(PrimitiveType.Cylinder, "Barrel", root, new Vector3(0f, 0.8f, 0.45f), new Vector3(0.12f, 0.3f, 0.12f), dark, Quaternion.Euler(90f, 0f, 0f));
-                    Prim.Make(PrimitiveType.Cube, "Sensor", root, new Vector3(0f, 0.62f, 0.5f), new Vector3(0.5f, 0.06f, 0.05f), eye);
+                    Prim.Make(PrimitiveType.Cube, "Treads", mroot, new Vector3(0f, 0.18f, 0f), new Vector3(1.1f, 0.36f, 1.2f), dark);
+                    Prim.Make(PrimitiveType.Cube, "Hull", mroot, new Vector3(0f, 0.5f, 0f), new Vector3(0.95f, 0.36f, 1.0f), armour);
+                    Prim.Make(PrimitiveType.Cube, "Plate", mroot, new Vector3(0f, 0.5f, 0.52f), new Vector3(1.0f, 0.4f, 0.08f), armour, Quaternion.Euler(-20f, 0f, 0f));
+                    Prim.Make(PrimitiveType.Cylinder, "Turret", mroot, new Vector3(0f, 0.78f, 0f), new Vector3(0.5f, 0.1f, 0.5f), hull);
+                    Prim.Make(PrimitiveType.Cylinder, "Barrel", mroot, new Vector3(0f, 0.8f, 0.45f), new Vector3(0.12f, 0.3f, 0.12f), dark, Quaternion.Euler(90f, 0f, 0f));
+                    Prim.Make(PrimitiveType.Cube, "Sensor", mroot, new Vector3(0f, 0.62f, 0.5f), new Vector3(0.5f, 0.06f, 0.05f), eye);
                     break;
                 case EnemyKind.Bomber:
                     e.hp = 4f; e.speed = 2f; e.radius = 0.5f; e.abilityTimer = 2.5f;
-                    Prim.Make(PrimitiveType.Cube, "Base", root, new Vector3(0f, 0.2f, 0f), new Vector3(0.8f, 0.3f, 0.9f), dark);
-                    Prim.Make(PrimitiveType.Cube, "Body", root, new Vector3(0f, 0.45f, 0.1f), new Vector3(0.7f, 0.3f, 0.6f), hull);
-                    Prim.Make(PrimitiveType.Cube, "Visor", root, new Vector3(0f, 0.5f, 0.41f), new Vector3(0.5f, 0.08f, 0.04f), eye);
+                    Prim.Make(PrimitiveType.Cube, "Base", mroot, new Vector3(0f, 0.2f, 0f), new Vector3(0.8f, 0.3f, 0.9f), dark);
+                    Prim.Make(PrimitiveType.Cube, "Body", mroot, new Vector3(0f, 0.45f, 0.1f), new Vector3(0.7f, 0.3f, 0.6f), hull);
+                    Prim.Make(PrimitiveType.Cube, "Visor", mroot, new Vector3(0f, 0.5f, 0.41f), new Vector3(0.5f, 0.08f, 0.04f), eye);
                     // Carries a spare bomb on its back.
-                    Prim.Make(PrimitiveType.Cylinder, "Payload", root, new Vector3(0f, 0.72f, -0.22f), new Vector3(0.42f, 0.2f, 0.42f), pal.Get("BombBody", Palette.Hex("#4A505C"), 0.55f, 0.75f));
-                    Prim.Make(PrimitiveType.Cylinder, "PayloadRing", root, new Vector3(0f, 0.72f, -0.22f), new Vector3(0.44f, 0.03f, 0.44f), pal.Glow("BombRed", Palette.Hex("#FF2A3D"), 4f));
+                    Prim.Make(PrimitiveType.Cylinder, "Payload", mroot, new Vector3(0f, 0.72f, -0.22f), new Vector3(0.42f, 0.2f, 0.42f), pal.Get("BombBody", Palette.Hex("#4A505C"), 0.55f, 0.75f));
+                    Prim.Make(PrimitiveType.Cylinder, "PayloadRing", mroot, new Vector3(0f, 0.72f, -0.22f), new Vector3(0.44f, 0.03f, 0.44f), pal.Glow("BombRed", Palette.Hex("#FF2A3D"), 4f));
                     break;
                 case EnemyKind.Boss:
                 {
@@ -202,9 +205,14 @@ namespace DiceHero
                 }
                 default: // Mite
                     e.hp = 1f; e.speed = 3.6f; e.radius = 0.24f;
-                    Prim.Make(PrimitiveType.Sphere, "Body", root, new Vector3(0f, 0.2f, 0f), new Vector3(0.42f, 0.3f, 0.5f), hull);
-                    Prim.Make(PrimitiveType.Sphere, "Eye", root, new Vector3(0f, 0.24f, 0.2f), new Vector3(0.16f, 0.1f, 0.12f), eye);
+                    Prim.Make(PrimitiveType.Sphere, "Body", mroot, new Vector3(0f, 0.2f, 0f), new Vector3(0.42f, 0.3f, 0.5f), hull);
+                    Prim.Make(PrimitiveType.Sphere, "Eye", mroot, new Vector3(0f, 0.24f, 0.2f), new Vector3(0.16f, 0.1f, 0.12f), eye);
                     break;
+            }
+            if (navy)
+            {
+                Object.DestroyImmediate(mroot.gameObject);
+                NavyEnemies.Build(kind, pal, root);
             }
             e.maxHp = e.hp;
             e.CacheRenderers(pal.Glow("HitFlash", Color.white, 2f, Color.white));
