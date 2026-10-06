@@ -238,7 +238,26 @@ public static class DiceHeroSetup
         {
             bot.Step(dt);
             loop.Step(dt, true);
-            if (frame > 0 && frame % 60 == 0) { cam.SnapToTarget(); RenderCamera(cam.GetComponent<Camera>(), Path.Combine(outDir, $"play{frame / 60:00}.png"), 1920, 1080); }
+            if (frame > 0 && frame % 60 == 0)
+            {
+                cam.SnapToTarget();
+                var gc = cam.GetComponent<Camera>();
+                string name = $"play{frame / 60:00}";
+                RenderCamera(gc, Path.Combine(outDir, name + ".png"), 1920, 1080);
+                if (HasArg("-noDieShots"))
+                {
+                    // Same frame without the die, plus the camera and die pose, so a new character
+                    // rendered elsewhere (Blender) can be laid onto a real game frame.
+                    boot.Dice.Root.gameObject.SetActive(false);
+                    RenderCamera(gc, Path.Combine(outDir, name + "_nodie.png"), 1920, 1080);
+                    boot.Dice.Root.gameObject.SetActive(true);
+                    var t = gc.transform; var d = boot.Dice.Root.position;
+                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                    string V(Vector3 v) => string.Format(inv, "[{0:F4},{1:F4},{2:F4}]", v.x, v.y, v.z);
+                    File.WriteAllText(Path.Combine(outDir, name + ".json"),
+                        $"{{\"camPos\":{V(t.position)},\"camFwd\":{V(t.forward)},\"camUp\":{V(t.up)},\"fov\":{gc.fieldOfView.ToString(inv)},\"diePos\":{V(d)},\"top\":{boot.Controller.TopNumber}}}");
+                }
+            }
         }
 
         // Die close-up, three-quarter view from the front-right.
@@ -529,6 +548,8 @@ public static class DiceHeroSetup
         File.WriteAllBytes(path, tex.EncodeToPNG());
         UnityEngine.Object.DestroyImmediate(tex);
     }
+
+    static bool HasArg(string name) => Array.IndexOf(Environment.GetCommandLineArgs(), name) >= 0;
 
     static string GetArg(string name)
     {
