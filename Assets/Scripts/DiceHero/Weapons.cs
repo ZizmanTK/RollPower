@@ -54,8 +54,14 @@ namespace DiceHero
                 cooldown = 1.1f, shots = 8, spread = 40f, speed = 16f, damage = 0.6f, range = 16f, radius = 0.08f, homing = true, antiAir = true },
         };
 
+        /// <summary>Campaign: a socket with no module yet. Fires nothing; Pip's eye goes dim on it.</summary>
+        public static readonly WeaponDef Empty = new WeaponDef { id = "empty", model = 0, name = "EMPTY SOCKET", role = "No module yet", color = Palette.Hex("#5E7387"),
+            cooldown = 999f, shots = 0, speed = 0f, damage = 0f, range = 0f };
+        public bool IsEmpty => id == "empty";
+
         public static WeaponDef Find(string id)
         {
+            if (id == "empty") return Empty;
             foreach (var w in Catalog) if (w.id == id) return w;
             return Catalog[0];
         }
@@ -91,10 +97,11 @@ namespace DiceHero
             var def = WeaponDef.All[number];
             var root = new GameObject("Gun" + number + "_" + def.name).transform;
             root.SetParent(parent, false);
+            if (def.IsEmpty) return root; // nothing mounted
             var (dark, steel, glowPower, scale) = Art.Gun(pal);
             var glow = pal.Glow("GunGlow" + Art.Theme + "_" + def.id, def.color, glowPower);
             root.localScale = Vector3.one * scale;
-            if (Art.Theme == 3) { GunsNeon.Build(number, pal, root, muzzles); return root; }
+            if (Art.Theme >= 3) { GunsNeon.Build(number, pal, root, muzzles); return root; }
 
             // Common turret base
             Prim.Make(PrimitiveType.Cylinder, "Base", root, new Vector3(0f, -0.12f, 0f), new Vector3(0.42f, 0.06f, 0.42f), dark);
@@ -208,6 +215,17 @@ namespace DiceHero
         public Enemy Target { get; private set; }
         public event System.Action<WeaponDef> Fired;
 
+        /// <summary>A module was mounted on a face during play: rebuild that face's gun.</summary>
+        public void RebuildGun(int n)
+        {
+            var parent = guns[n].parent;
+            Object.Destroy(guns[n].gameObject);
+            muzzles[n].Clear();
+            guns[n] = GunModels.Build(n, pal, parent, muzzles[n]);
+            guns[n].localScale = Vector3.one * 1.4f;
+            ShowGun(dice.TopNumber);
+        }
+
         void ShowGun(int number)
         {
             for (int n = 1; n <= 6; n++) guns[n].gameObject.SetActive(n == number);
@@ -254,7 +272,7 @@ namespace DiceHero
             guns[dice.TopNumber].localPosition = new Vector3(0f, 0f, -recoil * 0.25f);
 
             bool aimed = Vector3.Angle(mount.forward, AimDir) < 25f;
-            if (allowFire && Target != null && aimed && cooldown <= 0f && !dice.IsRolling) Fire();
+            if (allowFire && !def.IsEmpty && Target != null && aimed && cooldown <= 0f && !dice.IsRolling) Fire();
         }
 
         void Fire()

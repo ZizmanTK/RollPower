@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace DiceHero
 {
-    public enum EnemyKind { Crawler, Drone, Tank, Mite, Bomber, Boss }
+    public enum EnemyKind { Crawler, Drone, Tank, Mite, Bomber, Boss, Compactor }
 
     /// <summary>
     /// A hostile bot. Weaknesses:
@@ -19,6 +19,15 @@ namespace DiceHero
         public float hp, maxHp, speed, radius, fireTimer, hitFlash, spawnT, abilityTimer;
         public Vector3 pos, vel;
         public BossState boss;
+        // Compactor (deck 1 foreman): 0 approach, 1 wind-up, 2 charge, 3 stunned (armour open).
+        public int mode;
+        public float modeT;
+        public Vector3 chargeDir;
+        public Transform[] plates;
+        public Transform lane;
+        public bool Stunned => kind == EnemyKind.Compactor && mode == 3;
+        /// <summary>Bosses don't get shoved by bullets, minions or slams.</summary>
+        public bool IsBig => kind == EnemyKind.Boss || kind == EnemyKind.Compactor;
         Renderer[] renderers;
         Material[] baseMats;
         Material flashMat;
@@ -42,6 +51,7 @@ namespace DiceHero
                 case EnemyKind.Mite: return "MITE SWARM: USE " + Faces(w => w.shots > 1 || w.aoe > 0f);
                 case EnemyKind.Bomber: return "BOMBERS PLANT BOMBS: SHOVE THEM OFF THE EDGE";
                 case EnemyKind.Boss: return "ONLY THE GUN ON ITS TOP NUMBER HURTS IT · 3 PHASES";
+                case EnemyKind.Compactor: return "ARMOURED: MAKE IT CHARGE INTO A WALL OR A VENT BOX, THEN FIRE";
                 default: return "CRAWLERS: ANY GUN WORKS";
             }
         }
@@ -63,17 +73,20 @@ namespace DiceHero
                 case EnemyKind.Mite: return "MITES";
                 case EnemyKind.Bomber: return "BOMBERS";
                 case EnemyKind.Boss: return "HIGH ROLLER";
+                case EnemyKind.Compactor: return "COMPACTOR";
                 default: return "CRAWLERS";
             }
         }
 
         public bool CanBeHitBy(WeaponDef w)
         {
+            if (w.IsEmpty) return false;
             switch (kind)
             {
                 case EnemyKind.Drone: return w.antiAir;
                 case EnemyKind.Tank: return w.armorPiercing;
                 case EnemyKind.Boss: return Weakness != 0 && w.number == Weakness;
+                case EnemyKind.Compactor: return Stunned || w.armorPiercing;
                 default: return true;
             }
         }
@@ -83,7 +96,8 @@ namespace DiceHero
             if (!Alive) return false;
             if (!CanBeHitBy(w))
             {
-                if (Game.I != null) Game.I.Deflect(this, kind == EnemyKind.Boss ? (boss.Rerolling ? "REROLLING" : $"NEED A {Weakness}") : Flying ? "OUT OF REACH" : "DEFLECTED");
+                if (Game.I != null) Game.I.Deflect(this, kind == EnemyKind.Boss ? (boss.Rerolling ? "REROLLING" : $"NEED A {Weakness}")
+                    : kind == EnemyKind.Compactor ? "ARMOURED: STUN IT" : Flying ? "OUT OF REACH" : "DEFLECTED");
                 return false;
             }
             hp -= damage * RunStats.Current.damageMul * RunStats.Current.FaceDamage(w.number);
@@ -91,7 +105,7 @@ namespace DiceHero
             Sound.Play(Sfx.Hit, 0.5f, 0.15f);
             if (Game.I != null) Game.I.DamageNumber(this, damage * RunStats.Current.damageMul * RunStats.Current.FaceDamage(w.number), w.color);
             Vector3 push = pos - from; push.y = 0f;
-            if (kind != EnemyKind.Tank && kind != EnemyKind.Boss) vel += push.normalized * 4f;
+            if (kind != EnemyKind.Tank && !IsBig) vel += push.normalized * 4f;
             if (hp <= 0f && Game.I != null) Game.I.Killed(this);
             return true;
         }
@@ -157,7 +171,7 @@ namespace DiceHero
             var armour = pal.Get("EnemyArmour", Palette.Hex("#C8913E"), 0.75f, 0.95f);
 
             // Navy theme: same stats, model rebuilt from references (NavyEnemies); the 2.0 parts go to a discarded parent.
-            bool navy = Art.Theme == 3 && kind != EnemyKind.Boss;
+            bool navy = Art.Theme >= 3 && kind != EnemyKind.Boss && kind != EnemyKind.Compactor;
             Transform mroot = navy ? new GameObject("Discard").transform : root;
             switch (kind)
             {
@@ -221,6 +235,41 @@ namespace DiceHero
                     e.boss.orientation = BossState.RotationFor(e.boss.weak, rng.Next(4));
                     m.Body.localRotation = e.boss.orientation;
                     e.boss.model = m;
+                    break;
+                }
+                case EnemyKind.Compactor:
+                {
+                    // Deck 1 foreman: a scrap compactor on treads. Armoured plates on top open when it's stunned.
+                    e.hp = 140f; e.speed = 1.4f; e.radius = 1.15f; e.modeT = 2.5f;
+                    var steel = pal.Get("CompSteel", Palette.Hex("#4A505C"), 0.55f, 0.75f);
+                    var yellow = pal.Get("CompYellow", Palette.Hex("#F2B21E"), 0.5f, 0.2f);
+                    var core = pal.Glow("CompCore", Palette.Hex("#FF7A1A"), 1.1f);
+                    foreach (float x in new[] { -0.85f, 0.85f })
+                    {
+                        Prim.Make(PrimitiveType.Cube, "Tread", root, new Vector3(x, 0.26f, 0f), new Vector3(0.42f, 0.52f, 2.0f), dark);
+                        for (int i = 0; i < 6; i++) Prim.Make(PrimitiveType.Cube, "Lug", root, new Vector3(x, 0.53f, -0.85f + i * 0.34f), new Vector3(0.44f, 0.04f, 0.12f), steel);
+                    }
+                    Prim.Make(PrimitiveType.Cube, "Hull", root, new Vector3(0f, 0.72f, -0.1f), new Vector3(1.32f, 0.78f, 1.6f), steel);
+                    Prim.Make(PrimitiveType.Sphere, "Core", root, new Vector3(0f, 1.0f, -0.1f), new Vector3(0.62f, 0.26f, 0.85f), core);
+                    Prim.Make(PrimitiveType.Cube, "Crusher", root, new Vector3(0f, 0.62f, 0.95f), new Vector3(1.9f, 1.0f, 0.26f), dark);
+                    for (int i = 0; i < 5; i++)
+                        Prim.Make(PrimitiveType.Cube, "Stripe", root, new Vector3(-0.72f + i * 0.36f, 0.62f, 1.09f), new Vector3(0.14f, 0.95f, 0.02f), yellow, Quaternion.Euler(0f, 0f, 30f));
+                    Prim.Make(PrimitiveType.Cube, "Eye", root, new Vector3(0f, 1.2f, 0.72f), new Vector3(0.9f, 0.08f, 0.06f), eye);
+                    foreach (float x in new[] { -0.35f, 0.35f })
+                        Prim.Make(PrimitiveType.Cylinder, "Stack", root, new Vector3(x, 1.25f, -0.75f), new Vector3(0.18f, 0.35f, 0.18f), dark);
+                    e.plates = new Transform[2];
+                    for (int s = 0; s < 2; s++)
+                    {
+                        float side = s == 0 ? -1f : 1f;
+                        var hinge = new GameObject("PlateHinge").transform;
+                        hinge.SetParent(root, false);
+                        hinge.localPosition = new Vector3(side * 0.68f, 1.12f, -0.1f);
+                        Prim.Make(PrimitiveType.Cube, "Plate", hinge, new Vector3(-side * 0.34f, 0.04f, 0f), new Vector3(0.7f, 0.1f, 1.55f), yellow);
+                        e.plates[s] = hinge;
+                    }
+                    // Charge lane: shown on the floor during the wind-up so the charge is never a surprise.
+                    e.lane = Prim.Make(PrimitiveType.Cube, "ChargeLane", null, pos, new Vector3(1.9f, 0.01f, 1f), pal.Glow("CompLane", Red, 1.2f, Red * 0.4f)).transform;
+                    e.lane.gameObject.SetActive(false);
                     break;
                 }
                 default: // Mite

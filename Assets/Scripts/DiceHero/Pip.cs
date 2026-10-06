@@ -13,6 +13,9 @@ namespace DiceHero
         public Material DockMaterial;
         /// <summary>Pip: each face module's glow material (index = face number), dimmed during fights.</summary>
         public readonly Material[] FaceGlow = new Material[7];
+        /// <summary>Pip: the module on each face (index = face number), rebuilt when a module is mounted.</summary>
+        public readonly Transform[] FaceModule = new Transform[7];
+        public Material IrisOn, IrisOff;
         public const float PipGunScale = 0.62f;
         public const float PipHeadHeight = 1.44f;
         public const float PipHeadScale = 1.25f;
@@ -44,25 +47,14 @@ namespace DiceHero
             {
                 Vector3 n = DiceModel.FaceNormals[f];
                 int face = DiceModel.FaceNumbers[f];
-                var gun = WeaponDef.All[face];
-                // Pip's own copy, so dimming it in fights leaves the floor markers and menus alone.
-                var glow = new Material(pal.Glow("PipGun" + face, gun.color, 1.7f)) { name = "PipGunLive" + face };
-                m.FaceGlow[face] = glow;
                 // Face frame: local +Y out of the face, local +Z toward the face's "top" edge.
                 var F = new GameObject("Face" + face).transform;
                 F.SetParent(m.Body, false);
                 F.localPosition = n * 0.5f;
                 F.localRotation = Quaternion.LookRotation(Mathf.Abs(n.y) > 0.5f ? Vector3.forward : Vector3.up, n);
-                Prim.Make(PrimitiveType.Cube, "Socket", F, new Vector3(0f, 0.008f, 0.035f), new Vector3(0.56f, 0.03f, 0.56f),
-                    pal.Get("PipSocket" + face, gun.color * 0.2f + Color.black * 0.8f, 0.6f, 0.3f));
-                Ring(F, new Vector3(0f, 0.02f, 0.035f), 0.3f, 0.028f, glow);
-                var g = new GameObject("Glyph").transform;
-                g.SetParent(F, false);
-                g.localPosition = new Vector3(0f, 0.03f, 0.035f);
-                g.localScale = Vector3.one * 0.5f;
-                Glyphs.Build(gun.model, g, glow);
                 for (int i = 0; i < face; i++)
                     Prim.Make(PrimitiveType.Cylinder, "Pip", F, new Vector3((i - (face - 1) * 0.5f) * 0.06f, 0.002f, -0.335f), new Vector3(0.044f, 0.006f, 0.044f), number);
+                BuildModule(pal, m, F, face);
             }
 
             // Seams along the 12 edges: one material of Pip's own, recoloured to the top gun (PipFace).
@@ -92,6 +84,35 @@ namespace DiceHero
             m.GunMount.localPosition = new Vector3(0f, 0.33f, -0.02f);
             m.GunMount.localScale = Vector3.one * DiceModel.PipGunScale;
             return m;
+        }
+
+        /// <summary>The socket and module on one face, in that face's gun colour (grey with a cross when empty).</summary>
+        static void BuildModule(Palette pal, DiceModel m, Transform F, int face)
+        {
+            var gun = WeaponDef.All[face];
+            // Pip's own copy, so dimming it in fights leaves the floor markers and menus alone.
+            var glow = new Material(pal.Glow("PipGun" + gun.id, gun.color, gun.IsEmpty ? 0.5f : 1.7f)) { name = "PipGunLive" + face };
+            m.FaceGlow[face] = glow;
+            var mod = new GameObject("Module").transform;
+            mod.SetParent(F, false);
+            m.FaceModule[face] = mod;
+            Prim.Make(PrimitiveType.Cube, "Socket", mod, new Vector3(0f, 0.008f, 0.035f), new Vector3(0.56f, 0.03f, 0.56f),
+                pal.Get("PipSocket" + gun.id, gun.color * 0.2f + Color.black * 0.8f, 0.6f, 0.3f));
+            Ring(mod, new Vector3(0f, 0.02f, 0.035f), 0.3f, 0.028f, glow);
+            var g = new GameObject("Glyph").transform;
+            g.SetParent(mod, false);
+            g.localPosition = new Vector3(0f, 0.03f, 0.035f);
+            g.localScale = Vector3.one * 0.5f;
+            Glyphs.Build(gun.model, g, glow);
+        }
+
+        /// <summary>A module was mounted on this face during play: rebuild its socket.</summary>
+        public static void RebuildFace(Palette pal, DiceModel m, int face)
+        {
+            if (m.FaceModule[face] == null) return;
+            var F = m.FaceModule[face].parent;
+            Object.Destroy(m.FaceModule[face].gameObject);
+            BuildModule(pal, m, F, face);
         }
 
         static void Ring(Transform parent, Vector3 c, float outer, float width, Material mat)
@@ -125,6 +146,8 @@ namespace DiceHero
             var band = pal.Get("PodBand", Palette.Hex("#1A2C3C"), 0.65f, 0.6f);
             var ink = pal.Get("PodInk", Palette.Hex("#08131F"), 0.4f, 0.2f);
             var iris = pal.Glow("PodIris", Palette.Hex("#29B6F6"), 2.6f);
+            m.IrisOn = iris;
+            m.IrisOff = pal.Glow("PodIrisOff", Palette.Hex("#33485A"), 0.4f);
             var glint = pal.Glow("PodGlint", Color.white, 2.4f);
             foreach (var r in head.GetComponentsInChildren<Renderer>(true))
             {
@@ -185,7 +208,7 @@ namespace DiceHero
             m.DockMaterial.SetColor("_EmissionColor", seam * 0.9f * Palette.GlowScale);
             faceLight = Mathf.MoveTowards(faceLight, game == null ? 1f : 0.22f, dt * 3f);
             for (int f = 1; f <= 6; f++)
-                if (m.FaceGlow[f] != null) m.FaceGlow[f].SetColor("_EmissionColor", WeaponDef.All[f].color * 1.7f * faceLight * Palette.GlowScale);
+                if (m.FaceGlow[f] != null) m.FaceGlow[f].SetColor("_EmissionColor", WeaponDef.All[f].color * (WeaponDef.All[f].IsEmpty ? 0.5f : 1.7f) * faceLight * Palette.GlowScale);
             // The gun aims exactly (WeaponMount); the eye-pod turns only part of the way when the aim points away
             // from the camera, so the player keeps seeing Pip's eye.
             Vector3 aim = m.WeaponMount.forward; aim.y = 0f;
@@ -205,6 +228,10 @@ namespace DiceHero
             blink -= dt;
             float open = hurt ? 0.25f : blink > 0f ? 0.12f : 1f;
             bool smile = happy > 0.3f && !hurt;
+            // Offline: no module under the eye-pod, so the lens goes dim.
+            var irisR = m.Iris.GetComponent<Renderer>();
+            var lens = WeaponDef.All[dice.TopNumber].IsEmpty ? m.IrisOff : m.IrisOn;
+            if (irisR.sharedMaterial != lens) irisR.sharedMaterial = lens;
             m.Happy.gameObject.SetActive(smile);
             m.Iris.gameObject.SetActive(!smile);
             m.Pupil.gameObject.SetActive(!smile);

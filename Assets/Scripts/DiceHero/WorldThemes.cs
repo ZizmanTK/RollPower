@@ -22,6 +22,7 @@ namespace DiceHero
             {
                 1 => (pal.Get("T1DeckA", Palette.Hex("#5E6470"), 0.35f, 0.1f), pal.Get("T1DeckB", Palette.Hex("#6A707C"), 0.35f, 0.1f), Palette.Hex("#9FD8FF")),
                 2 => (pal.Get("T2DeckA", Palette.Hex("#4A4F57"), 0.35f, 0.2f), pal.Get("T2DeckB", Palette.Hex("#545961"), 0.35f, 0.2f), Palette.Hex("#FF9A3C")),
+                4 => (pal.Get("T4DeckA", ScrapProps.Concrete, 0.35f, 0.05f), pal.Get("T4DeckB", ScrapProps.Concrete, 0.35f, 0.05f), ScrapProps.Sodium),
                 _ => (pal.Get("T3DeckA", Palette.Hex("#1A3350"), 0.8f, 0.15f), pal.Get("T3DeckB", Palette.Hex("#1A3350"), 0.8f, 0.15f), Palette.Hex("#29B6F6")),
             };
             // One continuous deck surface: no tile pattern.
@@ -43,9 +44,10 @@ namespace DiceHero
 
             if (t == 1) ArenaRings(pal, root);
             else if (t == 2) IndustrialMarkings(pal, root);
+            else if (t == 4) ScrapProps.Decor(pal, root);
             else { NeonGrid(pal, root); NavyProps.Decor(pal, root); }
 
-            World.BuildFence(pal, root, hullMid, t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FFB547") : Palette.Hex("#29B6F6"));
+            World.BuildFence(pal, root, hullMid, t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FFB547") : t == 4 ? ScrapProps.Sodium : Palette.Hex("#29B6F6"));
             Obstacles(pal, root, t);
             Backdrop(pal, root, t);
             return root;
@@ -208,7 +210,8 @@ namespace DiceHero
                 var o = new GameObject("Barrier").transform;
                 o.SetParent(root, false);
                 o.localPosition = new Vector3(b.x, 0f, b.y);
-                if (t == 3) NavyProps.Barrier(pal, o);
+                if (t == 4) ScrapProps.Barrier(pal, o);
+                else if (t == 3) NavyProps.Barrier(pal, o);
                 else if (t == 2)
                 {
                     // Jersey barrier: wider base, narrow top, red/white stripes.
@@ -222,7 +225,7 @@ namespace DiceHero
                     Prim.Make(PrimitiveType.Cube, "Top", o, new Vector3(0f, 0.345f, 0f), new Vector3(t == 3 ? 0.62f : 0.52f, 0.03f, t == 3 ? 0.62f : 0.52f), top);
                     Prim.Make(PrimitiveType.Cube, "Band", o, new Vector3(0f, t == 3 ? 0.26f : 0.21f, 0f), new Vector3(0.69f, t == 3 ? 0.12f : 0.07f, 0.69f), band);
                 }
-                if (t != 3) Prim.Make(PrimitiveType.Cube, "Pad", o, new Vector3(0f, 0.005f, 0f), new Vector3(0.9f, 0.01f, 0.9f), pal.Glow("T" + t + "Pad", red, 0.25f, Palette.Hex("#3A1418")));
+                if (t < 3) Prim.Make(PrimitiveType.Cube, "Pad", o, new Vector3(0f, 0.005f, 0f), new Vector3(0.9f, 0.01f, 0.9f), pal.Glow("T" + t + "Pad", red, 0.25f, Palette.Hex("#3A1418")));
                 var ob = o.gameObject.AddComponent<Obstacle>();
                 ob.kind = ObstacleKind.Barrier;
                 ob.halfExtents = new Vector2(0.33f, 0.33f);
@@ -237,7 +240,8 @@ namespace DiceHero
                 Quaternion rot = c.alongX ? Quaternion.Euler(0f, 0f, 90f) : Quaternion.Euler(90f, 0f, 0f);
                 Vector3 axis = c.alongX ? Vector3.right : Vector3.forward;
                 Vector3 center = new Vector3(0f, 0.24f, 0f);
-                if (t == 3) NavyProps.Conduit(pal, o, c.alongX);
+                if (t == 4) ScrapProps.Conduit(pal, o, c.alongX);
+                else if (t == 3) NavyProps.Conduit(pal, o, c.alongX);
                 else
                 {
                 Prim.Make(PrimitiveType.Cylinder, "Pipe", o, center, new Vector3(t == 2 ? 0.52f : 0.46f, 1.5f, t == 2 ? 0.52f : 0.46f), pipe, rot);
@@ -285,6 +289,7 @@ namespace DiceHero
             var space = new GameObject("Space").transform;
             space.SetParent(root, false);
             var rng = new System.Random(31);
+            if (t == 4) { ScrapProps.Backdrop(pal, space, rng); return; } // indoors: no stars
             var cube = World.GetCubeMesh();
 
             // Sparse stars (one combined mesh).

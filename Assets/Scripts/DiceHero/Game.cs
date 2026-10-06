@@ -33,6 +33,8 @@ namespace DiceHero
         public event System.Action<int> WaveCleared;
         public event System.Action<int> Slammed;
         public Enemy Boss { get; private set; }
+        /// <summary>The deck's foreman boss (deck 1: the Compactor), if one is on the field.</summary>
+        public Enemy Foreman { get; private set; }
         public bool FirstBombSeen { get; private set; }
 
         /// <summary>Campaign stage being played: its scripted waves replace the endless wave director (null: gauntlet).</summary>
@@ -75,7 +77,14 @@ namespace DiceHero
             {
                 if (!e.Alive || e.Flying) continue;
                 Vector3 d = e.pos - p; d.y = 0f;
-                float reach = e.radius + 0.5f + (e.kind == EnemyKind.Boss ? 1.4f : 0.6f);
+                // A charging Compactor covers ground fast: get out of its lane early.
+                if (e.kind == EnemyKind.Compactor && (e.mode == 1 || e.mode == 2) && d.magnitude < 7f)
+                {
+                    Vector3 rel = p - e.pos; rel.y = 0f;
+                    float along = Vector3.Dot(rel, e.chargeDir), across = (rel - e.chargeDir * along).magnitude;
+                    if (along > 0f && across < e.radius + 0.7f) return e.pos;
+                }
+                float reach = e.radius + 0.5f + (e.IsBig ? 1.4f : 0.6f);
                 if (d.magnitude < reach) return e.pos;
             }
             return best;
@@ -136,7 +145,7 @@ namespace DiceHero
                 if (!e.Alive || e.Flying) continue;
                 Vector3 d = e.pos - c; d.y = 0f;
                 if (d.magnitude > radius + e.radius) continue;
-                if (e.kind != EnemyKind.Boss) e.vel += d.normalized * 7f;
+                if (!e.IsBig) e.vel += d.normalized * 7f;
                 BlastEnemy(e, steps + s.slamDamageBonus, c, steps == 2 ? "MEGA SLAM" : "SLAM");
             }
         }
@@ -150,6 +159,7 @@ namespace DiceHero
             Targets.All.Add(e);
             Fx.Flash(pal, pos + Vector3.up * 0.5f, Palette.Hex("#FF2A3D"), kind == EnemyKind.Boss ? 3f : 1.2f, 0.25f);
             if (kind == EnemyKind.Boss) Boss = e;
+            if (kind == EnemyKind.Compactor) Foreman = e;
             return e;
         }
 
@@ -217,6 +227,15 @@ namespace DiceHero
             bombsLeft = w.bombs;
             bombTimer = 4f;
             var list = new List<EnemyKind>();
+            if (w.boss.HasValue)
+            {
+                var b = Spawn(w.boss.Value, new Vector3(0f, 0f, 5f));
+                loop.ShowBanner("FOREMAN: " + Enemy.Plural(w.boss.Value), Enemy.Hint(w.boss.Value), 4.5f, UiKit.Red);
+                Sound.Play(Sfx.BossRoar, 1f, 0f);
+                Juice(0.5f, 0f);
+                if (w.radio != null) loop.Radio(w.radio);
+                return;
+            }
             foreach (var (kind, count) in w.enemies) for (int i = 0; i < count; i++) list.Add(kind);
             for (int i = list.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (list[i], list[j]) = (list[j], list[i]); }
             foreach (var k in list) spawnQueue.Enqueue(k);
@@ -281,6 +300,17 @@ namespace DiceHero
             Sound.Play(e.kind == EnemyKind.Tank || e.kind == EnemyKind.Boss ? Sfx.BigExplosion : Sfx.Explosion, e.kind == EnemyKind.Mite ? 0.5f : 0.9f);
             Juice(e.kind == EnemyKind.Boss ? 1f : e.kind == EnemyKind.Tank ? 0.35f : 0.12f, e.kind == EnemyKind.Boss ? 0.35f : e.kind == EnemyKind.Tank ? 0.05f : 0.015f);
 
+            if (e.kind == EnemyKind.Compactor)
+            {
+                Foreman = null;
+                BossesBeaten++;
+                Flash(0.6f);
+                Juice(1f, 0.35f);
+                loop.ShowBanner("COMPACTOR DESTROYED", "IT DROPPED A MODULE", 3.5f, UiKit.Gold);
+                Hp = MaxHp;
+                Bombs.Clear();
+                foreach (var o in Enemies) if (o != e && o.Alive) { o.hp = 0f; Fx.Explosion(pal, o.Position, Palette.Hex("#FF6A2A"), 0.8f); }
+            }
             if (e.kind == EnemyKind.Boss)
             {
                 Boss = null;
@@ -405,6 +435,7 @@ namespace DiceHero
                     Targets.All.Remove(e);
                     Enemies.RemoveAt(i);
                     if (e.t != null) Fx.Kill(e.t.gameObject);
+                    if (e.lane != null) Object.Destroy(e.lane.gameObject);
                     continue;
                 }
                 StepEnemy(e, dt, dp);
@@ -424,10 +455,7 @@ namespace DiceHero
             {
                 // Stages run their waves back to back; cards come between stages, not waves.
                 if (Wave < Stage.waves.Length) { StartWave(); return; }
-                Won = true;
-                Intermission = true;
-                Sound.Play(Sfx.WaveClear, 0.8f, 0f);
-                StageCleared?.Invoke();
+                CompleteStage();
                 return;
             }
 
@@ -440,6 +468,24 @@ namespace DiceHero
 
         /// <summary>Starts the next wave (after the upgrade pick).</summary>
         public void StartNextWave() => StartWave();
+
+        /// <summary>Distance from p to the closest enemy bullet (infinity when there is none).</summary>
+        public float NearestBullet(Vector3 p)
+        {
+            float best = float.PositiveInfinity;
+            foreach (var b in bullets) { Vector3 d = b.pos - p; d.y = 0f; best = Mathf.Min(best, d.magnitude); }
+            return best;
+        }
+
+        /// <summary>Campaign: the stage is won (its last wave, the tutorial's last step, or its boss).</summary>
+        public void CompleteStage()
+        {
+            if (Won || Lost) return;
+            Won = true;
+            Intermission = true;
+            Sound.Play(Sfx.WaveClear, 0.8f, 0f);
+            StageCleared?.Invoke();
+        }
 
         /// <summary>Demo capture: end the run now (to show the retry screen).</summary>
         public void DemoKill() { Invincible = false; Hp = 0; }
@@ -456,6 +502,7 @@ namespace DiceHero
             if (Lost) return;
 
             if (e.kind == EnemyKind.Boss) { StepBoss(e, dt, dp); return; }
+            if (e.kind == EnemyKind.Compactor) { StepCompactor(e, dt, dp); return; }
 
             Vector3 to = dp - e.pos; to.y = 0f;
             float dist = to.magnitude;
@@ -510,6 +557,90 @@ namespace DiceHero
             {
                 HurtPlayer(1, e.pos, "contact:" + e.kind);
                 e.vel = -dir * 3f;
+            }
+        }
+
+        // ---------------- Foreman: Compactor (deck 1) ----------------
+        // Rolls toward Pip, winds up (its charge lane lights the floor), then charges in a straight line. Hitting the
+        // arena edge or a vent box stuns it and opens its armour: only then do Pip's deck-1 guns hurt it. Below half
+        // health it winds up faster, charges harder and calls in crawlers when it recovers.
+
+        void StepCompactor(Enemy e, float dt, Vector3 dp)
+        {
+            if (e.spawnT < 1f) return;
+            Vector3 to = dp - e.pos; to.y = 0f;
+            float dist = to.magnitude;
+            Vector3 dir = dist > 0.01f ? to / dist : Vector3.forward;
+            bool angry = e.hp < e.maxHp * 0.5f;
+            e.modeT -= dt;
+            float lim = World.HalfSize - e.radius;
+            switch (e.mode)
+            {
+                case 0: // approach
+                    e.vel = Vector3.Lerp(e.vel, dir * e.speed * (angry ? 1.4f : 1f), 1f - Mathf.Exp(-3f * dt));
+                    if (e.modeT <= 0f)
+                    {
+                        e.mode = 1; e.modeT = angry ? 0.65f : 0.95f; e.chargeDir = dir;
+                        e.lane.gameObject.SetActive(true);
+                        Sound.Play(Sfx.BossRoar, 0.6f, 0.1f);
+                    }
+                    break;
+                case 1: // wind-up: stand still, lane on the floor, shake
+                    e.vel = Vector3.zero;
+                    e.t.position = e.pos + Random.insideUnitSphere * 0.04f;
+                    float laneLen = 14f;
+                    e.lane.position = e.pos + e.chargeDir * (laneLen * 0.5f + e.radius) + Vector3.up * 0.02f;
+                    e.lane.rotation = Quaternion.LookRotation(e.chargeDir);
+                    e.lane.localScale = new Vector3(1.9f, 0.01f, laneLen) * (0.9f + 0.1f * Mathf.Sin(Time.time * 30f));
+                    if (e.modeT <= 0f) { e.mode = 2; e.modeT = 3f; e.lane.gameObject.SetActive(false); Sound.Play(Sfx.Dash, 1f, 0f); }
+                    break;
+                case 2: // charge
+                {
+                    e.vel = e.chargeDir * (angry ? 14f : 12f);
+                    Vector3 next = e.pos + e.vel * dt;
+                    bool wall = Mathf.Abs(next.x) > lim || Mathf.Abs(next.z) > lim;
+                    bool box = false;
+                    foreach (var ob in World.Obstacles) if (ob != null && ob.kind == ObstacleKind.Barrier && ob.Overlaps(next, e.radius * 0.8f)) { box = true; break; }
+                    if (wall || box || e.modeT <= 0f)
+                    {
+                        e.mode = 3; e.modeT = angry ? 2f : 2.4f; e.vel = Vector3.zero;
+                        Juice(0.7f, 0.06f);
+                        Fx.Shockwave(pal, e.pos, Palette.Hex("#F2B21E"), 2.6f);
+                        Fx.Sparks(pal, e.pos + e.chargeDir * e.radius + Vector3.up * 0.6f, Palette.Hex("#FFC940"), 14);
+                        Sound.Play(Sfx.MegaSlam, 1f, 0f);
+                        Fx.Text(e.Position + Vector3.up * 1.6f, "STUNNED: FIRE!", Palette.Hex("#3BD16F"), 1.3f, 1.2f);
+                        loop.ShowBanner(null, "ARMOUR OPEN: FIRE!", 1.6f, Palette.Hex("#3BD16F"));
+                    }
+                    break;
+                }
+                case 3: // stunned, armour open
+                    e.vel = Vector3.zero;
+                    if (Random.value < dt * 6f) Fx.Sparks(pal, e.Position + Vector3.up * 0.6f, Palette.Hex("#FF7A1A"), 3);
+                    if (e.modeT <= 0f)
+                    {
+                        e.mode = 0; e.modeT = angry ? 2.4f : 3.2f;
+                        if (angry) for (int i = 0; i < 3; i++) Spawn(EnemyKind.Crawler, SpawnPoint(5f));
+                    }
+                    break;
+            }
+            // Armour plates swing open while stunned.
+            float open = e.mode == 3 ? 1f : 0f;
+            for (int s = 0; s < e.plates.Length; s++)
+            {
+                var hinge = e.plates[s];
+                float target = (s == 0 ? -1f : 1f) * 70f * open;
+                hinge.localRotation = Quaternion.Slerp(hinge.localRotation, Quaternion.Euler(0f, 0f, target), 1f - Mathf.Exp(-10f * dt));
+            }
+            e.pos += e.vel * dt;
+            e.pos.x = Mathf.Clamp(e.pos.x, -lim, lim);
+            e.pos.z = Mathf.Clamp(e.pos.z, -lim, lim);
+            if (e.mode != 1) e.t.position = e.pos;
+            Vector3 face = e.mode >= 1 ? e.chargeDir : dir;
+            e.t.rotation = Quaternion.Slerp(e.t.rotation, Quaternion.LookRotation(face), 1f - Mathf.Exp(-(e.mode == 0 ? 3f : 12f) * dt));
+            if (e.mode != 3 && dist < e.radius + 0.55f)
+            {
+                HurtPlayer(1, e.pos, e.mode == 2 ? "compactor-charge" : "compactor");
+                dice.Knock((e.mode == 2 ? e.chargeDir : dir) * 9f);
             }
         }
 
@@ -724,7 +855,7 @@ namespace DiceHero
                 if (m < min && m > 0.0001f)
                 {
                     // The boss doesn't get shoved around by its minions.
-                    float wa = a.kind == EnemyKind.Boss ? 0f : b.kind == EnemyKind.Boss ? 1f : 0.5f;
+                    float wa = a.IsBig ? 0f : b.IsBig ? 1f : 0.5f;
                     Vector3 push = d / m * (min - m);
                     a.pos -= push * wa; b.pos += push * (1f - wa);
                 }

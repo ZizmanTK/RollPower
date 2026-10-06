@@ -280,13 +280,13 @@ namespace DiceHero
             if (over) Dice.InputOverride = Vector2.zero;
             Dice.Step(dt);
             ShieldGlow(dt);
-            Face?.Step(dt, Dice, Game, Guide.Plan);
+            Face?.Step(dt, Dice, Game, Advice);
             Weapons.Step(dt, allowFire && !over && !Game.Intermission);
             Projectiles.Step(Palette, dt);
             Game.Step(dt);
             Fx.Step(dt);
             Guide.Step(dt, Dice, Game, !Game.Intermission);
-            Compass.Step(dt, Dice, Guide.Plan, !Game.Lost);
+            Compass.Step(dt, Dice, Advice, !Game.Lost);
             if (allowFire) MeasureStep(dt);
             if (AutoPickUpgrades && Game.Intermission && hand != null)
             {

@@ -185,7 +185,7 @@ public static class DiceHeroSetup
         var lo = GetArg("-loadout"); // e.g. -loadout flak,lance,tri,mortar,needler,missile
         if (lo != null) { var p = lo.Split(','); Loadout.OverrideForTest(new[] { null, p[0], p[1], p[2], p[3], p[4], p[5] }); }
         var stageId = GetArg("-stage"); // e.g. -stage scrap2: play one campaign stage to its end
-        if (stageId != null) Campaign.BeginDeck(Campaign.Find(stageId));
+        if (stageId != null) { Campaign.BeginDeck(Campaign.Find(stageId)); Campaign.AssumeClearedBefore = Campaign.Find(stageId); }
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
         boot.BuildWorld();
@@ -194,10 +194,10 @@ public static class DiceHeroSetup
         var game = loop.Game;
         loop.AutoPickUpgrades = true;
         game.Invincible = Array.IndexOf(Environment.GetCommandLineArgs(), "-godmode") >= 0;
-        var bot = new Autopilot(boot.Controller, loop.Weapons, game);
+        var bot = new Autopilot(boot.Controller, loop.Weapons, game) { Goal = () => loop.TutorialGoal, ExtraAdvice = () => loop.TutorialAdvice };
         // Wrong-gun share: of the time enemies are on the field, how long the gun was clearly the wrong one
         // (the same test the roll advice uses), and how long each wrong spell lasted.
-        float fightTime = 0f, wrongTime = 0f, spell = 0f; int hits = 0, lastHp = game.Hp;
+        float fightTime = 0f, wrongTime = 0f, spell = 0f; int hits = 0, lastHp = game.Hp, tutStep = -1;
         var spells = new System.Collections.Generic.List<float>();
         var cam = Camera.main.GetComponent<CameraFollow>();
         int rolls = 0, shots = 0, lastWave = 0, frame = 0, bombs = 0;
@@ -213,6 +213,7 @@ public static class DiceHeroSetup
             bot.Step(dt);
             loop.Step(dt, true);
             if (game.Bombs.All.Count > before) bombs += game.Bombs.All.Count - before;
+            if (loop.TutorialStep != tutStep) { tutStep = loop.TutorialStep; Debug.Log($"[RollPower] {frame / 30f:0.0}s tutorial step {tutStep + 1}"); }
             if (game.Hp < lastHp) hits++;
             lastHp = game.Hp;
             if (game.EnemiesLeft > 0 && !game.Intermission)
@@ -233,6 +234,7 @@ public static class DiceHeroSetup
         float median = spells.Count > 0 ? spells[spells.Count / 2] : 0f;
         Debug.Log($"[RollPower] controls {(DiceController.ButtonMode ? "button" : "bump")}: wrong-gun share {(fightTime > 0f ? 100f * wrongTime / fightTime : 0f):0}% of {fightTime:0}s fighting, " +
                   $"{spells.Count} wrong spells, median {median:0.0}s, rolls/min {rolls / Mathf.Max(1f, frame / 30f / 60f):0}, hits taken {hits}");
+        if (game.Foreman != null) Debug.Log($"[RollPower] foreman health left {game.Foreman.hp:0}/{game.Foreman.maxHp:0}");
         if (game.Stage != null) Debug.Log($"[RollPower] stage {game.Stage.id}: {(game.Won ? "CLEARED" : game.Lost ? "FAILED" : "TIMED OUT")} at wave {game.Wave}/{game.Stage.waves.Length}, {frame / 30f:0}s (par {game.Stage.parTime:0}s), hits {game.HitsTaken}");
         Debug.Log($"[RollPower] PlayTest end after {frame / 30f:0}s: wave {game.Wave}, lost {game.Lost}, hp {game.Hp}, rolls {rolls}, shots {shots}, " +
                   $"kills {game.Kills}, bombs {bombs} (disposed {game.BombsDisposed}), best combo x{game.BestCombo}, score {game.Score}");
@@ -245,6 +247,8 @@ public static class DiceHeroSetup
     public static void ArtShots()
     {
         string outDir = GetArg("-previewOut") ?? Path.GetFullPath("artshots");
+        var shotStage = GetArg("-stage"); // e.g. -stage scrap2: that stage's arena, look and waves
+        if (shotStage != null) { Campaign.BeginDeck(Campaign.Find(shotStage)); Campaign.AssumeClearedBefore = Campaign.Find(shotStage); }
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
         boot.BuildWorld();

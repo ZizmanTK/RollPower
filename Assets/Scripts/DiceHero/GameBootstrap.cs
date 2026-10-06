@@ -23,8 +23,10 @@ namespace DiceHero
 
         public void BuildWorld()
         {
-            WeaponDef.Apply(Loadout.Faces); // the player's die build, before gun models are made
+            // The player's die build (campaign stages use Pip's campaign modules), before gun models are made.
+            WeaponDef.Apply(Campaign.Pending != null ? Campaign.FacesFor(Campaign.Pending) : Loadout.Faces);
             DiceController.ButtonMode = Settings.RollButton;
+            Art.Theme = Campaign.Pending != null ? Campaign.DeckOf(Campaign.Pending).theme : Art.BaseTheme;
             Palette = new Palette(baseMaterial, glowMaterial);
             SetupLighting();
             World.Layout = Campaign.Pending?.layout; // a campaign stage brings its own arena

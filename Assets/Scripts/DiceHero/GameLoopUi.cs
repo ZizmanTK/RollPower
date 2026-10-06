@@ -138,7 +138,7 @@ namespace DiceHero
                 case Screen2.Story: DrawStory(w); break;
                 case Screen2.StageClear: Dim(w, 0.72f); DrawStageClear(w); break;
                 case Screen2.StageFailed: Dim(w, 0.62f); DrawStageFailed(w); break;
-                case Screen2.Playing: DrawRadio(w); break;
+                case Screen2.Playing: DrawTutorial(w); DrawRadio(w); break;
             }
             UiKit.End();
         }
@@ -182,7 +182,7 @@ namespace DiceHero
             float ly = 112f;
             UiKit.FadeStrip(new Rect(24, ly, 440, 34), new Color(HudTeal.r, HudTeal.g, HudTeal.b, 0.8f));
             UiKit.Diamond(new Vector2(42, ly + 17), 16, HudMint);
-            UiKit.Line(Game.BossWave ? $"WAVE {Game.Wave} · BOSS" : $"WAVE {Game.Wave}", 60, ly + 10, 22, UiKit.Text, 0f, 2, 1.5f);
+            UiKit.Line(HudWaveLabel, 60, ly + 10, 22, UiKit.Text, 0f, 2, 1.5f);
             (string text, Color c)[] rows =
             {
                 (Game.EnemiesLeft == 1 ? "1 enemy left" : $"{Game.EnemiesLeft} enemies left", UiKit.Text),
@@ -235,6 +235,20 @@ namespace DiceHero
                 UiKit.Line($"PHASE {bs.phase + 1}/3", bossX, 82, 15, HudMuted, 0f, 2);
             }
 
+            // Foreman (deck boss): name, bar and what to do right now.
+            var fm = Game.Foreman;
+            if (fm != null && fm.Alive)
+            {
+                float bw = Mathf.Min(600f, w - 1100f);
+                float bossX = w * 0.5f - bw * 0.5f;
+                UiKit.Line("FOREMAN · " + Enemy.Plural(fm.kind), w * 0.5f, 28, 24, UiKit.Text, 0.5f, 2, 2f);
+                UiKit.Rect(new Rect(bossX - 2, 60, bw + 4, 14), new Color(0f, 0f, 0f, 0.6f));
+                UiKit.Rect(new Rect(bossX, 62, bw * Mathf.Clamp01(fm.hp / fm.maxHp), 10), HudHull);
+                UiKit.Rect(new Rect(bossX + bw * 0.5f - 1.5f, 58, 3, 18), UiKit.Text);
+                string state = fm.Stunned ? "STUNNED: ARMOUR OPEN, FIRE!" : fm.mode == 1 || fm.mode == 2 ? "CHARGING: GET OUT OF THE LANE" : "ARMOURED: MAKE IT CHARGE INTO A WALL OR A VENT BOX";
+                UiKit.Line(state, w * 0.5f, 82, 17, fm.Stunned ? HudMint : fm.mode >= 1 ? UiKit.Red : HudMuted, 0.5f, 2, 1.5f);
+            }
+
             DrawBombAlerts(w);
             if (!playing) return;
 
@@ -254,7 +268,7 @@ namespace DiceHero
             }
 
             // One line at the bottom: the roll guide when the gun is wrong, otherwise a first-run hint.
-            var plan = Guide.Plan;
+            var plan = Advice;
             if (plan != null) DrawRollGuide(w, plan);
             else
             {
@@ -315,7 +329,7 @@ namespace DiceHero
 
         string TutorialHint()
         {
-            if (!Settings.ShowTutorial || Game.Wave > 3 || Game.Lost) return null;
+            if (!Settings.ShowTutorial || tutorial != null || Game.Wave > 3 || Game.Lost) return null;
             if (DiceController.ButtonMode)
             {
                 if (Game.Rolls == 0 && Game.TimeAlive < 4f) return "MOVE WITH WASD, ARROWS OR THE LEFT STICK";

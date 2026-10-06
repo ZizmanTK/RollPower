@@ -57,7 +57,7 @@ namespace DiceHero
 
         void Toast(string msg, float time) { loadoutMsg = msg; loadoutMsgTime = time; }
 
-        static string GunIcon(WeaponDef w) => w.cost == 0 ? "ui_gun" + w.model : "ui_gun_" + w.id;
+        static string GunIcon(WeaponDef w) => w.IsEmpty ? "ui_quit" : w.cost == 0 ? "ui_gun" + w.model : "ui_gun_" + w.id;
 
         static string Traits(WeaponDef w)
         {

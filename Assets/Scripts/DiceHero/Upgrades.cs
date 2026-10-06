@@ -70,19 +70,20 @@ namespace DiceHero
 
         static UpgradeDef[] BuildFaces()
         {
-            var list = new UpgradeDef[6];
+            var list = new List<UpgradeDef>();
             for (int f = 1; f <= 6; f++)
             {
                 int face = f;
                 var w = WeaponDef.All[f];
-                list[f - 1] = new UpgradeDef
+                if (w.IsEmpty) continue; // no tune-up for an empty socket
+                list.Add(new UpgradeDef
                 {
                     id = "face" + f, name = w.name + " TUNE-UP", maxLevel = 3, color = w.color,
                     desc = $"Face {f} only: +30% damage and +15% fire rate for the {Title(w.name)}",
                     apply = (s, l) => { s.faceDamage[face] += 0.3f; s.faceRate[face] += 0.15f; },
-                };
+                });
             }
-            return list;
+            return list.ToArray();
         }
 
         static string Title(string caps) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(caps.ToLowerInvariant());

@@ -56,9 +56,25 @@ namespace DiceHero
             root.gameObject.SetActive(false);
         }
 
+        /// <summary>A module was mounted on this face during play: rebuild its outline in every slot.</summary>
+        public void RefreshFace(int f)
+        {
+            foreach (var s in slots)
+            {
+                Object.Destroy(s.glyphs[f].gameObject);
+                var g = new GameObject("Glyph" + f).transform;
+                g.SetParent(s.t, false);
+                Glyphs.Build(WeaponDef.All[f].model, g, Mat(f, false));
+                g.gameObject.SetActive(false);
+                s.glyphs[f] = g;
+                s.glyphParts[f] = g.GetComponentsInChildren<Renderer>(true);
+                if (s.shown == f) s.shown = -1;
+            }
+        }
+
         Material Mat(int face, bool hot) => hot
-            ? pal.Glow("CompassHot" + face, WeaponDef.All[face].color, 4.2f)
-            : pal.Glow("Compass" + face, WeaponDef.All[face].color, 1.5f, WeaponDef.All[face].color * 0.15f);
+            ? pal.Glow("CompassHot" + WeaponDef.All[face].id, WeaponDef.All[face].color, 4.2f)
+            : pal.Glow("Compass" + WeaponDef.All[face].id, WeaponDef.All[face].color, 1.5f, WeaponDef.All[face].color * 0.15f);
 
         public void Step(float dt, DiceController dice, RollPlan plan, bool active)
         {
@@ -103,6 +119,7 @@ namespace DiceHero
                 Prim.Make(PrimitiveType.Cylinder, "G", g, new Vector3(x, 0f, z), new Vector3(r * 2f, h * 0.5f, r * 2f), m);
             switch (model)
             {
+                case 0: Bar(0f, 0f, 0.07f, 0.34f, 45f); Bar(0f, 0f, 0.07f, 0.34f, -45f); break;          // empty socket: a cross
                 case 1: Bar(0f, 0.04f, 0.1f, 0.62f); Bar(0f, -0.22f, 0.2f, 0.16f); break;                  // rail
                 case 2: Bar(-0.1f, 0f, 0.09f, 0.52f); Bar(0.1f, 0f, 0.09f, 0.52f); break;                  // twin
                 case 3: foreach (float a in new[] { -24f, 0f, 24f }) Bar(Mathf.Sin(a * Mathf.Deg2Rad) * 0.1f, 0f, 0.08f, 0.48f, a); break; // tri

@@ -10,6 +10,7 @@ namespace DiceHero
         public (EnemyKind kind, int count)[] enemies;
         public int bombs;
         public string radio;                       // optional line from Vega when the wave starts
+        public EnemyKind? boss;                    // a foreman wave: just the boss (it calls in its own help)
     }
 
     /// <summary>A hand-placed obstacle: vent box (Barrier) or pipe rack (Conduit, lying along X or Z).</summary>
@@ -28,6 +29,12 @@ namespace DiceHero
         public Placement[] layout;
         public WaveDef[] waves;
         public float parTime = 150f;
+        /// <summary>Faces this stage starts with, overriding the saved ones (index 0 unused). The tutorial starts with one module.</summary>
+        public string[] startFaces;
+        /// <summary>Module handed over when the stage is cleared, and the face it goes on.</summary>
+        public string grant; public int grantFace;
+        /// <summary>Scripted tutorial instead of waves (stage 1-1).</summary>
+        public bool tutorial;
         public string[] startRadio = new string[0];
         public string[] clearRadio = new string[0];
     }
@@ -38,6 +45,8 @@ namespace DiceHero
         public string id, name, look, mechanic;
         public StageDef[] stages = new StageDef[0];
         public bool playable;
+        /// <summary>Art.Theme for this deck's stages (3 navy until the deck gets its own look).</summary>
+        public int theme = 3;
     }
 
     /// <summary>
@@ -83,47 +92,55 @@ namespace DiceHero
             var B = ObstacleKind.Barrier; var C = ObstacleKind.Conduit;
             var test = new DeckDef
             {
-                id = "scrap", name = "SCRAP BAY", look = "Placeholder art (navy deck) until phase 5", mechanic = "Roll to dodge and to change guns",
+                id = "scrap", name = "SCRAP BAY", look = "Rust orange and concrete grey, piles of scrap", mechanic = "Roll to dodge and to change guns", theme = 4,
                 playable = true,
                 stages = new[]
                 {
                     new StageDef
                     {
-                        id = "scrap1", name = "BOOT-UP", objective = "Clear 2 waves", teaches = "Moving, automatic fire, the roll", parTime = 30f,
-                        layout = new[] { new Placement(B, -4f, 0f), new Placement(B, 4f, 0f), new Placement(B, 0f, 4f), new Placement(C, 0f, -1.5f, true) },
-                        waves = new[]
-                        {
-                            new WaveDef { title = "CRAWLERS INCOMING", enemies = new[] { (EnemyKind.Crawler, 6) }, radio = "Crawlers. Your guns aim on their own, just keep moving." },
-                            new WaveDef { title = "MORE CRAWLERS", enemies = new[] { (EnemyKind.Crawler, 9) }, radio = "Roll through them. You can't be hurt at the start of a roll." },
-                        },
-                        startRadio = new[] { "Pip, can you hear me? It's Vega, chief engineer. You're the only unit still moving." },
-                        clearRadio = new[] { "Nice. That's the scrap bay quiet. Keep going." },
+                        id = "scrap1", name = "BOOT-UP", objective = "Tutorial: 8 steps", teaches = "Move, fire, roll, modules, fliers", parTime = 120f,
+                        tutorial = true, startFaces = StartFaces, grant = "tri", grantFace = 2,
+                        layout = new[] { new Placement(B, -5f, 0f), new Placement(B, 5f, 0f), new Placement(B, 3f, 5f), new Placement(B, -3f, 5f), new Placement(C, 0f, -2.5f, true) },
+                        waves = new WaveDef[0],
+                        startRadio = new[] { "Pip, can you hear me? It's Vega, chief engineer. You're the only unit still moving.", "Let's get you working. Head for the blue beacon." },
+                        clearRadio = new[] { "That's the scrap bay quiet, and you've got two modules. Keep going." },
                     },
                     new StageDef
                     {
-                        id = "scrap2", name = "FLIERS", objective = "Clear 3 waves", teaches = "Some enemies need a certain gun", parTime = 45f,
+                        id = "scrap2", name = "FLIERS", objective = "Clear 4 waves", teaches = "Some enemies need a certain gun", parTime = 80f,
                         layout = new[] { new Placement(B, -5f, 3f), new Placement(B, 5f, 3f), new Placement(B, -3f, -3f), new Placement(B, 3f, -3f), new Placement(C, 0f, 2f, false) },
                         waves = new[]
                         {
-                            new WaveDef { title = "DRONES INCOMING", enemies = new[] { (EnemyKind.Drone, 5) }, radio = "Drones fly over most shots. Look at the markers around you: roll to the one that lights up." },
-                            new WaveDef { title = "MIXED SWARM", enemies = new[] { (EnemyKind.Crawler, 6), (EnemyKind.Drone, 4) } },
-                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 2), (EnemyKind.Crawler, 6) }, bombs = 2, radio = "Bombs! Shove them off the edge before they blow." },
+                            new WaveDef { title = "DRONES INCOMING", enemies = new[] { (EnemyKind.Drone, 6) }, radio = "Drones fly over most shots. Look at the markers around you: roll to the one that lights up." },
+                            new WaveDef { title = "MIXED SWARM", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 4) } },
+                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 2), (EnemyKind.Crawler, 8) }, bombs = 2, radio = "Bombs! Shove them off the edge before they blow." },
+                            new WaveDef { title = "AIR RAID", enemies = new[] { (EnemyKind.Drone, 9), (EnemyKind.Crawler, 6) }, radio = "A big flight coming in. Stay on the tri-shot, and only roll when you have to." },
                         },
                         startRadio = new[] { "Something's flying in from the vents. Your twin blasters won't reach it." },
                         clearRadio = new[] { "You're learning faster than the House can adapt." },
                     },
                     new StageDef
                     {
-                        id = "scrap3", name = "UNDER PRESSURE", objective = "Clear 3 waves", teaches = "Switching guns while you dodge", parTime = 60f,
+                        id = "scrap3", name = "UNDER PRESSURE", objective = "Clear 4 waves", teaches = "Switching guns while you dodge", parTime = 100f,
                         layout = new[] { new Placement(C, -4f, 0f, false), new Placement(C, 4f, 0f, false), new Placement(B, 0f, 4.5f), new Placement(B, 0f, -3f) },
                         waves = new[]
                         {
-                            new WaveDef { title = "CRAWLERS AND DRONES", enemies = new[] { (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4) }, radio = "Ground and air at once. Dodge with the roll, and land on the gun you need." },
-                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Drone, 4) }, bombs = 2 },
-                            new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 6), (EnemyKind.Bomber, 2) }, bombs = 2, radio = "Roll over a pipe rack to vault it: you land on the opposite face." },
+                            new WaveDef { title = "CRAWLERS AND DRONES", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 5) }, radio = "Ground and air at once. Dodge with the roll, and land on the gun you need." },
+                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Drone, 5) }, bombs = 2 },
+                            new WaveDef { title = "MITES", enemies = new[] { (EnemyKind.Mite, 12), (EnemyKind.Crawler, 6) }, radio = "Mites. Small and fast. The tri-shot's spread is your friend." },
+                            new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Crawler, 12), (EnemyKind.Drone, 7), (EnemyKind.Bomber, 2) }, bombs = 2, radio = "Roll over a pipe rack to vault it: you land on the opposite face." },
                         },
                         startRadio = new[] { "The House is throwing everything at you. Good. That means it's worried." },
-                        clearRadio = new[] { "That's the deck. The foreman's next, but it's not built yet. Phase 5." },
+                        clearRadio = new[] { "That's the bay cleared. The foreman is guarding the exit." },
+                    },
+                    new StageDef
+                    {
+                        id = "scrap4", name = "THE COMPACTOR", objective = "Beat the foreman", teaches = "Bosses: lure it, stun it, fire", parTime = 90f,
+                        grant = "rail", grantFace = 6,
+                        layout = new[] { new Placement(B, -4.5f, -1f), new Placement(B, 4.5f, -1f), new Placement(B, 0f, 3.5f), new Placement(B, -6f, 6f), new Placement(B, 6f, 6f) },
+                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Compactor, radio = "That's the bay's compactor. Your guns bounce off it. Make it ram something." } },
+                        startRadio = new[] { "Something big is moving in the bay." },
+                        clearRadio = new[] { "It dropped its railgun. I've mounted it on your bottom face: face 6.", "The bottom face takes two rolls, or one vault over a pipe rack. Next deck: Hydroponics." },
                     },
                 },
             };
@@ -159,6 +176,38 @@ namespace DiceHero
         }
 
         // ---------------- Saved progress ----------------
+
+        // ---------------- Pip's modules in the campaign (separate from the gauntlet's die build) ----------------
+
+        /// <summary>Pip starts with one working module; the others are empty sockets until found or won.</summary>
+        public static readonly string[] StartFaces = { null, "twin", "empty", "empty", "empty", "empty", "empty" };
+
+        /// <summary>Tests: treat every stage before this one (in its deck) as cleared when working out Pip's modules.</summary>
+        public static StageDef AssumeClearedBefore;
+
+        /// <summary>Pip's modules: the starting one, plus what every cleared stage handed over.</summary>
+        public static string[] Faces
+        {
+            get
+            {
+                var f = (string[])StartFaces.Clone();
+                foreach (var d in Decks)
+                {
+                    int limit = AssumeClearedBefore != null && System.Array.IndexOf(d.stages, AssumeClearedBefore) >= 0 ? System.Array.IndexOf(d.stages, AssumeClearedBefore) : -1;
+                    for (int i = 0; i < d.stages.Length; i++)
+                    {
+                        var s = d.stages[i];
+                        // Tests ignore saved progress: exactly the stages before the tested one count as cleared.
+                        bool done = AssumeClearedBefore != null ? i < limit : Cleared(s);
+                        if (s.grant != null && done) f[s.grantFace] = s.grant;
+                    }
+                }
+                return f;
+            }
+        }
+
+        /// <summary>The faces a stage is played with.</summary>
+        public static string[] FacesFor(StageDef s) => s.startFaces != null ? (string[])s.startFaces.Clone() : Faces;
 
         public static bool SeenIntro { get => PlayerPrefs.GetInt("rp.c.intro", 0) == 1; set => PlayerPrefs.SetInt("rp.c.intro", value ? 1 : 0); }
         public static bool Cleared(StageDef s) => PlayerPrefs.GetInt("rp.c.clear." + s.id, 0) == 1;

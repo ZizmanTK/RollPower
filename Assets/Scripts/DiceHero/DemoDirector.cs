@@ -43,7 +43,7 @@ namespace DiceHero
             if (Flag("-mute")) AudioListener.volume = 0f;
             loop.Game.Invincible = godMode;
             loop.ExternalInput = true;
-            bot = new Autopilot(loop.Dice, loop.Weapons, loop.Game);
+            bot = new Autopilot(loop.Dice, loop.Weapons, loop.Game) { Goal = () => loop.TutorialGoal, ExtraAdvice = () => loop.TutorialAdvice };
             Debug.Log($"[RollPower] demo director: capture={dir ?? "off"} god={godMode} limit={limit}s");
         }
 

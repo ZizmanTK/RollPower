@@ -79,8 +79,23 @@ namespace DiceHero
         /// Button mode: kite and shove bombs as usual, roll toward the advised marker once the gun has been wrong for
         /// ReactionTime, and roll away from crowding, preferring a direction whose gun is no worse than the current one.
         /// </summary>
+        /// <summary>Tutorial hooks: a place to walk to, and a roll the tutorial asks for.</summary>
+        public System.Func<Vector3?> Goal;
+        public System.Func<RollPlan> ExtraAdvice;
+
         void StepButton(Vector3 p, float dt)
         {
+            var extra = ExtraAdvice?.Invoke();
+            if (extra != null && dice.DashCooldownLeft <= 0f) { dice.InputOverride = new Vector2(extra.dir.x, extra.dir.z); dice.TryRoll(); return; }
+            var goal = Goal?.Invoke();
+            if (goal.HasValue && game.EnemiesLeft == 0)
+            {
+                Vector3 to = goal.Value - p; to.y = 0f;
+                Steer(to * 3f - dice.Velocity);
+                // Blocked (a pipe rack in the way): roll toward the goal, which vaults it.
+                if (dice.Velocity.magnitude < 0.6f && to.magnitude > 1.5f && dice.DashCooldownLeft <= 0f && modeTime > 0.5f) { dice.TryRoll(); modeTime = 0f; }
+                return;
+            }
             // Dodge first: roll across whatever is about to hit, preferring a direction whose gun is no worse.
             var threat = game.IncomingThreat(p);
             if (threat.HasValue && dice.DashCooldownLeft <= 0f)

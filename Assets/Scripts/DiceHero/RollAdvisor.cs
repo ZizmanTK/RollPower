@@ -102,6 +102,14 @@ namespace DiceHero
             return best;
         }
 
+        /// <summary>A roll that puts this face on top: one roll if it's a neighbour, otherwise two (the opposite face).</summary>
+        public static RollPlan ToFace(DiceController dice, int face)
+        {
+            if (face < 1 || face == dice.TopNumber) return null;
+            foreach (var d in Directions) if (dice.PreviewTop(d) == face) return new RollPlan { dir = d, top = face, steps = 1 };
+            return new RollPlan { dir = Directions[0], top = face, steps = 2 };
+        }
+
         /// <summary>
         /// True when the current gun is clearly the wrong one: some gun would hurt at least twice as much of
         /// what is on the field. A single stray drone among crawlers does not trigger a hint.

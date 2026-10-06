@@ -27,6 +27,30 @@ namespace DiceHero
         bool dodgedThisRoll;
 
         bool InStage => Campaign.Active != null && Game.Stage != null;
+        Tutorial tutorial;
+        /// <summary>Roll to recommend this frame: the tutorial's own advice when it has one, else the roll guide's.</summary>
+        RollPlan Advice => tutorial?.PlanOverride ?? Guide.Plan;
+        /// <summary>Autopilot hooks for the tutorial.</summary>
+        public Vector3? TutorialGoal => tutorial?.Goal;
+        public RollPlan TutorialAdvice => tutorial?.PlanOverride;
+        public int TutorialStep => tutorial != null ? tutorial.Step : -1;
+
+        /// <summary>Mounts a module on a face mid-stage (the tutorial pickup): gun, Pip's socket and the floor outline.</summary>
+        public void MountModule(int face, string id)
+        {
+            var faces = new string[7];
+            for (int f = 1; f <= 6; f++) faces[f] = WeaponDef.All[f].id;
+            faces[face] = id;
+            WeaponDef.Apply(faces);
+            Weapons.RebuildGun(face);
+            if (Dice.Model.IsPip) PipBuilder.RebuildFace(Palette, Dice.Model, face);
+            Compass.RefreshFace(face);
+            var w = WeaponDef.All[face];
+            Fx.Text(Dice.transform.position + Vector3.up * 2.4f, w.name + " MOUNTED", w.color, 1.2f, 1f);
+            Fx.Flash(Palette, Dice.transform.position + Vector3.up * 0.8f, w.color, 0.7f, 0.25f);
+            Sound.Play(Sfx.Upgrade, 0.9f, 0f);
+            Telemetry.Log("module", "gun", id, "face", face, "stage", Campaign.Active?.id);
+        }
 
         // Hooks for the demo director's campaign walk-through.
         public void DemoOpenCampaign() => OpenCampaign();
@@ -35,6 +59,20 @@ namespace DiceHero
         public void DemoStageMenu(int index) { if (State == Screen2.StageClear) ActivateStageClear(index); else if (State == Screen2.StageFailed) ActivateStageFail(index); }
 
         public void Radio(string line) { if (!string.IsNullOrEmpty(line)) radio.Enqueue(line); }
+
+        /// <summary>A line that must be heard now (the tutorial's): drops whatever was still queued.</summary>
+        public void RadioNow(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            radio.Clear();
+            radioLine = null; radioT = 0f;
+            radio.Enqueue(line);
+        }
+
+        /// <summary>HUD top-left: the stage and its wave, the tutorial, or the gauntlet's wave.</summary>
+        string HudWaveLabel => tutorial != null ? "TUTORIAL"
+            : InStage ? (Game.Foreman != null ? $"STAGE {StageLabel(Campaign.Active)} · FOREMAN" : $"STAGE {StageLabel(Campaign.Active)} · WAVE {Mathf.Max(1, Game.Wave)}/{Campaign.Active.waves.Length}")
+            : Game.BossWave ? $"WAVE {Game.Wave} · BOSS" : $"WAVE {Game.Wave}";
 
         void BuildCampaignMenus()
         {
@@ -59,6 +97,7 @@ namespace DiceHero
             Deck.Restore(Campaign.StageStartLevels);
             Game.RepairFull();
             Game.StageCleared += OnStageCleared;
+            if (Campaign.Active.tutorial) tutorial = new Tutorial(this, Game, Dice, Palette);
             foreach (var l in Campaign.Active.startRadio) Radio(l);
             Telemetry.Log("stage_start", "stage", Campaign.Active.id, "attempt", Campaign.Deaths + 1, "par", Campaign.Active.parTime);
         }
@@ -80,6 +119,7 @@ namespace DiceHero
         /// <summary>Per-tick measurements while fighting (called from Step).</summary>
         void MeasureStep(float dt)
         {
+            tutorial?.Update(dt);
             if (Game.Intermission || Game.Lost || Game.Won || Game.EnemiesLeft == 0) return;
             fightTime += dt;
             if (RollAdvisor.Needed(Dice, Game)) wrongTime += dt;
@@ -354,7 +394,8 @@ namespace DiceHero
         {
             var s = Campaign.Active;
             if (s == null) return; // leaving for the map: the scene is reloading
-            Plate(w, 70f, $"STAGE {StageLabel(s)}  ·  WAVE {Game.Wave} / {s.waves.Length}", Palette.Hex("#FF6A3D"), "PIP OFFLINE", 52);
+            string where = tutorial != null ? $"STEP {tutorial.Step + 1} / {Tutorial.Steps}" : $"WAVE {Game.Wave} / {s.waves.Length}";
+            Plate(w, 70f, $"STAGE {StageLabel(s)}  ·  {where}", Palette.Hex("#FF6A3D"), "PIP OFFLINE", 52);
             var r = new Rect(w * 0.5f - 460f, 250f, 920f, 130f);
             UiKit.ChamferPanel(r, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.94f), Palette.Hex("#FFB020"));
             UiKit.Line(Campaign.Vega, r.x + 28f, r.y + 20f, 16, Palette.Hex("#FFB020"), 0f, 2);
@@ -371,6 +412,19 @@ namespace DiceHero
         {
             var d = Campaign.DeckOf(s);
             return $"{System.Array.IndexOf(Campaign.Decks, d) + 1}-{System.Array.IndexOf(d.stages, s) + 1}";
+        }
+
+        /// <summary>Tutorial: the current step's instruction under the banner, and its stronger hint once stuck.</summary>
+        void DrawTutorial(float w)
+        {
+            if (tutorial == null || tutorial.Instruction == null || Game.Won || Game.Lost) return;
+            float iw = Mathf.Max(UiKit.TextWidth(tutorial.Instruction, 30) + 80f, 520f);
+            var r = new Rect(w * 0.5f - iw * 0.5f, 104f, iw, 92f); // top of the screen: clear of Pip and its pop-up text
+            UiKit.ChamferPanel(r, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.9f), UiKit.Cyan);
+            UiKit.Line($"TUTORIAL  ·  STEP {tutorial.Step + 1} / {Tutorial.Steps}", w * 0.5f, r.y + 14f, 15, UiKit.Cyan, 0.5f, 2);
+            UiKit.Line(tutorial.Instruction, w * 0.5f, r.y + 40f, 30, UiKit.Text, 0.5f, 2, 2f);
+            if (tutorial.IsStuck && tutorial.StuckHint != null)
+                UiKit.Line(tutorial.StuckHint, w * 0.5f, r.yMax + 12f, 20, Palette.Hex("#FFB020"), 0.5f, 1, 2f);
         }
 
         /// <summary>Vega on the radio: bottom-left panel, the line typed out, a few seconds each.</summary>
