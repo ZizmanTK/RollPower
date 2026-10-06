@@ -29,6 +29,9 @@ namespace DiceHero
         public DiceModel Model { get; private set; }
         public Vector3 Velocity => velocity;
         public bool IsRolling => rolling;
+        /// <summary>Can not be hurt: while rolling, during the first part of a dash, and just after landing.</summary>
+        public bool Shielded => rolling || dashTime > 0.1f || landGrace > 0f;
+        float landGrace;
         public int TopNumber { get; private set; } = 1;
         public Quaternion Orientation => orientation;
 
@@ -116,6 +119,7 @@ namespace DiceHero
             tripCooldown -= dt;
             DashCooldownLeft -= dt;
             dashTime -= dt;
+            landGrace -= dt;
             if (rolling) UpdateRoll(dt);
             else UpdateGlide(dt);
             UpdateJuice(dt);
@@ -220,6 +224,7 @@ namespace DiceHero
         {
             rolling = false;
             tripCooldown = 0.25f;
+            landGrace = 0.4f;
             orientation = SnapToAxes(orientation);
             Model.Body.localPosition = new Vector3(0f, 0.5f, 0f);
             squashVel -= 7f;

@@ -305,7 +305,7 @@ namespace DiceHero
 
         public void HurtPlayer(int amount, Vector3 from)
         {
-            if (invuln > 0f || dice.IsRolling || Lost || Won || amount <= 0) return;
+            if (invuln > 0f || dice.Shielded || Lost || Won || amount <= 0) return;
             if (Invincible) { invuln = 1.2f; HurtFlash = 0.2f; Juice(0.3f, 0.03f); return; }
             Hp = Mathf.Max(0, Hp - amount);
             invuln = 1.2f;

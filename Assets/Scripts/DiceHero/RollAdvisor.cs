@@ -63,6 +63,29 @@ namespace DiceHero
             return best;
         }
 
+        /// <summary>
+        /// True when the current gun is clearly the wrong one: some gun would hurt at least twice as much of
+        /// what is on the field. A single stray drone among crawlers does not trigger a hint.
+        /// </summary>
+        public static bool Needed(DiceController dice, Game game)
+        {
+            int cur = Value(WeaponDef.All[dice.TopNumber], game), best = 0;
+            for (int n = 1; n <= 6; n++) best = Mathf.Max(best, Value(WeaponDef.All[n], game));
+            return best > 0 && cur * 2 <= best;
+        }
+
+        /// <summary>Distance to the line-up point, minus a bonus for how much the roll helps (lower is better).</summary>
+        public static float Cost(RollPlan plan, DiceController dice, Game game)
+        {
+            int gain = Value(plan.Gun, game) - Value(WeaponDef.All[dice.TopNumber], game);
+            return (plan.approach - dice.transform.position).magnitude - gain * 2f;
+        }
+
+        /// <summary>The plan still lands the promised number and that gun still helps.</summary>
+        public static bool StillValid(RollPlan plan, DiceController dice, Game game)
+            => plan.obstacle != null && dice.PreviewTop(plan.dir, plan.obstacle.RollSteps) == plan.top
+               && Value(plan.Gun, game) > Value(WeaponDef.All[dice.TopNumber], game);
+
         static bool Blocked(Vector3 pos)
         {
             foreach (var ob in World.Obstacles) if (ob != null && ob.Overlaps(pos, 0.7f)) return true;
@@ -106,13 +129,25 @@ namespace DiceHero
             root.gameObject.SetActive(false);
         }
 
-        /// <summary>Recomputes the advice (only when the current gun is no good) and animates the markers.</summary>
+        float replan;
+
+        /// <summary>
+        /// Shows advice only when the current gun is clearly wrong, and commits to one target: the plan only
+        /// changes when it stops working, or when a much better one turns up (checked every 1.5 s).
+        /// </summary>
         public void Step(float dt, DiceController dice, Game game, bool active)
         {
             t += dt;
-            Plan = null;
-            if (active && !dice.IsRolling && !game.Lost && game.Immune(WeaponDef.All[dice.TopNumber]) != null)
-                Plan = RollAdvisor.Best(dice, game);
+            if (dice.IsRolling) { root.gameObject.SetActive(false); return; } // hidden mid-roll; re-checked on landing
+            if (!active || game.Lost || !RollAdvisor.Needed(dice, game)) { Plan = null; root.gameObject.SetActive(false); return; }
+            if (Plan != null && !RollAdvisor.StillValid(Plan, dice, game)) Plan = null;
+            replan -= dt;
+            if (Plan == null || replan <= 0f)
+            {
+                replan = 1.5f;
+                var fresh = RollAdvisor.Best(dice, game);
+                if (Plan == null || (fresh != null && RollAdvisor.Cost(fresh, dice, game) < RollAdvisor.Cost(Plan, dice, game) - 4f)) Plan = fresh;
+            }
             root.gameObject.SetActive(Plan != null);
             if (Plan == null) return;
 

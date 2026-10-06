@@ -19,6 +19,8 @@ namespace DiceHero
         public static readonly Color Red = Palette.Hex("#FF3B4E");
         public static readonly Color Blue = Palette.Hex("#4D8BFF");
         public static readonly Color Mint = Palette.Hex("#3DFFB0");
+        // Style 7 (upgrade screen) palette, shared by every menu.
+        public static readonly Color Cyan = Palette.Hex("#29B6F6"), Steel = Palette.Hex("#2F8FC0"), Soft = Palette.Hex("#B9D2E2"), Mutedish = Palette.Hex("#8FB4CC");
 
         public static Texture2D White { get; private set; }
         static Texture2D rounded, roundedBorder, glow;
@@ -367,7 +369,7 @@ namespace DiceHero
         public int Selected;
         public class Item
         {
-            public string label;
+            public string label, icon;
             public Func<float> getValue;   // slider items (0..1) have a getter and setter
             public Action<float> setValue;
             public Func<string> valueText; // toggle / choice items show a value on the right
@@ -380,7 +382,7 @@ namespace DiceHero
         Vector2 lastMouse;
         int lastDrawFrame = -10;
 
-        public Menu Add(string label) { Items.Add(new Item { label = label }); return this; }
+        public Menu Add(string label, string icon = null) { Items.Add(new Item { label = label, icon = icon }); return this; }
         public Menu AddSlider(string label, Func<float> get, Action<float> set) { Items.Add(new Item { label = label, getValue = get, setValue = set }); return this; }
         public Menu AddChoice(string label, Func<string> text, Action<int> cycle) { Items.Add(new Item { label = label, valueText = text, cycle = cycle }); return this; }
 
@@ -409,7 +411,7 @@ namespace DiceHero
             return -1;
         }
 
-        /// <summary>Draws the menu centred at x, starting at y. Returns the clicked index (or -1).</summary>
+        /// <summary>Draws the menu centred at x, starting at y (style 7 rows). Returns the clicked index (or -1).</summary>
         public int Draw(float cx, float y, float width = 560f, float rowH = 74f)
         {
             int clicked = -1;
@@ -430,23 +432,31 @@ namespace DiceHero
                 if (sel)
                 {
                     float p = 0.5f + 0.5f * Mathf.Sin(pulse * 5f);
-                    UiKit.Glow(new Rect(r.x - 40f, r.y - 30f, r.width + 80f, r.height + 60f), new Color(UiKit.Gold.r, UiKit.Gold.g, UiKit.Gold.b, 0.10f + 0.06f * p));
-                    UiKit.Panel(r, 0.9f, new Color(UiKit.Gold.r, UiKit.Gold.g, UiKit.Gold.b, 0.85f));
-                    UiKit.DieFace(new Rect(r.x + 16f, r.y + r.height * 0.5f - 17f, 34f, 34f), (i % 6) + 1, UiKit.Gold, UiKit.Ink);
+                    UiKit.Glow(new Rect(r.x - 40f, r.y - 30f, r.width + 80f, r.height + 60f), new Color(UiKit.Cyan.r, UiKit.Cyan.g, UiKit.Cyan.b, 0.10f + 0.06f * p));
+                    UiKit.ChamferPanel(r, new Color(0.06f, 0.16f, 0.25f, 0.97f), UiKit.Cyan);
+                    UiKit.Rect(new Rect(r.x + 10f, r.y + 12f, 4f, r.height - 24f), UiKit.Cyan);
                 }
-                else UiKit.Panel(r, 0.6f);
+                else UiKit.ChamferPanel(r, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.86f), new Color(UiKit.Steel.r, UiKit.Steel.g, UiKit.Steel.b, 0.7f));
 
-                Color tc = sel ? UiKit.Gold : UiKit.Text;
-                float px = 5f;
+                Color tc = sel ? UiKit.Text : UiKit.Soft;
+                int fs = Mathf.RoundToInt(Mathf.Min(30f, r.height * 0.5f));
+                float tx = r.x + 30f;
+                if (it.icon != null)
+                {
+                    UiKit.DrawIcon(new Rect(tx, r.center.y - 14f, 28f, 28f), "ui_" + it.icon, sel ? UiKit.Cyan : UiKit.Mutedish);
+                    tx += 46f;
+                }
                 if (it.Slider || it.valueText != null)
                 {
-                    UiKit.Pixel(it.label, r.x + 68f, r.center.y - px * 3.5f, px, tc);
-                    float bx = r.xMax - 210f;
+                    UiKit.Line(it.label, tx, r.center.y - fs * 0.36f, fs, tc, 0f, 2);
+                    float bx = r.xMax - 250f;
                     if (it.Slider)
                     {
-                        var bar = new Rect(bx, r.center.y - 7f, 180f, 14f);
-                        UiKit.Bar(bar, it.getValue(), sel ? UiKit.Gold : UiKit.Muted);
-                        UiKit.Pixel(Mathf.RoundToInt(it.getValue() * 100f) + "%", bx - 16f, r.center.y - 3f * 3.5f, 3f, UiKit.Muted, 1f);
+                        var bar = new Rect(bx, r.center.y - 7f, 200f, 14f);
+                        int filled = Mathf.RoundToInt(it.getValue() * 10f);
+                        for (int s = 0; s < 10; s++)
+                            UiKit.Rect(new Rect(bar.x + s * 20f, bar.y, 16f, bar.height), s < filled ? (sel ? UiKit.Cyan : UiKit.Steel) : new Color(0f, 0f, 0f, 0.45f));
+                        UiKit.Line(Mathf.RoundToInt(it.getValue() * 100f) + "%", r.xMax - 24f, r.center.y - 7f, 19, sel ? UiKit.Text : UiKit.Mutedish, 1f, 2);
                         if (e.type == EventType.MouseDown && e.button == 0 && new Rect(bar.x - 6f, r.y, bar.width + 12f, r.height).Contains(e.mousePosition))
                         {
                             it.setValue(Mathf.Clamp01(Mathf.Round((e.mousePosition.x - bar.x) / bar.width * 10f) / 10f));
@@ -456,10 +466,13 @@ namespace DiceHero
                     }
                     else
                     {
-                        UiKit.Pixel("< " + it.valueText() + " >", r.xMax - 24f, r.center.y - px * 3.5f, px, sel ? UiKit.Text : UiKit.Muted, 1f);
+                        string v = it.valueText();
+                        UiKit.Line(v, r.xMax - 70f, r.center.y - 10f, 26, sel ? UiKit.Cyan : UiKit.Soft, 0.5f, 2);
+                        UiKit.DrawIcon(new Rect(r.xMax - 150f, r.center.y - 10f, 20f, 20f), "ui_arrow", sel ? UiKit.Text : UiKit.Mutedish, 180f);
+                        UiKit.DrawIcon(new Rect(r.xMax - 30f, r.center.y - 10f, 20f, 20f), "ui_arrow", sel ? UiKit.Text : UiKit.Mutedish);
                         if (e.type == EventType.MouseDown && e.button == 0 && hover)
                         {
-                            it.cycle(e.mousePosition.x < r.center.x + 120f ? -1 : 1);
+                            it.cycle(e.mousePosition.x < r.xMax - 70f ? -1 : 1);
                             Sound.Play(Sfx.UiMove, 0.5f, 0f);
                             e.Use();
                         }
@@ -467,7 +480,8 @@ namespace DiceHero
                 }
                 else
                 {
-                    UiKit.Pixel(it.label, r.center.x, r.center.y - px * 3.5f, px, tc, 0.5f);
+                    UiKit.Line(it.label, tx, r.center.y - fs * 0.36f, fs, tc, 0f, 2);
+                    if (sel) UiKit.Keycap(r.xMax - 26f - (UiKit.TextWidth("ENTER", 16) + 12f), r.center.y - 13f, "ENTER", 26f);
                     if (e.type == EventType.MouseDown && e.button == 0 && hover)
                     {
                         Selected = i;

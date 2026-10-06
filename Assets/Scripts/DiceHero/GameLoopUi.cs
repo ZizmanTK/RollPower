@@ -17,10 +17,10 @@ namespace DiceHero
 
         void BuildMenus()
         {
-            titleMenu = new Menu().Add("PLAY").Add("HOW TO PLAY").Add("SETTINGS");
-            if (CanQuit) titleMenu.Add("QUIT");
-            pauseMenu = new Menu().Add("RESUME").Add("SETTINGS").Add("HOW TO PLAY").Add("RESTART").Add("MAIN MENU");
-            gameOverMenu = new Menu().Add("PLAY AGAIN").Add("MAIN MENU");
+            titleMenu = new Menu().Add("PLAY", "play").Add("HOW TO PLAY", "help").Add("SETTINGS", "settings");
+            if (CanQuit) titleMenu.Add("QUIT", "quit");
+            pauseMenu = new Menu().Add("RESUME", "resume").Add("SETTINGS", "settings").Add("HOW TO PLAY", "help").Add("RESTART", "restart").Add("MAIN MENU", "home");
+            gameOverMenu = new Menu().Add("PLAY AGAIN", "restart").Add("MAIN MENU", "home");
             settingsMenu = new Menu()
                 .AddSlider("MUSIC", () => Settings.Music, v => Settings.Music = v)
                 .AddSlider("SOUND FX", () => Settings.Sfx, v => Settings.Sfx = v)
@@ -28,7 +28,7 @@ namespace DiceHero
                     d => { float[] o = { 0f, 0.5f, 1f }; int i = Settings.ShakeAmount <= 0f ? 0 : Settings.ShakeAmount < 0.9f ? 1 : 2; Settings.ShakeAmount = o[(i + d + 3) % 3]; if (cam != null) cam.Shake(0.4f); })
                 .AddChoice("FULLSCREEN", () => Screen.fullScreen ? "ON" : "OFF", d => Screen.fullScreen = !Screen.fullScreen)
                 .AddChoice("HINTS", () => Settings.ShowTutorial ? "ON" : "OFF", d => Settings.ShowTutorial = !Settings.ShowTutorial)
-                .Add("BACK");
+                .Add("BACK", "back");
         }
 
         // ---------------- Menu input (keyboard / gamepad) ----------------
@@ -329,114 +329,155 @@ namespace DiceHero
 
         // ---------------- Screens ----------------
 
-        void DrawLogo(float w, float y, float px)
+        // ---------------- Menu screens (style 7: Riftbreaker panels, like the upgrade pick) ----------------
+
+        /// <summary>Title plate: small coloured line over a big title, in a cut-corner panel.</summary>
+        static Rect Plate(float w, float y, string sub, Color subColor, string title, int size = 46)
         {
-            // Two stacked words in chunky gold pixels, with a die on each side.
-            float bob = Mathf.Sin(uiTime * 2f) * 4f;
-            UiKit.Glow(new Rect(w * 0.5f - 520f, y - 120f, 1040f, 520f), new Color(1f, 0.75f, 0.2f, 0.12f));
-            UiKit.Pixel("ROLL", w * 0.5f, y + bob, px, UiKit.Gold, 0.5f, 0.25f, UiKit.GoldDeep);
-            UiKit.Pixel("POWER", w * 0.5f, y + px * 8.5f + bob, px, UiKit.Gold, 0.5f, 0.25f, UiKit.GoldDeep);
-            float pw = UiKit.PixelWidth("POWER", px);
+            float tw = Mathf.Max(UiKit.TextWidth(title, size) + 110f, UiKit.TextWidth(sub, 20) + 110f, 460f);
+            var r = new Rect(w * 0.5f - tw * 0.5f, y, tw, size + 62f);
+            UiKit.ChamferPanel(r, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.95f), UiKit.Steel);
+            UiKit.Line(sub, w * 0.5f, r.y + 18f, 20, subColor, 0.5f, 2);
+            UiKit.Line(title, w * 0.5f, r.y + 46f, size, UiKit.Text, 0.5f, 2);
+            return r;
+        }
+
+        void DrawLogo(float w, float y, float scale)
+        {
+            float bob = Mathf.Sin(uiTime * 2f) * 3f;
+            int size = Mathf.RoundToInt(150f * scale);
+            UiKit.Glow(new Rect(w * 0.5f - 560f * scale, y - 120f * scale, 1120f * scale, 480f * scale), new Color(UiKit.Cyan.r, UiKit.Cyan.g, UiKit.Cyan.b, 0.10f));
+            UiKit.Line("ROLL POWER", w * 0.5f, y + bob, size, UiKit.Text, 0.5f, 2, 4f);
+            float lw = UiKit.TextWidth("ROLL POWER", size);
             int face = 1 + (int)(uiTime * 1.5f) % 6;
-            float die = px * 5.2f;
-            UiKit.DieFace(new Rect(w * 0.5f - pw * 0.5f - die - px * 3f, y + px * 1.5f - bob, die, die), face, UiKit.Gold, UiKit.Ink);
-            UiKit.DieFace(new Rect(w * 0.5f + pw * 0.5f + px * 3f, y + px * 9f - bob, die, die), 7 - face, UiKit.Gold, UiKit.Ink);
-            // "2.0" badge
-            var badge = new Rect(w * 0.5f + pw * 0.5f - 70f, y + px * 16f + 6f, 130f, 50f);
-            UiKit.Panel(badge, 1f, UiKit.Red);
-            UiKit.Rect(new Rect(badge.x + 3, badge.y + 3, badge.width - 6, badge.height - 6), new Color(UiKit.Red.r, UiKit.Red.g, UiKit.Red.b, 0.85f));
-            UiKit.Pixel("2.0", badge.center.x, badge.y + 11f, 4f, Color.white, 0.5f);
+            float die = size * 0.62f;
+            var amber = Palette.Hex("#FFB020");
+            UiKit.DieFace(new Rect(w * 0.5f - lw * 0.5f - die - 30f * scale, y + size * 0.08f - bob, die, die), face, amber, UiKit.Ink);
+            UiKit.DieFace(new Rect(w * 0.5f + lw * 0.5f + 30f * scale, y + size * 0.08f + bob, die, die), 7 - face, amber, UiKit.Ink);
+            // Version tag and tagline under the wordmark.
+            float ty = y + size * 0.9f;
+            int ts = Mathf.RoundToInt(26f * scale);
+            float tlw = UiKit.TextWidth("ROLLING IS YOUR SUPERPOWER", ts), tagW = 84f * scale, gapW = 18f * scale;
+            float tx = w * 0.5f - (tlw + gapW + tagW) * 0.5f;
+            UiKit.Line("ROLLING IS YOUR SUPERPOWER", tx, ty + 9f * scale, ts, UiKit.Cyan, 0f, 2, 2f);
+            var tag = new Rect(tx + tlw + gapW, ty, tagW, 40f * scale);
+            UiKit.ChamferPanel(tag, UiKit.Cyan, UiKit.Cyan);
+            UiKit.Line("2.0", tag.center.x, tag.y + 9f * scale, ts, UiKit.Ink, 0.5f, 2);
         }
 
         void DrawTitle(float w)
         {
-            UiKit.Rect(new Rect(0, 0, w, UiKit.H), new Color(0.02f, 0.03f, 0.06f, CoverMode ? 0.15f : 0.35f));
+            UiKit.Rect(new Rect(0, 0, w, UiKit.H), new Color(0.02f, 0.05f, 0.09f, CoverMode ? 0.15f : 0.4f));
             if (CoverMode)
             {
-                // Key art for the itch.io cover: logo centred, no menu.
-                DrawLogo(w, 250f, 23f);
-                UiKit.Pixel("ROLLING IS YOUR SUPERPOWER", w * 0.5f, 700f, 5f, UiKit.Text, 0.5f);
+                DrawLogo(w, 330f, 1.3f); // key art for the itch.io cover: logo only
                 return;
             }
-            DrawLogo(w, 110f, 21f);
-            UiKit.Pixel("ROLLING IS YOUR SUPERPOWER", w * 0.5f, 520f, 4f, UiKit.Text, 0.5f);
-            int clicked = titleMenu.Draw(w * 0.5f, 600f, 520f, 76f);
+            DrawLogo(w, 150f, 1f);
+            int clicked = titleMenu.Draw(w * 0.5f, 470f, 540f, 80f);
             Activate(Screen2.Title, clicked);
 
             if (Settings.BestScore > 0)
-                UiKit.Pixel($"BEST {Num(Settings.BestScore)}   WAVE {Settings.BestWave}", w * 0.5f, UiKit.H - 110f, 3.2f, UiKit.Gold, 0.5f);
-            UiKit.Label(new Rect(0, UiKit.H - 62, w, 30), "A GMTK Game Jam 2022 game, rebuilt  •  by ZizmanTK  •  mouse, keyboard or gamepad", UiKit.SmallCenter, UiKit.Muted);
+            {
+                var br = new Rect(w * 0.5f - 270f, 470f + titleMenu.Items.Count * 80f + 16f, 540f, 54f);
+                UiKit.ChamferPanel(br, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.8f), new Color(UiKit.Steel.r, UiKit.Steel.g, UiKit.Steel.b, 0.6f));
+                UiKit.DrawIcon(new Rect(br.x + 24f, br.center.y - 11f, 22f, 22f), "ui_star", Palette.Hex("#FFB020"));
+                UiKit.Line("BEST", br.x + 58f, br.center.y - 7f, 18, UiKit.Mutedish, 0f, 2);
+                UiKit.Line(Num(Settings.BestScore), br.x + 108f, br.center.y - 10f, 24, Palette.Hex("#FFB020"), 0f, 2);
+                UiKit.Line($"WAVE {Settings.BestWave}", br.xMax - 24f, br.center.y - 10f, 24, UiKit.Text, 1f, 2);
+            }
+            UiKit.Line("A GMTK Game Jam 2022 game, rebuilt  ·  by ZizmanTK  ·  mouse, keyboard or gamepad", w * 0.5f, UiKit.H - 52f, 18, UiKit.Mutedish, 0.5f, 1);
         }
 
         void DrawPause(float w)
         {
-            UiKit.Pixel("PAUSED", w * 0.5f, 170f, 14f, UiKit.Gold, 0.5f, 0.25f, UiKit.GoldDeep);
-            Activate(Screen2.Paused, pauseMenu.Draw(w * 0.5f, 330f, 520f, 76f));
+            Plate(w, 80f, $"WAVE {Game.Wave}  ·  SCORE {Num(Game.Score)}", UiKit.Cyan, "PAUSED");
+            Activate(Screen2.Paused, pauseMenu.Draw(w * 0.5f, 250f, 540f, 80f));
 
-            // Owned upgrades
+            // Owned upgrades with their icons and level tracks.
             var owned = new System.Collections.Generic.List<(UpgradeDef def, int level)>(Deck.Owned());
-            if (owned.Count > 0)
+            var r = new Rect(w * 0.5f + 310f, 250f, 400f, 70f + Mathf.Max(1, owned.Count) * 58f);
+            UiKit.ChamferPanel(r, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.92f), UiKit.Steel);
+            UiKit.Line("YOUR BUILD", r.x + 24f, r.y + 22f, 18, UiKit.Mutedish, 0f, 2);
+            if (owned.Count == 0) UiKit.Line("No upgrades yet: clear a wave.", r.x + 24f, r.y + 70f, 20, UiKit.Soft, 0f, 1);
+            for (int i = 0; i < owned.Count; i++)
             {
-                var r = new Rect(w * 0.5f + 320f, 330f, 380f, 60f + owned.Count * 40f);
-                UiKit.Panel(r, 0.8f);
-                UiKit.Pixel("UPGRADES", r.x + 20, r.y + 18, 3f, UiKit.Muted);
-                for (int i = 0; i < owned.Count; i++)
-                {
-                    var (d, l) = owned[i];
-                    UiKit.Rect(new Rect(r.x + 20, r.y + 56 + i * 40, 6, 26), d.color);
-                    UiKit.Pixel(d.name, r.x + 38, r.y + 62 + i * 40, 2.6f, d.color);
-                    UiKit.Pixel($"{l}/{d.maxLevel}", r.xMax - 20, r.y + 62 + i * 40, 2.6f, UiKit.Muted, 1f);
-                }
+                var (d, l) = owned[i];
+                float yy = r.y + 60f + i * 58f;
+                Color cc = CategoryColor(Category(d));
+                UiKit.Rect(new Rect(r.x + 24f, yy, 46f, 46f), new Color(0.03f, 0.08f, 0.14f, 1f));
+                UiKit.DrawIcon(new Rect(r.x + 27f, yy + 3f, 40f, 40f), "up_" + d.id, Color.white);
+                UiKit.Line(d.name, r.x + 84f, yy + 4f, 20, UiKit.Text, 0f, 2);
+                float segW = (r.width - 84f - 24f - (d.maxLevel - 1) * 3f) / d.maxLevel;
+                for (int s = 0; s < d.maxLevel; s++)
+                    UiKit.Rect(new Rect(r.x + 84f + s * (segW + 3f), yy + 32f, segW, 8f), s < l ? cc : new Color(0f, 0f, 0f, 0.45f));
             }
         }
 
         void DrawSettings(float w)
         {
-            UiKit.Pixel("SETTINGS", w * 0.5f, 170f, 12f, UiKit.Gold, 0.5f, 0.25f, UiKit.GoldDeep);
-            Activate(Screen2.Settings, settingsMenu.Draw(w * 0.5f, 320f, 760f, 80f));
-            UiKit.Label(new Rect(0, UiKit.H - 80, w, 30), "left / right to change   •   ESC / B to go back", UiKit.SmallCenter, UiKit.Muted);
+            Plate(w, 80f, "OPTIONS", UiKit.Cyan, "SETTINGS");
+            Activate(Screen2.Settings, settingsMenu.Draw(w * 0.5f, 250f, 760f, 80f));
+            float hy = UiKit.H - 70f;
+            float x = w * 0.5f - 230f;
+            x += UiKit.Keycap(x, hy, "←") + 6f;
+            x += UiKit.Keycap(x, hy, "→") + 10f;
+            UiKit.Line("change", x, hy + 7f, 19, UiKit.Mutedish, 0f, 1);
+            x += 110f;
+            x += UiKit.Keycap(x, hy, "ESC") + 10f;
+            UiKit.Line("back", x, hy + 7f, 19, UiKit.Mutedish, 0f, 1);
         }
 
         void DrawHowTo(float w)
         {
-            float pw = Mathf.Min(1500f, w - 80f);
-            var r = new Rect(w * 0.5f - pw * 0.5f, 70f, pw, UiKit.H - 170f);
-            UiKit.Panel(r, 0.92f, new Color(UiKit.Gold.r, UiKit.Gold.g, UiKit.Gold.b, 0.4f));
-            UiKit.Pixel("HOW TO PLAY", w * 0.5f, r.y + 34f, 8f, UiKit.Gold, 0.5f);
+            float pw = Mathf.Min(1560f, w - 80f);
+            var r = new Rect(w * 0.5f - pw * 0.5f, 60f, pw, UiKit.H - 150f);
+            UiKit.ChamferPanel(r, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.96f), UiKit.Steel);
+            UiKit.Line("HOW TO PLAY", r.x + 50f, r.y + 36f, 44, UiKit.Text, 0f, 2);
 
-            float x = r.x + 50f, y = r.y + 130f, col = pw * 0.5f - 60f;
-            (string head, string body, Color c)[] rules =
+            float x = r.x + 50f, y = r.y + 120f, col = pw * 0.5f - 80f;
+            var body = new GUIStyle(UiKit.TextStyle(21, 0)) { wordWrap = true, richText = true };
+            (string head, string icon, string text, Color c)[] rules =
             {
-                ("GLIDE", "WASD, arrows or left stick. You slide like on ice, so plan your turns.", UiKit.Text),
-                ("ROLL", "Slam into a <b>red barrier</b> to roll once, or a <b>blue conduit</b> to roll twice. The number on top picks your gun. When your gun can't hurt what's on the field, a glowing arrow marks the barrier to slam.", UiKit.Red),
-                ("SHOOT", "Guns aim and fire on their own. A fresh roll overcharges the gun: double fire rate for a few seconds.", UiKit.Gold),
-                ("BOMBS", "Barrel bombs light up green, yellow, then red. Shove them off the edge of the platform for points. A blast hurts everything nearby, enemies included.", UiKit.Red),
-                ("DASH", "SPACE, SHIFT or A. Dash into barriers for a sure roll, or into bombs for a big shove.", UiKit.Mint),
+                ("GLIDE", "arrow", "WASD, arrows or left stick. You slide like on ice, so plan your turns.", UiKit.Text),
+                ("ROLL", "restart", "Slam into a <b>vent box</b> to roll once, or a <b>pipe rack</b> to roll twice. The number on top picks your gun. When your gun can't hurt what's on the field, the bottom bar says which way to roll.", UiKit.Cyan),
+                ("SHOOT", "gun3", "Guns aim and fire on their own. A fresh roll overcharges the gun: double fire rate for a few seconds.", Palette.Hex("#FF6A3D")),
+                ("BOMBS", "foe", "Bombs light up green, yellow, then red. Shove them off the edge for points. A blast hurts everything nearby, enemies included.", Palette.Hex("#FFB020")),
+                ("DASH", "play", "SPACE, SHIFT or A. Dash into an obstacle for a sure roll, or into a bomb for a big shove.", Palette.Hex("#3BD16F")),
             };
             foreach (var rule in rules)
             {
-                UiKit.Pixel(rule.head, x, y + 4f, 3.4f, rule.c);
-                UiKit.Label(new Rect(x + 130f, y - 4f, col - 130f, 90f), rule.body, UiKit.Small, UiKit.Text);
-                y += 104f;
+                UiKit.Rect(new Rect(x, y, 44f, 44f), new Color(rule.c.r, rule.c.g, rule.c.b, 0.16f));
+                UiKit.DrawIcon(new Rect(x + 9f, y + 9f, 26f, 26f), "ui_" + rule.icon, rule.c);
+                UiKit.Line(rule.head, x + 60f, y + 2f, 22, rule.c, 0f, 2);
+                float th = body.CalcHeight(new GUIContent(rule.text), col - 60f);
+                UiKit.Label(new Rect(x + 60f, y + 28f, col - 60f, th + 4f), rule.text, body, UiKit.Soft);
+                y += Mathf.Max(100f, th + 54f);
             }
 
-            float x2 = r.x + pw * 0.5f + 20f, y2 = r.y + 130f;
-            UiKit.Pixel("SIX FACES, SIX GUNS", x2, y2, 3.4f, UiKit.Muted);
+            float x2 = r.x + pw * 0.5f + 20f, y2 = r.y + 120f;
+            UiKit.Line("SIX FACES, SIX GUNS", x2, y2, 18, UiKit.Mutedish, 0f, 2);
             for (int n = 1; n <= 6; n++)
             {
                 var d = WeaponDef.All[n];
-                float yy = y2 + 40f + (n - 1) * 64f;
-                UiKit.DieFace(new Rect(x2, yy, 42, 42), n, d.color, UiKit.Ink);
-                UiKit.Pixel(d.name, x2 + 60f, yy, 3f, d.color);
-                UiKit.Label(new Rect(x2 + 60f, yy + 26f, col, 26f), d.role, UiKit.Tiny, UiKit.Text);
+                float yy = y2 + 34f + (n - 1) * 62f;
+                UiKit.DieFace(new Rect(x2, yy, 44, 44), n, d.color, UiKit.Ink);
+                UiKit.Rect(new Rect(x2 + 54f, yy, 44f, 44f), new Color(d.color.r * 0.3f, d.color.g * 0.3f, d.color.b * 0.3f, 1f));
+                UiKit.DrawIcon(new Rect(x2 + 60f, yy + 6f, 32f, 32f), "ui_gun" + n, d.color);
+                UiKit.Line(d.name, x2 + 112f, yy + 2f, 22, d.color, 0f, 2);
+                UiKit.Line(d.role, x2 + 112f, yy + 26f, 17, UiKit.Soft, 0f, 0);
             }
-            float y3 = y2 + 40f + 6f * 64f + 12f;
-            UiKit.Pixel("KNOW YOUR ENEMY", x2, y3, 3.4f, UiKit.Muted);
-            UiKit.Label(new Rect(x2, y3 + 30f, col, 150f),
-                "<b>Drones</b> fly: only 3 or 6 reach them.   <b>Tanks</b> are armoured: use 1 or 4.\n<b>Bombers</b> plant bombs.   Every 5th wave, the <b>High Roller</b> tumbles in: only the gun that matches its top number can hurt it. Slams and bombs hurt everything.",
-                UiKit.Small, UiKit.Text);
+            float y3 = y2 + 34f + 6f * 62f + 16f;
+            UiKit.Line("KNOW YOUR ENEMY", x2, y3, 18, UiKit.Mutedish, 0f, 2);
+            UiKit.Label(new Rect(x2, y3 + 28f, col, 150f),
+                "<b>Drones</b> fly: only 3 or 6 reach them.   <b>Tanks</b> are armoured: use 1 or 4.   <b>Bombers</b> plant bombs.\nEvery 5th wave the <b>High Roller</b> tumbles in: only the gun that matches its top number hurts it. Slams and bombs hurt everything.",
+                body, UiKit.Soft);
 
-            UiKit.Label(new Rect(0, r.yMax - 50f, w, 30), "press ENTER, ESC, A or B to go back", UiKit.SmallCenter, UiKit.Muted);
+            float hy = r.yMax - 56f;
+            float kx = w * 0.5f - 120f;
+            kx += UiKit.Keycap(kx, hy, "ENTER") + 8f;
+            kx += UiKit.Keycap(kx, hy, "ESC") + 10f;
+            UiKit.Line("back", kx, hy + 7f, 19, UiKit.Mutedish, 0f, 1);
             if (Event.current.type == EventType.MouseDown && Event.current.button == 0) { State = howToReturn; Event.current.Use(); }
         }
 
@@ -541,28 +582,34 @@ namespace DiceHero
 
         void DrawGameOver(float w)
         {
-            UiKit.Pixel("DICE DESTROYED", w * 0.5f, 110f, 11f, UiKit.Red, 0.5f, 0.25f, new Color(0.3f, 0f, 0.05f));
-            UiKit.Pixel("SCORE", w * 0.5f, 225f, 3.4f, UiKit.Muted, 0.5f);
-            UiKit.Pixel(Num(Game.Score), w * 0.5f, 258f, 11f, UiKit.Gold, 0.5f, 0.25f, UiKit.GoldDeep);
-            if (newBest && Mathf.Repeat(uiTime * 2f, 1f) > 0.25f) UiKit.Pixel("NEW BEST!", w * 0.5f, 350f, 4.5f, UiKit.Mint, 0.5f);
-            else if (!newBest) UiKit.Pixel($"BEST {Num(Settings.BestScore)}", w * 0.5f, 350f, 3.4f, UiKit.Muted, 0.5f);
+            Plate(w, 70f, $"RUN OVER  ·  WAVE {Game.Wave}", Palette.Hex("#FF6A3D"), "DICE DESTROYED", 52);
 
-            var r = new Rect(w * 0.5f - 380f, 410f, 760f, 200f);
-            UiKit.Panel(r, 0.85f);
+            UiKit.Line("SCORE", w * 0.5f, 220f, 18, UiKit.Mutedish, 0.5f, 2);
+            UiKit.Line(Num(Game.Score), w * 0.5f, 248f, 88, Palette.Hex("#FFB020"), 0.5f, 2, 3f);
+            if (newBest && Mathf.Repeat(uiTime * 2f, 1f) > 0.25f) UiKit.Line("NEW BEST!", w * 0.5f, 350f, 26, Palette.Hex("#3BD16F"), 0.5f, 2);
+            else if (!newBest) UiKit.Line($"BEST {Num(Settings.BestScore)}", w * 0.5f, 352f, 22, UiKit.Mutedish, 0.5f, 2);
+
             int m = (int)Game.TimeAlive / 60, s = (int)Game.TimeAlive % 60;
             (string k, string v)[] stats =
             {
                 ("WAVE", Game.Wave.ToString()), ("KILLS", Game.Kills.ToString()), ("BOMBS DISPOSED", Game.BombsDisposed.ToString()),
-                ("ROLLS", Game.Rolls.ToString()), ("BEST COMBO", "X" + Game.BestCombo), ("TIME", $"{m}:{s:00}"),
+                ("ROLLS", Game.Rolls.ToString()), ("BEST COMBO", "×" + Game.BestCombo), ("TIME", $"{m}:{s:00}"),
             };
+            float tw = 250f, th = 84f, gap = 14f;
+            float x0 = w * 0.5f - (3 * tw + 2 * gap) * 0.5f;
             for (int i = 0; i < stats.Length; i++)
             {
-                float cx = r.x + 40f + (i % 2) * 370f, cy = r.y + 30f + (i / 2) * 54f;
-                UiKit.Pixel(stats[i].k, cx, cy, 3f, UiKit.Muted);
-                UiKit.Pixel(stats[i].v, cx + 330f, cy - 3f, 4f, UiKit.Text, 1f);
+                var t = new Rect(x0 + (i % 3) * (tw + gap), 410f + (i / 3) * (th + gap), tw, th);
+                UiKit.ChamferPanel(t, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.9f), new Color(UiKit.Steel.r, UiKit.Steel.g, UiKit.Steel.b, 0.7f));
+                UiKit.Line(stats[i].k, t.x + 20f, t.y + 16f, 16, UiKit.Mutedish, 0f, 2);
+                UiKit.Line(stats[i].v, t.x + 20f, t.y + 40f, 32, UiKit.Text, 0f, 2);
             }
-            Activate(Screen2.GameOver, gameOverMenu.Draw(w * 0.5f, 650f, 520f, 76f));
-            UiKit.Label(new Rect(0, UiKit.H - 70, w, 30), "R or Y to restart instantly", UiKit.SmallCenter, UiKit.Muted);
+            Activate(Screen2.GameOver, gameOverMenu.Draw(w * 0.5f, 640f, 540f, 80f));
+            float hy = UiKit.H - 66f;
+            float kx = w * 0.5f - 110f;
+            kx += UiKit.Keycap(kx, hy, "R") + 6f;
+            kx += UiKit.Keycap(kx, hy, "Y") + 10f;
+            UiKit.Line("restart instantly", kx, hy + 7f, 19, UiKit.Mutedish, 0f, 1);
         }
     }
 }
