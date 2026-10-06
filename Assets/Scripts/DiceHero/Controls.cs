@@ -92,6 +92,10 @@ namespace DiceHero
         public static bool RollButton { get => PlayerPrefs.GetInt("rp.rollbutton", 1) == 1; set { PlayerPrefs.SetInt("rp.rollbutton", value ? 1 : 0); DiceController.ButtonMode = value; } }
         /// <summary>Write the local play log (Telemetry) used to measure the campaign.</summary>
         public static bool Telemetry { get => PlayerPrefs.GetInt("rp.telemetry", 1) == 1; set => PlayerPrefs.SetInt("rp.telemetry", value ? 1 : 0); }
+        /// <summary>Campaign assist: game at 85% speed and +2 hull (offered after two failures on a stage).</summary>
+        public static bool Assist { get => PlayerPrefs.GetInt("rp.assist", 0) == 1; set => PlayerPrefs.SetInt("rp.assist", value ? 1 : 0); }
+        /// <summary>Hard campaign (after the ending): enemies and foremen have more health.</summary>
+        public static bool Hard { get => PlayerPrefs.GetInt("rp.hard", 0) == 1; set => PlayerPrefs.SetInt("rp.hard", value ? 1 : 0); }
         public static bool ShowTutorial { get => PlayerPrefs.GetInt("rp.tutorial", 1) == 1; set => PlayerPrefs.SetInt("rp.tutorial", value ? 1 : 0); }
         public static int BestScore { get => PlayerPrefs.GetInt("rp.best", 0); set => PlayerPrefs.SetInt("rp.best", value); }
         public static int BestWave { get => PlayerPrefs.GetInt("rp.bestWave", 0); set => PlayerPrefs.SetInt("rp.bestWave", value); }

@@ -93,7 +93,8 @@ namespace DiceHero
             Campaign.Active = Campaign.Pending;
             Campaign.Pending = null;
             Game.Stage = Campaign.Active;
-            RunStats.Current = (Campaign.StageStartStats ?? new RunStats()).Clone();
+            RunStats.Current = (Campaign.StageStartStats ?? Campaign.StartStats()).Clone();
+            if (Settings.Assist) RunStats.Current.maxHpBonus += 2;
             Deck.Restore(Campaign.StageStartLevels);
             Game.RepairFull();
             Game.StageCleared += OnStageCleared;
@@ -185,6 +186,11 @@ namespace DiceHero
         {
             Campaign.Deaths++;
             deathLine = Campaign.DeathLines[(Campaign.Deaths - 1) % Campaign.DeathLines.Length];
+            // After two failures on the same stage, offer the assist (never forced).
+            stageFailMenu = Campaign.Deaths >= 2
+                ? new Menu().Add("RETRY STAGE", "restart").Add(Settings.Assist ? "ASSIST: ON" : "TURN ON ASSIST", "help").Add("STATION MAP", "home")
+                : new Menu().Add("RETRY STAGE", "restart").Add("STATION MAP", "home");
+            if (Campaign.Deaths >= 2 && !Settings.Assist) deathLine += "  If it helps: Assist slows things down and gives you two more hull.";
             stageStars = 0;
             LogStageEnd("death");
             State = Screen2.StageFailed;
@@ -203,6 +209,7 @@ namespace DiceHero
         void EnterMap()
         {
             State = Screen2.Campaign;
+            if (Campaign.DeckDone) { Campaign.DeckDone = false; Toast("DECK CLEARED · NEW MODULE · REARRANGE IT IN THE WORKSHOP (W)", 4f); }
             if (cam != null) cam.Orbit = true;
             // Start on the first stage not cleared yet.
             for (int d = 0; d < Campaign.Decks.Length; d++)
@@ -230,7 +237,7 @@ namespace DiceHero
             Campaign.StageStartLevels = Deck.Levels();
             var next = Campaign.Next(Campaign.Active);
             if (next != null) LaunchStage(next, false);
-            else { Campaign.Active = null; Campaign.OpenMap = true; Reload(false); } // deck done: back to the map
+            else { Campaign.Active = null; Campaign.OpenMap = true; Campaign.DeckDone = true; Reload(false); } // deck done: back to the map
         }
 
         // ---------------- Input ----------------
@@ -246,6 +253,8 @@ namespace DiceHero
                 case Screen2.Campaign:
                 {
                     if (Controls.Back) { EnterTitle(); Sound.Play(Sfx.UiConfirm, 0.6f, 0f); break; }
+                    if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.JoystickButton3)) { EnterWorkshop(); Sound.Play(Sfx.UiConfirm, 0.6f, 0f); break; }
+                    if (Campaign.Finished && Input.GetKeyDown(KeyCode.H)) { Settings.Hard = !Settings.Hard; Toast(Settings.Hard ? "HARD CAMPAIGN: ON" : "HARD CAMPAIGN: OFF", 1.8f); Sound.Play(Sfx.UiMove, 0.6f, 0f); break; }
                     var nav = Controls.Nav(udt);
                     var deck = Campaign.Decks[mapDeck];
                     if (nav.x != 0) { mapDeck = (mapDeck + nav.x + Campaign.Decks.Length) % Campaign.Decks.Length; mapStage = 0; Sound.Play(Sfx.UiMove, 0.5f, 0f); }
@@ -283,6 +292,15 @@ namespace DiceHero
         void ActivateStageClear(int index)
         {
             if (index < 0) return;
+            if (index == 0 && Campaign.Active == Campaign.Final)
+            {
+                // The end: the ending slides, then the map with everything open.
+                Campaign.Finished = true;
+                Telemetry.Log("campaign_end", "deaths", Campaign.Deaths);
+                story = Campaign.Ending; storyIndex = 0; storyToMap = true; State = Screen2.Story;
+                Campaign.Active = null;
+                return;
+            }
             if (index == 0)
             {
                 hand = Deck.Deal(3);
@@ -297,6 +315,7 @@ namespace DiceHero
         {
             if (index < 0) return;
             if (index == 0) { Campaign.Pending = Campaign.Active; Reload(true); }
+            else if (index == 1 && stageFailMenu.Items.Count == 3) { Settings.Assist = !Settings.Assist; Settings.Save(); stageFailMenu.Items[1].label = Settings.Assist ? "ASSIST: ON" : "TURN ON ASSIST"; }
             else { Campaign.Active = null; Campaign.OpenMap = true; Reload(false); }
         }
 
@@ -369,6 +388,9 @@ namespace DiceHero
             UiKit.Line("stage", kx, hy + 7f, 18, UiKit.Mutedish, 0f, 1); kx += 76f;
             kx += UiKit.Keycap(kx, hy, "ENTER") + 8f;
             UiKit.Line("play the stage", kx, hy + 7f, 18, UiKit.Mutedish, 0f, 1); kx += 140f;
+            kx += UiKit.Keycap(kx, hy, "W") + 8f;
+            UiKit.Line("workshop", kx, hy + 7f, 18, UiKit.Mutedish, 0f, 1); kx += 100f;
+            if (Campaign.Finished) { kx += UiKit.Keycap(kx, hy, "H") + 8f; UiKit.Line(Settings.Hard ? "hard: on" : "hard: off", kx, hy + 7f, 18, UiKit.Mutedish, 0f, 1); kx += 100f; }
             kx += UiKit.Keycap(kx, hy, "ESC") + 8f;
             UiKit.Line("back", kx, hy + 7f, 18, UiKit.Mutedish, 0f, 1);
         }

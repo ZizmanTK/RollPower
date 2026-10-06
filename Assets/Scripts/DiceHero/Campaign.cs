@@ -75,6 +75,7 @@ namespace DiceHero
             ("SHUTDOWN", "The High Roller falls apart. Without its die, the House goes quiet."),
             ("LIGHTS", "Deck by deck the lights come back on. The Core opens and the crew walk out."),
             ("SIX", "On the observation deck, Pip rolls once more. It lands on a 6."),
+            ("THANK YOU", "Roll Power, a GMTK Game Jam 2022 game by ZizmanTK, rebuilt. The Gauntlet is always open, and the station map now has a hard campaign (press H)."),
         };
 
         public const string Vega = "VEGA · CHIEF ENGINEER";
@@ -319,7 +320,7 @@ namespace DiceHero
                             new WaveDef { title = "SHIELDS", enemies = new[] { (EnemyKind.Crawler, 10) }, shields = new[] { "tri", "plasma", "scatter", "rail" } },
                             W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Drone, 4)),
                             new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 4), (EnemyKind.Mite, 8) }, shields = new[] { "scatter" } },
-                            new WaveDef { title = "MELTDOWN", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 10), (EnemyKind.Drone, 5) }, shields = new[] { "plasma", "tri" }, radio = "There's a cold spot behind the crucibles, bottom-left. Something's stashed there." },
+                            new WaveDef { title = "MELTDOWN", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4) }, shields = new[] { "plasma", "tri" }, radio = "There's a cold spot behind the crucibles, bottom-left. Something's stashed there." },
                         },
                         startRadio = new[] { "The furnaces are running hot. The House knows you're coming." },
                         clearRadio = new[] { "The smelter's plated in three colours. Break them in order." },
@@ -351,7 +352,7 @@ namespace DiceHero
                             new WaveDef { title = "THE HOUSE'S GUARD", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 5) }, shields = new[] { "tri", "plasma" }, radio = "The Core. Everything the House has, at once." },
                             W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Mite, 9)),
                             W("BOMBERS", null, (EnemyKind.Bomber, 4), (EnemyKind.Drone, 5)),
-                            new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 10), (EnemyKind.Drone, 6), (EnemyKind.Bomber, 2) }, shields = new[] { "scatter", "missile" } },
+                            new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Bomber, 2) }, shields = new[] { "scatter", "missile" } },
                         },
                         startRadio = new[] { "This is it, Pip. The crew is two rooms away." },
                         clearRadio = new[] { "One more line of defence." },
@@ -367,7 +368,7 @@ namespace DiceHero
                             new WaveDef { title = "SHIELD WALL", enemies = new[] { (EnemyKind.Crawler, 12) }, shields = new[] { "tri", "plasma", "scatter", "missile", "rail" } },
                             W("ARMOUR", null, (EnemyKind.Tank, 5), (EnemyKind.Drone, 5)),
                             W("SWARM", null, (EnemyKind.Mite, 15), (EnemyKind.Bomber, 3)),
-                            W("LAST LINE", "There's a locker behind the barricade at the top. Grab what's inside if you can.", (EnemyKind.Tank, 4), (EnemyKind.Crawler, 10), (EnemyKind.Drone, 6), (EnemyKind.Bomber, 2)),
+                            W("LAST LINE", "There's a locker behind the barricade at the top. Grab what's inside if you can.", (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Bomber, 1)),
                         },
                         startRadio = new[] { "The House is pulling everything back to defend itself." },
                         clearRadio = new[] { "The door's open. It's the House itself, in a die of its own." },
@@ -416,10 +417,36 @@ namespace DiceHero
         /// <summary>Tests: treat every stage before this one (in its deck) as cleared when working out Pip's modules.</summary>
         public static StageDef AssumeClearedBefore;
 
-        /// <summary>Pip's modules: the starting one, plus what every cleared stage handed over.</summary>
+        /// <summary>
+        /// Pip's modules on each face: the Workshop arrangement when there is one (modules not in it go back to the
+        /// face they were granted on, or to an empty one), else where each was granted.
+        /// </summary>
         public static string[] Faces
         {
             get
+            {
+                var b = BaseFaces();
+                var saved = PlayerPrefs.GetString("rp.c.arr", "").Split(',');
+                if (AssumeClearedBefore != null || saved.Length != 6) return b;
+                var owned = OwnedModules();
+                var f = new string[7];
+                for (int i = 1; i <= 6; i++) f[i] = "empty";
+                for (int i = 1; i <= 6; i++)
+                    if (saved[i - 1] != "empty" && owned.Contains(saved[i - 1]) && System.Array.IndexOf(f, saved[i - 1]) < 0) f[i] = saved[i - 1];
+                for (int i = 1; i <= 6; i++)
+                {
+                    var id = b[i];
+                    if (id == "empty" || System.Array.IndexOf(f, id) > 0) continue;
+                    int to = f[i] == "empty" ? i : System.Array.IndexOf(f, "empty", 1);
+                    if (to > 0) f[to] = id;
+                }
+                return f;
+            }
+        }
+
+        /// <summary>The starting module plus what every cleared stage handed over, on the faces it came on.</summary>
+        static string[] BaseFaces()
+        {
             {
                 var f = (string[])StartFaces.Clone();
                 int testDeck = AssumeClearedBefore != null ? System.Array.IndexOf(Decks, DeckOf(AssumeClearedBefore)) : -1;
@@ -439,6 +466,41 @@ namespace DiceHero
                 return f;
             }
         }
+
+        /// <summary>Granted modules plus the hidden ones found in caches (what the Workshop can mount).</summary>
+        public static List<string> OwnedModules()
+        {
+            var list = new List<string>();
+            foreach (var id in BaseFaces()) if (id != null && id != "empty" && !list.Contains(id)) list.Add(id);
+            foreach (var id in new[] { "flak", "lance", "mortar", "needler" }) if (CacheFound(id)) list.Add(id);
+            return list;
+        }
+
+        /// <summary>Workshop: put a module on a face (swapping with wherever it was).</summary>
+        public static void Arrange(int face, string id)
+        {
+            var f = Faces;
+            int other = System.Array.IndexOf(f, id);
+            if (other > 0) f[other] = f[face];
+            f[face] = id;
+            PlayerPrefs.SetString("rp.c.arr", string.Join(",", f, 1, 6));
+            PlayerPrefs.Save();
+        }
+
+        public static int Boost(string id) => PlayerPrefs.GetInt("rp.c.boost." + id, 0);
+        public static void SetBoost(string id, int level) { PlayerPrefs.SetInt("rp.c.boost." + id, level); PlayerPrefs.Save(); }
+
+        /// <summary>Upgrades a deck run starts with: the Workshop boosts (Assist is added per stage).</summary>
+        public static RunStats StartStats()
+        {
+            var s = new RunStats();
+            s.maxHpBonus += Boost("hull");
+            s.dashCooldownMul *= Mathf.Pow(0.9f, Boost("roll"));
+            return s;
+        }
+
+        public static bool Finished { get => PlayerPrefs.GetInt("rp.c.done", 0) == 1; set { PlayerPrefs.SetInt("rp.c.done", value ? 1 : 0); PlayerPrefs.Save(); } }
+        public static StageDef Final => Decks[Decks.Length - 1].stages[Decks[Decks.Length - 1].stages.Length - 1];
 
         /// <summary>The faces a stage is played with.</summary>
         public static string[] FacesFor(StageDef s) => s.startFaces != null ? (string[])s.startFaces.Clone() : Faces;
@@ -490,10 +552,11 @@ namespace DiceHero
         public static Dictionary<string, int> StageStartLevels;
         public static int Deaths;      // deaths on the current stage (offers Assist after 2)
         public static bool OpenMap;    // show the campaign map after the next scene load
+        public static bool DeckDone;   // a deck was just beaten: point at the Workshop
 
         public static void BeginDeck(StageDef first)
         {
-            StageStartStats = new RunStats();
+            StageStartStats = StartStats();
             StageStartLevels = new Dictionary<string, int>();
             Deaths = 0;
             Pending = first;

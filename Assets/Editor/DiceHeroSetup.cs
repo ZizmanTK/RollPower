@@ -195,6 +195,13 @@ public static class DiceHeroSetup
         loop.AutoPickUpgrades = true;
         game.Invincible = Array.IndexOf(Environment.GetCommandLineArgs(), "-godmode") >= 0;
         var bot = new Autopilot(boot.Controller, loop.Weapons, game) { Goal = () => loop.TutorialGoal, ExtraAdvice = () => loop.TutorialAdvice };
+        // -bot novice|average|expert: how quickly the bot notices its gun is wrong, and how often it misses the advice.
+        switch (GetArg("-bot"))
+        {
+            case "novice": bot.ReactionTime = 0.9f; bot.IgnoreAdvice = 0.3f; break;
+            case "expert": bot.ReactionTime = 0.15f; break;
+            default: bot.ReactionTime = 0.45f; bot.IgnoreAdvice = 0.1f; break;
+        }
         // Wrong-gun share: of the time enemies are on the field, how long the gun was clearly the wrong one
         // (the same test the roll advice uses), and how long each wrong spell lasted.
         float fightTime = 0f, wrongTime = 0f, spell = 0f; int hits = 0, lastHp = game.Hp, tutStep = -1;
@@ -494,6 +501,50 @@ public static class DiceHeroSetup
             else { fail++; Debug.LogError($"[RollPower] FAIL {label}: {advice} -> landed {landed}, gun hurts enemies: {hurts}"); }
         }
         Debug.Log($"[RollPower] TestRollGuide: {pass} passed, {fail} failed, {skipped} cases where the gun already worked");
+        if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
+    }
+
+    /// <summary>
+    /// Batch mode: campaign bookkeeping. Pip's modules follow the cleared stages, decks open in order, the Workshop
+    /// arrangement and caches behave, and boosts reach the stats a deck starts with. Uses (then clears) editor prefs.
+    /// </summary>
+    public static void TestCampaign()
+    {
+        int pass = 0, fail = 0;
+        void Check(bool ok, string what) { if (ok) { pass++; Debug.Log("[RollPower] PASS " + what); } else { fail++; Debug.LogError("[RollPower] FAIL " + what); } }
+        void Reset()
+        {
+            foreach (var d in Campaign.Decks) foreach (var s in d.stages) { PlayerPrefs.DeleteKey("rp.c.clear." + s.id); PlayerPrefs.DeleteKey("rp.c.stars." + s.id); }
+            foreach (var id in new[] { "flak", "lance", "mortar", "needler" }) PlayerPrefs.DeleteKey("rp.c.cache." + id);
+            foreach (var k in new[] { "rp.c.arr", "rp.c.boost.hull", "rp.c.boost.roll", "rp.c.done" }) PlayerPrefs.DeleteKey(k);
+        }
+        Campaign.AssumeClearedBefore = null;
+        Reset();
+        var f = Campaign.Faces;
+        Check(f[1] == "twin" && f[2] == "empty" && f[6] == "empty", "a new campaign starts with only the twin blasters");
+        Campaign.Record(Campaign.Find("scrap1"), 1);
+        Check(Campaign.Faces[2] == "tri", "clearing 1-1 mounts the tri-shot on face 2");
+        Check(!Campaign.Unlocked(Campaign.Find("hydro1")), "deck 2 is locked until deck 1's foreman falls");
+        foreach (var id in new[] { "scrap2", "scrap3", "scrap4" }) Campaign.Record(Campaign.Find(id), 1);
+        Check(Campaign.Faces[6] == "rail", "the Compactor's railgun goes on face 6");
+        Check(Campaign.Unlocked(Campaign.Find("hydro1")) && !Campaign.Unlocked(Campaign.Find("hydro2")) && !Campaign.Unlocked(Campaign.Find("cryo1")), "deck 2 opens, one stage at a time");
+        Campaign.Arrange(1, "rail");
+        f = Campaign.Faces;
+        Check(f[1] == "rail" && f[6] == "twin", "the Workshop swaps two modules");
+        Campaign.FindCache("flak");
+        Check(Campaign.OwnedModules().Contains("flak"), "a cache module joins the Workshop");
+        Campaign.Arrange(2, "flak");
+        f = Campaign.Faces;
+        Check(f[2] == "flak" && System.Array.IndexOf(f, "tri") > 0 && System.Array.IndexOf(f, "tri") != 2, "a displaced module moves to an empty face, never lost: tri on face " + System.Array.IndexOf(f, "tri"));
+        Campaign.SetBoost("hull", 2); Campaign.SetBoost("roll", 1);
+        var st = Campaign.StartStats();
+        Check(st.maxHpBonus == 2 && Mathf.Abs(st.dashCooldownMul - 0.9f) < 0.001f, "Workshop boosts reach a deck's starting stats");
+        foreach (var d in Campaign.Decks) foreach (var s in d.stages) Campaign.Record(s, 1);
+        Check(Campaign.Final.id == "core3" && Campaign.Unlocked(Campaign.Final), "the High Roller is the final stage and opens last");
+        Check(PlayerPrefs.GetInt("rp.own.flak", 0) == 1, "a cache also unlocks the gun in the gauntlet");
+        Reset();
+        PlayerPrefs.DeleteKey("rp.own.flak");
+        Debug.Log($"[RollPower] TestCampaign: {pass} passed, {fail} failed");
         if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
     }
 

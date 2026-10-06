@@ -231,7 +231,7 @@ namespace DiceHero
             if (w.boss.HasValue)
             {
                 var b = Spawn(w.boss.Value, new Vector3(0f, 0f, 5f), w.bossTier);
-                b.hp = b.maxHp = b.maxHp * w.bossHealth;
+                b.hp = b.maxHp = b.maxHp * w.bossHealth * (Settings.Hard ? 1.3f : 1f);
                 loop.ShowBanner((b.kind == EnemyKind.Boss ? "THE HOUSE: " : "FOREMAN: ") + Enemy.Plural(w.boss.Value),
                     b.kind == EnemyKind.Boss ? $"WEAK TO {b.boss.weak}: {WeaponDef.All[b.boss.weak].name}" : Enemy.Hint(w.boss.Value), 4.5f, UiKit.Red);
                 Sound.Play(Sfx.BossRoar, 1f, 0f);
@@ -264,6 +264,7 @@ namespace DiceHero
                         var sh = Stage != null && Wave >= 1 && Wave <= Stage.waves.Length ? Stage.waves[Wave - 1].shields : null;
                         if (sh != null && sh.Length > 0 && (e.kind == EnemyKind.Crawler || e.kind == EnemyKind.Bomber)) GiveShield(e, sh[shieldTurn++ % sh.Length]);
                         if (Stage == null) e.hp *= 1f + 0.12f * (Wave - 1); // stages set their own difficulty
+                        else if (Settings.Hard) e.hp *= 1.35f;
                         e.maxHp = e.hp;
                     }
                 }

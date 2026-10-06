@@ -73,6 +73,9 @@ namespace DiceHero
 
         /// <summary>Seconds the bot takes to notice its gun is wrong before rolling (a deliberate, human-ish delay).</summary>
         public float ReactionTime = 0.45f;
+        /// <summary>Chance per wrong-gun spell that the bot doesn't act on the advice at all (a player who missed it).</summary>
+        public float IgnoreAdvice;
+        bool ignoring;
         float wrongFor;
 
         /// <summary>
@@ -115,8 +118,9 @@ namespace DiceHero
                 if (dice.TryRoll()) return;
             }
             bool wrong = RollAdvisor.Needed(dice, game);
+            if (wrong && wrongFor == 0f) ignoring = Random.value < IgnoreAdvice;
             wrongFor = wrong ? wrongFor + dt : 0f;
-            if (wrong && wrongFor > ReactionTime && dice.DashCooldownLeft <= 0f)
+            if (wrong && !ignoring && wrongFor > ReactionTime && dice.DashCooldownLeft <= 0f)
             {
                 var plan = RollAdvisor.BestButton(dice, game);
                 if (plan != null) { dice.InputOverride = new Vector2(plan.dir.x, plan.dir.z); dice.TryRoll(); return; }

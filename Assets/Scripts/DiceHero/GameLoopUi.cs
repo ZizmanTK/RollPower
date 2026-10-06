@@ -29,6 +29,7 @@ namespace DiceHero
                 .AddChoice("FULLSCREEN", () => Screen.fullScreen ? "ON" : "OFF", d => Screen.fullScreen = !Screen.fullScreen)
                 .AddChoice("ROLL", () => Settings.RollButton ? "BUTTON" : "BUMP (2.0)", d => Settings.RollButton = !Settings.RollButton)
                 .AddChoice("HINTS", () => Settings.ShowTutorial ? "ON" : "OFF", d => Settings.ShowTutorial = !Settings.ShowTutorial)
+                .AddChoice("ASSIST (CAMPAIGN)", () => Settings.Assist ? "ON: 85% SPEED, +2 HULL" : "OFF", d => Settings.Assist = !Settings.Assist)
                 .AddChoice("PLAY LOG", () => Settings.Telemetry ? "ON (LOCAL)" : "OFF", d => Settings.Telemetry = !Settings.Telemetry)
                 .Add("BACK", "back");
             if (Application.platform != RuntimePlatform.WebGLPlayer) settingsMenu.Items.Insert(settingsMenu.Items.Count - 1, new Menu.Item { label = "OPEN PLAY LOG FOLDER", icon = "home" });
@@ -63,6 +64,9 @@ namespace DiceHero
                 case Screen2.StageClear:
                 case Screen2.StageFailed:
                     CampaignInput(udt);
+                    break;
+                case Screen2.Workshop:
+                    WorkshopInput(udt);
                     break;
                 case Screen2.GameOver:
                     if (Controls.Restart) { Reload(true); break; }
@@ -135,6 +139,7 @@ namespace DiceHero
                 case Screen2.GameOver: Dim(w, 0.45f); DrawGameOver(w); break;
                 case Screen2.Loadout: Dim(w, 0.55f); DrawLoadout(w); break;
                 case Screen2.Campaign: Dim(w, 0.6f); DrawCampaign(w); break;
+                case Screen2.Workshop: Dim(w, 0.6f); DrawWorkshop(w); break;
                 case Screen2.Story: DrawStory(w); break;
                 case Screen2.StageClear: Dim(w, 0.72f); DrawStageClear(w); break;
                 case Screen2.StageFailed: Dim(w, 0.62f); DrawStageFailed(w); break;

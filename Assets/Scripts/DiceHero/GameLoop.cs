@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace DiceHero
 {
-    public enum Screen2 { Title, Playing, Upgrade, Paused, Settings, HowTo, GameOver, Loadout, Campaign, Story, StageClear, StageFailed }
+    public enum Screen2 { Title, Playing, Upgrade, Paused, Settings, HowTo, GameOver, Loadout, Campaign, Story, StageClear, StageFailed, Workshop }
 
     /// <summary>
     /// Drives the whole simulation from one place (dice, guns, projectiles, bombs, effects), owns the
@@ -210,6 +210,7 @@ namespace DiceHero
                 case Screen2.Loadout:
                 case Screen2.Campaign:
                 case Screen2.Story:
+                case Screen2.Workshop:
                     Dice.InputOverride = Vector2.zero;
                     Dice.Step(udt);
                     Weapons.Step(udt, false);
@@ -220,7 +221,7 @@ namespace DiceHero
                     if (!ExternalInput) Dice.InputOverride = null;
                     if (Controls.Pause && !Game.Lost) { SetPaused(true); break; }
                     if (Controls.Dash) Dice.Dash();
-                    float dt = Mathf.Min(udt, 1f / 20f);
+                    float dt = Mathf.Min(udt, 1f / 20f) * (InStage && Settings.Assist ? 0.85f : 1f); // assist slows the campaign down
                     if (hitStop > 0f) { hitStop -= udt; dt = 0f; }
                     if (Game.Lost)
                     {
