@@ -25,6 +25,7 @@ namespace DiceHero
         /// <summary>Shows where to roll when the current gun can't hurt what's on the field.</summary>
         public RollGuide Guide { get; private set; }
         public RollCompass Compass { get; private set; }
+        public PipFace Face { get; private set; }
         public Screen2 State { get; private set; } = Screen2.Title;
 
         /// <summary>Batch playtests: pick upgrades automatically instead of showing the cards.</summary>
@@ -61,6 +62,7 @@ namespace DiceHero
             Weapons = new WeaponSystem(dice, pal);
             Guide = new RollGuide(pal);
             Compass = new RollCompass(pal);
+            Face = dice.Model.IsPip ? new PipFace(dice.Model) : null;
             Game = new Game(dice, pal, this, System.Environment.TickCount);
             Deck = new UpgradeDeck(System.Environment.TickCount + 7);
             Weapons.Fired += d => Sound.Play(Sound.GunSound(d.model), d.model == 2 ? 0.45f : 0.7f);
@@ -143,6 +145,7 @@ namespace DiceHero
         void ShieldGlow(float dt)
         {
             var seam = Dice.Model.SeamMaterial;
+            if (Dice.Model.IsPip) return; // PipFace colours Pip's seams
             if (seam == null || !seam.HasProperty("_EmissionColor")) return;
             if (shieldGlow < 0f) { seamBase = seam.GetColor("_EmissionColor"); shieldGlow = 0f; }
             shieldGlow = Mathf.MoveTowards(shieldGlow, Dice.Shielded ? 1f : 0f, dt * (Dice.Shielded ? 12f : 4f));
@@ -195,6 +198,7 @@ namespace DiceHero
                     Dice.InputOverride = Vector2.zero;
                     Dice.Step(udt);
                     Weapons.Step(udt, false);
+                    Face?.Step(udt, Dice, null, null);
                     Fx.Step(udt);
                     break;
                 case Screen2.Playing:
@@ -260,6 +264,7 @@ namespace DiceHero
             if (over) Dice.InputOverride = Vector2.zero;
             Dice.Step(dt);
             ShieldGlow(dt);
+            Face?.Step(dt, Dice, Game, Guide.Plan);
             Weapons.Step(dt, allowFire && !over && !Game.Intermission);
             Projectiles.Step(Palette, dt);
             Game.Step(dt);

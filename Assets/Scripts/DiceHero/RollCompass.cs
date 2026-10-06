@@ -46,7 +46,7 @@ namespace DiceHero
                 {
                     var g = new GameObject("Glyph" + f).transform;
                     g.SetParent(s.t, false);
-                    Glyph(WeaponDef.All[f].model, g, Mat(f, false));
+                    Glyphs.Build(WeaponDef.All[f].model, g, Mat(f, false));
                     g.gameObject.SetActive(false);
                     s.glyphs[f] = g;
                     s.glyphParts[f] = g.GetComponentsInChildren<Renderer>(true);
@@ -88,9 +88,13 @@ namespace DiceHero
                 s.t.localScale = Vector3.one * pulse;
             }
         }
+    }
 
+    /// <summary>Flat outlines of the six gun families, shared by the floor markers and Pip's face modules.</summary>
+    public static class Glyphs
+    {
         /// <summary>Flat outline of a gun family (same shapes as the Pip concept), lying on the floor, "up" = away from the die.</summary>
-        static void Glyph(int model, Transform g, Material m)
+        public static void Build(int model, Transform g, Material m)
         {
             const float h = 0.02f;
             void Bar(float x, float z, float w, float l, float yaw = 0f) =>
@@ -106,7 +110,7 @@ namespace DiceHero
                     for (int i = 0; i < 10; i++) { float a = i * 36f * Mathf.Deg2Rad; Bar(Mathf.Cos(a) * 0.2f, Mathf.Sin(a) * 0.2f, 0.07f, 0.12f, -a * Mathf.Rad2Deg); }
                     Dot(0f, 0f, 0.08f); break;
                 case 5:                                                                                     // scatter
-                    for (int i = 0; i < 5; i++) { float a = (-56f + i * 28f) * Mathf.Deg2Rad; Dot(Mathf.Sin(a) * 0.3f, Mathf.Cos(a) * 0.3f - 0.16f, 0.05f); }
+                    for (int i = 0; i < 5; i++) { float a = (-56f + i * 28f) * Mathf.Deg2Rad; Dot(Mathf.Sin(a) * 0.36f, Mathf.Cos(a) * 0.36f - 0.2f, 0.042f); }
                     break;
                 default:                                                                                    // missile pod
                     for (int ix = 0; ix < 3; ix++) for (int iz = 0; iz < 2; iz++) Dot((ix - 1) * 0.15f, (iz - 0.5f) * 0.16f, 0.06f);

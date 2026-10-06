@@ -8,7 +8,7 @@ namespace DiceHero
     ///                                                                  →  WeaponMount (gun turret above the top face)
     /// Local face numbers: +Y 1, -Y 6, +X 2, -X 5, +Z 3, -Z 4 (opposite faces add up to 7).
     /// </summary>
-    public class DiceModel
+    public partial class DiceModel
     {
         public Transform Root, Visual, Body, WeaponMount;
         public Material PipMaterial, SeamMaterial;

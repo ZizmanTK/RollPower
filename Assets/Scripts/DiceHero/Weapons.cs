@@ -188,7 +188,7 @@ namespace DiceHero
             for (int n = 1; n <= 6; n++)
             {
                 muzzles[n] = new List<Transform>();
-                guns[n] = GunModels.Build(n, pal, dice.Model.WeaponMount, muzzles[n]);
+                guns[n] = GunModels.Build(n, pal, dice.Model.GunMount != null ? dice.Model.GunMount : dice.Model.WeaponMount, muzzles[n]);
                 guns[n].localScale = Vector3.one * 1.4f;
             }
             ShowGun(dice.TopNumber);

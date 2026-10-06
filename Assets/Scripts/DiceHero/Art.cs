@@ -77,6 +77,8 @@ namespace DiceHero
             _ => DiceModel.Hero(pal),
         };
 
+        /// <summary>Theme 3: the player is Pip-6 (eye-pod, face modules) rather than the plain die.</summary>
+        public static bool Pip => Theme == 3;
         /// <summary>Theme 3: each face's pips glow in the colour of the gun that face fires.</summary>
         public static bool PipsInGunColour => Theme == 3;
         /// <summary>Theme 2: thick dark armour bars on the edges instead of thin glowing seams.</summary>

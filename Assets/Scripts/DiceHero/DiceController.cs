@@ -330,7 +330,14 @@ namespace DiceHero
             // The gun turret retracts while tumbling and deploys again after landing.
             mountScale = Mathf.MoveTowards(mountScale, rolling ? 0f : 1f, dt * (rolling ? 14f : 5f));
             float pop = mountScale < 1f ? 1f + Mathf.Sin(mountScale * Mathf.PI) * 0.2f : 1f;
-            Model.WeaponMount.localScale = Vector3.one * Mathf.Max(0.0001f, mountScale * pop);
+            if (Model.IsPip)
+            {
+                // Pip: only the gun folds away; the eye-pod stays and lifts off the top face while the body tumbles under it.
+                Model.GunMount.localScale = Vector3.one * DiceModel.PipGunScale * Mathf.Max(0.0001f, mountScale * pop);
+                float lift = rolling ? Mathf.Sin(Mathf.Clamp01(rollT) * Mathf.PI) * (0.25f + rollHop * 0.4f) : 0f;
+                Model.WeaponMount.localPosition = new Vector3(0f, DiceModel.PipHeadHeight + lift, 0f);
+            }
+            else Model.WeaponMount.localScale = Vector3.one * Mathf.Max(0.0001f, mountScale * pop);
         }
 
         // ----- Face maths -----

@@ -312,4 +312,32 @@ elif MODE == 'game':
     save(os.path.join(out, 'pip_%s.png' % tag))
 
 elif MODE == 'export':
-    bpy.ops.export_scene.fbx(filepath=argv[1], object_types={'EMPTY', 'MESH'}, apply_unit_scale=True, use_mesh_modifiers=True)
+    # The eye-pod only: the body and its face modules are built in Unity, because the guns on each face
+    # depend on the player's die build. Every part keeps its name so Unity can give it a material
+    # (PodShell, Band, Cheek, EyeSocket, EyeRim, Iris, Pupil, Glint, Happy). The pod's centre is the origin
+    # and the eye looks along +Y here, which the FBX axis settings turn into Unity's +Z.
+    keep = set()
+    def walk(o):
+        keep.add(o)
+        for c in o.children: walk(c)
+    walk(HEAD)
+    for o in list(scene.objects):
+        if o not in keep: bpy.data.objects.remove(o, do_unlink=True)
+    for o in list(keep):
+        if o.name.startswith(('Barrel', 'Muzzle', 'Strip')) and o.type == 'MESH': bpy.data.objects.remove(o, do_unlink=True); keep.discard(o)
+    HEAD.location = (0, 0, 0); HEAD.rotation_euler = (0, 0, 0)
+    HAPPY.hide_render = False
+    # Axis markers: Unity reads them to turn the pod so its eye faces +Z and its top faces +Y,
+    # whatever axis conversion the FBX round trip applies.
+    for name, loc in (('AxisFwd', (0, 1, 0)), ('AxisUp', (0, 0, 1))):
+        e = bpy.data.objects.new(name, None); scene.collection.objects.link(e); e.parent = HEAD; e.location = loc
+    bpy.context.view_layer.update()
+    # Curves (the happy arc) become meshes so FBX carries them.
+    bpy.ops.object.select_all(action='DESELECT')
+    HAPPY.select_set(True); bpy.context.view_layer.objects.active = HAPPY
+    bpy.ops.object.convert(target='MESH')
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.export_scene.fbx(filepath=argv[1], use_selection=True, object_types={'EMPTY', 'MESH'},
+                             apply_scale_options='FBX_SCALE_UNITS', use_mesh_modifiers=True, bake_space_transform=True,
+                             axis_forward='Y', axis_up='Z', mesh_smooth_type='FACE', add_leaf_bones=False)
+    print('[pip] exported', argv[1])
