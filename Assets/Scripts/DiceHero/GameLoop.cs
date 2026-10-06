@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace DiceHero
 {
-    public enum Screen2 { Title, Playing, Upgrade, Paused, Settings, HowTo, GameOver, Loadout }
+    public enum Screen2 { Title, Playing, Upgrade, Paused, Settings, HowTo, GameOver, Loadout, Campaign, Story, StageClear, StageFailed }
 
     /// <summary>
     /// Drives the whole simulation from one place (dice, guns, projectiles, bombs, effects), owns the
@@ -75,13 +75,19 @@ namespace DiceHero
             Game.WaveCleared += w => { upgradeDelay = 0.9f; hand = Deck.Deal(3); };
             cam = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
             BuildMenus();
+            InitCampaign();
             FindPostFx();
             if (Application.isPlaying)
             {
                 Fx.Density = Application.platform == RuntimePlatform.WebGLPlayer ? 0.6f : 1f;
                 if (DemoDirector.Requested) gameObject.AddComponent<DemoDirector>().Begin(this);
                 if (SkipTitle) { SkipTitle = false; StartRun(); }
-                else { EnterTitle(); if (OpenLoadout) { OpenLoadout = false; EnterLoadout(); } }
+                else
+                {
+                    EnterTitle();
+                    if (OpenLoadout) { OpenLoadout = false; EnterLoadout(); }
+                    else if (Campaign.OpenMap) { Campaign.OpenMap = false; EnterMap(); }
+                }
             }
         }
 
@@ -105,6 +111,7 @@ namespace DiceHero
 
         void StartRun()
         {
+            if (!InStage) Telemetry.Log("run_start", "mode", "gauntlet", "loadout", string.Join(",", Loadout.Faces, 1, 6));
             State = Screen2.Playing;
             if (cam != null) cam.Orbit = false;
             Sound.Duck(false);
@@ -134,6 +141,8 @@ namespace DiceHero
             Sound.Play(Sfx.Upgrade, 0.8f, 0f);
             Fx.Text(Dice.transform.position + Vector3.up * 2.2f, u.name, u.color, 1.2f, 0.75f);
             hand = null;
+            Telemetry.Log("card_pick", "card", u.id, "stage", Campaign.Active?.id, "wave", Game.Wave);
+            if (InStage && Game.Won) { AfterStageCard(); return; } // campaign: the card comes between stages
             Game.StartNextWave();
             if (State == Screen2.Upgrade) { State = Screen2.Playing; Sound.Duck(false); }
         }
@@ -156,6 +165,10 @@ namespace DiceHero
 
         void EndRun()
         {
+            if (InStage) { StageFailed(); return; }
+            Telemetry.Log("run_end", "mode", "gauntlet", "wave", Game.Wave, "time", Game.TimeAlive, "hits", Game.HitsTaken,
+                "wrong_share", fightTime > 0f ? wrongTime / fightTime : 0f, "rolls", rolls, "useful_rolls", usefulRolls, "dodges", dodges,
+                "hints", hintsShown, "hints_followed", hintsFollowed, "kills", Game.Kills);
             State = Screen2.GameOver;
             gameOverMenu.Selected = 0;
             newBest = Game.Score > Settings.BestScore;
@@ -195,6 +208,8 @@ namespace DiceHero
             {
                 case Screen2.Title:
                 case Screen2.Loadout:
+                case Screen2.Campaign:
+                case Screen2.Story:
                     Dice.InputOverride = Vector2.zero;
                     Dice.Step(udt);
                     Weapons.Step(udt, false);
@@ -226,6 +241,7 @@ namespace DiceHero
                     Heartbeat(udt);
                     break;
                 case Screen2.GameOver:
+                case Screen2.StageFailed:
                     Dice.InputOverride = Vector2.zero;
                     Step(udt * 0.3f, false);
                     break;
@@ -271,6 +287,7 @@ namespace DiceHero
             Fx.Step(dt);
             Guide.Step(dt, Dice, Game, !Game.Intermission);
             Compass.Step(dt, Dice, Guide.Plan, !Game.Lost);
+            if (allowFire) MeasureStep(dt);
             if (AutoPickUpgrades && Game.Intermission && hand != null)
             {
                 if (hand.Count > 0) PickUpgrade(hand[0]);

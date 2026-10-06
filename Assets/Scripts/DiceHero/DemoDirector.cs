@@ -16,7 +16,8 @@ namespace DiceHero
         Autopilot bot;
         string dir;
         float t, nextShot = 6f, nextGuide, stateTime, lastDt, limit = 240f;
-        int shots;
+        static int shots;               // keeps counting across the scene reloads of a campaign walk-through
+        static int campaignStep;        // -campaign: 0 story+map, 1 first stage, 2 second stage (dies), 3 map again
         bool pausedOnce, godMode, howToDone;
         int guideShots;
         Screen2 lastState;
@@ -62,6 +63,7 @@ namespace DiceHero
             if (loop.State != lastState) { lastState = loop.State; stateTime = 0f; }
             stateTime += dt;
             lastDt = dt;
+            if (Flag("-campaign")) { CampaignWalk(dt); return; }
             if (t > limit) { Debug.Log($"[RollPower] demo end: wave {loop.Game.Wave}, score {loop.Game.Score}"); Application.Quit(); return; }
 
             switch (loop.State)
@@ -109,5 +111,45 @@ namespace DiceHero
         }
 
         bool Near(float at) => stateTime >= at && stateTime - lastDt < at;
+
+        /// <summary>-campaign: story slides, station map, a stage played by the bot to its clear screen and card,
+        /// the next stage until Pip goes offline (retry screen), then the map again.</summary>
+        void CampaignWalk(float dt)
+        {
+            if (Time.realtimeSinceStartup > limit) { Application.Quit(); return; }
+            switch (loop.State)
+            {
+                case Screen2.Title:
+                    if (campaignStep == 0 && Near(1.5f)) { Campaign.SeenIntro = false; loop.DemoOpenCampaign(); }
+                    break;
+                case Screen2.Story:
+                    if (Near(1f)) Shot("story");
+                    if (stateTime > 1.8f) { loop.DemoAdvanceStory(); stateTime = 0f; } // same state, next slide
+                    break;
+                case Screen2.Campaign:
+                    if (Near(1.2f)) Shot("map");
+                    if (campaignStep == 0 && Near(2.2f)) { campaignStep = 1; loop.DemoLaunchFirstStage(); }
+                    if (campaignStep == 3 && Near(2.4f)) { Debug.Log("[RollPower] campaign walk-through done"); Application.Quit(); }
+                    break;
+                case Screen2.Playing:
+                    bot.Step(Mathf.Min(dt, 0.05f));
+                    if (Near(3f)) Shot("stage" + campaignStep);
+                    if (loop.Guide.Plan != null && guideShots < 2 && t > nextGuide) { guideShots++; nextGuide = t + 10f; Shot("stage_guide"); }
+                    if (campaignStep == 2 && stateTime > 9f) loop.Game.DemoKill();
+                    break;
+                case Screen2.StageClear:
+                    if (Near(2f)) Shot("stageclear");
+                    if (Near(3f)) { campaignStep = 2; loop.DemoStageMenu(0); }
+                    break;
+                case Screen2.Upgrade:
+                    if (Near(0.8f)) Shot("stagecard");
+                    if (Near(1.6f)) loop.DemoPickUpgrade(0);
+                    break;
+                case Screen2.StageFailed:
+                    if (Near(2.2f)) Shot("stagefailed");
+                    if (Near(3f)) { campaignStep = 3; loop.DemoStageMenu(1); }
+                    break;
+            }
+        }
     }
 }

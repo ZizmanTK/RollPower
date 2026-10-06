@@ -27,6 +27,7 @@ namespace DiceHero
             DiceController.ButtonMode = Settings.RollButton;
             Palette = new Palette(baseMaterial, glowMaterial);
             SetupLighting();
+            World.Layout = Campaign.Pending?.layout; // a campaign stage brings its own arena
             var world = World.Build(Palette);
             if (Application.isPlaying) StaticBatchingUtility.Combine(world.gameObject); // hundreds of static primitives → a few batches
             Dice = Art.Pip ? PipBuilder.Build(Palette, null, World.PlayerStart) : DiceModel.Build(Palette, null, World.PlayerStart);

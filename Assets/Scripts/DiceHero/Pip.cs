@@ -11,6 +11,8 @@ namespace DiceHero
         public Transform Head;
         public Transform Iris, Pupil, Glint, Happy;
         public Material DockMaterial;
+        /// <summary>Pip: each face module's glow material (index = face number), dimmed during fights.</summary>
+        public readonly Material[] FaceGlow = new Material[7];
         public const float PipGunScale = 0.62f;
         public const float PipHeadHeight = 1.44f;
         public const float PipHeadScale = 1.25f;
@@ -43,7 +45,9 @@ namespace DiceHero
                 Vector3 n = DiceModel.FaceNormals[f];
                 int face = DiceModel.FaceNumbers[f];
                 var gun = WeaponDef.All[face];
-                var glow = pal.Glow("PipGun" + face, gun.color, 1.7f);
+                // Pip's own copy, so dimming it in fights leaves the floor markers and menus alone.
+                var glow = new Material(pal.Glow("PipGun" + face, gun.color, 1.7f)) { name = "PipGunLive" + face };
+                m.FaceGlow[face] = glow;
                 // Face frame: local +Y out of the face, local +Z toward the face's "top" edge.
                 var F = new GameObject("Face" + face).transform;
                 F.SetParent(m.Body, false);
@@ -151,13 +155,15 @@ namespace DiceHero
     /// <summary>
     /// Pip's live look: the seams and dock ring take the top gun's colour (white while shielded), and the eye blinks,
     /// glances toward the advised roll, squints when hit and smiles between waves.
+    /// In fights the side modules dim: rolling toward a side brings up the face opposite it, so a bright module next to
+    /// a floor marker would point the wrong way. The floor markers carry that information; menus show the modules bright.
     /// </summary>
     public class PipFace
     {
         readonly DiceModel m;
         readonly Vector3 irisPos, pupilPos, glintPos, irisScale, pupilScale;
         Color seam;
-        float t, nextBlink = 2.5f, blink, happy;
+        float t, nextBlink = 2.5f, blink, happy, faceLight = 1f;
 
         public PipFace(DiceModel model)
         {
@@ -177,6 +183,9 @@ namespace DiceHero
             m.SeamMaterial.SetColor("_EmissionColor", s * 1.8f * Palette.GlowScale);
             m.SeamMaterial.SetColor("_BaseColor", s * 0.3f);
             m.DockMaterial.SetColor("_EmissionColor", seam * 0.9f * Palette.GlowScale);
+            faceLight = Mathf.MoveTowards(faceLight, game == null ? 1f : 0.22f, dt * 3f);
+            for (int f = 1; f <= 6; f++)
+                if (m.FaceGlow[f] != null) m.FaceGlow[f].SetColor("_EmissionColor", WeaponDef.All[f].color * 1.7f * faceLight * Palette.GlowScale);
             // The gun aims exactly (WeaponMount); the eye-pod turns only part of the way when the aim points away
             // from the camera, so the player keeps seeing Pip's eye.
             Vector3 aim = m.WeaponMount.forward; aim.y = 0f;

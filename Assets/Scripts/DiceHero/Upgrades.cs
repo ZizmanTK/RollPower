@@ -27,10 +27,19 @@ namespace DiceHero
         public float bowlDamage = 1f;   // damage a moving bomb deals to the enemies it bowls over
         public bool contactFuse;        // shoved bombs explode on the first enemy they hit
         // Face upgrades: per-face multipliers (index = face number).
-        public readonly float[] faceDamage = { 1f, 1f, 1f, 1f, 1f, 1f, 1f };
-        public readonly float[] faceRate = { 1f, 1f, 1f, 1f, 1f, 1f, 1f };
+        public float[] faceDamage = { 1f, 1f, 1f, 1f, 1f, 1f, 1f };
+        public float[] faceRate = { 1f, 1f, 1f, 1f, 1f, 1f, 1f };
         public float FaceDamage(int face) => face >= 1 && face <= 6 ? faceDamage[face] : 1f;
         public float FaceRate(int face) => face >= 1 && face <= 6 ? faceRate[face] : 1f;
+
+        /// <summary>Independent copy (campaign checkpoints).</summary>
+        public RunStats Clone()
+        {
+            var c = (RunStats)MemberwiseClone();
+            c.faceDamage = (float[])faceDamage.Clone();
+            c.faceRate = (float[])faceRate.Clone();
+            return c;
+        }
     }
 
     public class UpgradeDef
@@ -116,6 +125,10 @@ namespace DiceHero
         public UpgradeDeck(int seed) { rng = new System.Random(seed); }
 
         public int Level(UpgradeDef u) => levels.TryGetValue(u.id, out int l) ? l : 0;
+
+        /// <summary>Copy of the owned levels (campaign checkpoints).</summary>
+        public Dictionary<string, int> Levels() => new Dictionary<string, int>(levels);
+        public void Restore(Dictionary<string, int> saved) { levels.Clear(); if (saved != null) foreach (var kv in saved) levels[kv.Key] = kv.Value; }
 
         public List<UpgradeDef> Deal(int count)
         {

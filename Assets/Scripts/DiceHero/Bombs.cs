@@ -151,7 +151,7 @@ namespace DiceHero
                 game.Juice(0.12f, 0f);
                 // Landing on the dice hurts.
                 Vector3 d = dice.transform.position - b.pos; d.y = 0f;
-                if (d.magnitude < 0.9f) { game.HurtPlayer(1, b.pos); dice.Knock(d.normalized * 5f); }
+                if (d.magnitude < 0.9f) { game.HurtPlayer(1, b.pos, "bomb"); dice.Knock(d.normalized * 5f); }
             }
         }
 
@@ -284,7 +284,7 @@ namespace DiceHero
             if (pd.magnitude < BlastRadius + 0.3f)
             {
                 int dmg = Mathf.Max(0, 2 - RunStats.Current.blastResist);
-                if (dmg > 0) game.HurtPlayer(dmg, c);
+                if (dmg > 0) game.HurtPlayer(dmg, c, "blast");
                 dice.Knock(pd.normalized * 8f);
             }
             // Chain reaction with other bombs.

@@ -195,7 +195,15 @@ namespace DiceHero
                     break;
             }
 
-            foreach (var b in BarrierPositions())
+            var conduits = new List<(Vector2 pos, bool alongX)>(World.ConduitLayout);
+            var barriers = BarrierPositions();
+            if (World.Layout != null)
+            {
+                barriers.Clear(); conduits.Clear();
+                foreach (var p in World.Layout)
+                    if (p.kind == ObstacleKind.Conduit) conduits.Add((p.pos, p.alongX)); else barriers.Add(p.pos);
+            }
+            foreach (var b in barriers)
             {
                 var o = new GameObject("Barrier").transform;
                 o.SetParent(root, false);
@@ -221,7 +229,7 @@ namespace DiceHero
                 World.Obstacles.Add(ob);
             }
 
-            foreach (var c in World.ConduitLayout)
+            foreach (var c in conduits)
             {
                 var o = new GameObject("Conduit").transform;
                 o.SetParent(root, false);

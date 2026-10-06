@@ -17,7 +17,7 @@ namespace DiceHero
 
         void BuildMenus()
         {
-            titleMenu = new Menu().Add("PLAY", "play").Add("HOW TO PLAY", "help").Add("SETTINGS", "settings");
+            titleMenu = new Menu().Add("CAMPAIGN", "play").Add("GAUNTLET", "restart").Add("HOW TO PLAY", "help").Add("SETTINGS", "settings");
             if (CanQuit) titleMenu.Add("QUIT", "quit");
             pauseMenu = new Menu().Add("RESUME", "resume").Add("SETTINGS", "settings").Add("HOW TO PLAY", "help").Add("RESTART", "restart").Add("MAIN MENU", "home");
             gameOverMenu = new Menu().Add("PLAY AGAIN", "restart").Add("BUILD YOUR DIE", "help").Add("MAIN MENU", "home");
@@ -29,7 +29,9 @@ namespace DiceHero
                 .AddChoice("FULLSCREEN", () => Screen.fullScreen ? "ON" : "OFF", d => Screen.fullScreen = !Screen.fullScreen)
                 .AddChoice("ROLL", () => Settings.RollButton ? "BUTTON" : "BUMP (2.0)", d => Settings.RollButton = !Settings.RollButton)
                 .AddChoice("HINTS", () => Settings.ShowTutorial ? "ON" : "OFF", d => Settings.ShowTutorial = !Settings.ShowTutorial)
+                .AddChoice("PLAY LOG", () => Settings.Telemetry ? "ON (LOCAL)" : "OFF", d => Settings.Telemetry = !Settings.Telemetry)
                 .Add("BACK", "back");
+            if (Application.platform != RuntimePlatform.WebGLPlayer) settingsMenu.Items.Insert(settingsMenu.Items.Count - 1, new Menu.Item { label = "OPEN PLAY LOG FOLDER", icon = "home" });
         }
 
         // ---------------- Menu input (keyboard / gamepad) ----------------
@@ -56,6 +58,12 @@ namespace DiceHero
                 case Screen2.Loadout:
                     LoadoutInput(udt);
                     break;
+                case Screen2.Campaign:
+                case Screen2.Story:
+                case Screen2.StageClear:
+                case Screen2.StageFailed:
+                    CampaignInput(udt);
+                    break;
                 case Screen2.GameOver:
                     if (Controls.Restart) { Reload(true); break; }
                     Activate(State, gameOverMenu.UpdateInput(udt));
@@ -79,10 +87,11 @@ namespace DiceHero
             switch (from)
             {
                 case Screen2.Title:
-                    if (index == 0) EnterLoadout();
-                    else if (index == 1) { howToReturn = Screen2.Title; State = Screen2.HowTo; }
-                    else if (index == 2) { settingsReturn = Screen2.Title; settingsMenu.Selected = 0; State = Screen2.Settings; }
-                    else if (index == 3) Application.Quit();
+                    if (index == 0) OpenCampaign();
+                    else if (index == 1) EnterLoadout(); // gauntlet: the endless mode, with your die build
+                    else if (index == 2) { howToReturn = Screen2.Title; State = Screen2.HowTo; }
+                    else if (index == 3) { settingsReturn = Screen2.Title; settingsMenu.Selected = 0; State = Screen2.Settings; }
+                    else if (index == 4) Application.Quit();
                     break;
                 case Screen2.Paused:
                     if (index == 0) SetPaused(false);
@@ -92,7 +101,8 @@ namespace DiceHero
                     else Reload(false);
                     break;
                 case Screen2.Settings:
-                    if (index == settingsMenu.Items.Count - 1) { State = settingsReturn; Settings.Save(); }
+                    if (settingsMenu.Items[index].label == "OPEN PLAY LOG FOLDER") { System.IO.Directory.CreateDirectory(Telemetry.Folder); Application.OpenURL("file:///" + Telemetry.Folder.Replace('\\', '/')); }
+                    else if (index == settingsMenu.Items.Count - 1) { State = settingsReturn; Settings.Save(); }
                     break;
                 case Screen2.GameOver:
                     if (index == 1) OpenLoadout = true;
@@ -124,6 +134,11 @@ namespace DiceHero
                 case Screen2.Upgrade: Dim(w, 0.55f); DrawUpgrade(w); break;
                 case Screen2.GameOver: Dim(w, 0.45f); DrawGameOver(w); break;
                 case Screen2.Loadout: Dim(w, 0.55f); DrawLoadout(w); break;
+                case Screen2.Campaign: Dim(w, 0.6f); DrawCampaign(w); break;
+                case Screen2.Story: DrawStory(w); break;
+                case Screen2.StageClear: Dim(w, 0.72f); DrawStageClear(w); break;
+                case Screen2.StageFailed: Dim(w, 0.62f); DrawStageFailed(w); break;
+                case Screen2.Playing: DrawRadio(w); break;
             }
             UiKit.End();
         }

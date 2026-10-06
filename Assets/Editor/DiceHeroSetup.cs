@@ -184,6 +184,8 @@ public static class DiceHeroSetup
         float seconds = float.TryParse(GetArg("-playSeconds"), out float ps) ? ps : 240f;
         var lo = GetArg("-loadout"); // e.g. -loadout flak,lance,tri,mortar,needler,missile
         if (lo != null) { var p = lo.Split(','); Loadout.OverrideForTest(new[] { null, p[0], p[1], p[2], p[3], p[4], p[5] }); }
+        var stageId = GetArg("-stage"); // e.g. -stage scrap2: play one campaign stage to its end
+        if (stageId != null) Campaign.BeginDeck(Campaign.Find(stageId));
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
         boot.BuildWorld();
@@ -205,7 +207,7 @@ public static class DiceHeroSetup
         game.WaveCleared += w => Debug.Log($"[RollPower] {frame / 30f:0.0}s wave {w} cleared, hp {game.Hp}/{game.MaxHp}, score {game.Score}, bombs disposed {game.BombsDisposed}/{bombs}");
 
         const float dt = 1f / 30f;
-        for (; frame < 30 * seconds && !game.Lost; frame++)
+        for (; frame < 30 * seconds && !game.Lost && !game.Won; frame++)
         {
             int before = game.Bombs.All.Count;
             bot.Step(dt);
@@ -231,6 +233,7 @@ public static class DiceHeroSetup
         float median = spells.Count > 0 ? spells[spells.Count / 2] : 0f;
         Debug.Log($"[RollPower] controls {(DiceController.ButtonMode ? "button" : "bump")}: wrong-gun share {(fightTime > 0f ? 100f * wrongTime / fightTime : 0f):0}% of {fightTime:0}s fighting, " +
                   $"{spells.Count} wrong spells, median {median:0.0}s, rolls/min {rolls / Mathf.Max(1f, frame / 30f / 60f):0}, hits taken {hits}");
+        if (game.Stage != null) Debug.Log($"[RollPower] stage {game.Stage.id}: {(game.Won ? "CLEARED" : game.Lost ? "FAILED" : "TIMED OUT")} at wave {game.Wave}/{game.Stage.waves.Length}, {frame / 30f:0}s (par {game.Stage.parTime:0}s), hits {game.HitsTaken}");
         Debug.Log($"[RollPower] PlayTest end after {frame / 30f:0}s: wave {game.Wave}, lost {game.Lost}, hp {game.Hp}, rolls {rolls}, shots {shots}, " +
                   $"kills {game.Kills}, bombs {bombs} (disposed {game.BombsDisposed}), best combo x{game.BestCombo}, score {game.Score}");
     }

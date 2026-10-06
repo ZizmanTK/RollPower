@@ -35,6 +35,15 @@ namespace DiceHero
         public Enemy Boss { get; private set; }
         public bool FirstBombSeen { get; private set; }
 
+        /// <summary>Campaign stage being played: its scripted waves replace the endless wave director (null: gauntlet).</summary>
+        public StageDef Stage;
+        /// <summary>The last scripted wave of the stage is cleared.</summary>
+        public event System.Action StageCleared;
+        /// <summary>Damage taken (cause), and a hit the roll's shield absorbed.</summary>
+        public event System.Action<string> Hurt;
+        public event System.Action Dodged;
+        public int HitsTaken { get; private set; }
+
         /// <summary>Set by tests/demo to script their own spawns instead of the wave director.</summary>
         public bool ManualSpawning;
 
@@ -168,6 +177,7 @@ namespace DiceHero
             bombsLeft = Wave < 2 ? 0 : 1 + (Wave - 1) / 2;
             bombTimer = Wave == 2 ? 3f : 5f;
 
+            if (Stage != null) { StartStageWave(); return; }
             if (BossWave)
             {
                 int tier = Wave / 5;
@@ -201,6 +211,21 @@ namespace DiceHero
             Sound.Play(Sfx.WaveStart, 0.7f, 0f);
         }
 
+        void StartStageWave()
+        {
+            var w = Stage.waves[Mathf.Min(Wave, Stage.waves.Length) - 1];
+            bombsLeft = w.bombs;
+            bombTimer = 4f;
+            var list = new List<EnemyKind>();
+            foreach (var (kind, count) in w.enemies) for (int i = 0; i < count; i++) list.Add(kind);
+            for (int i = list.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (list[i], list[j]) = (list[j], list[i]); }
+            foreach (var k in list) spawnQueue.Enqueue(k);
+            Focus = w.enemies[0].kind;
+            loop.ShowBanner($"WAVE {Wave} / {Stage.waves.Length}", w.title, 3f, UiKit.Gold);
+            if (w.radio != null) loop.Radio(w.radio);
+            Sound.Play(Sfx.WaveStart, 0.7f, 0f);
+        }
+
         void StepSpawning(float dt)
         {
             if (spawnQueue.Count > 0)
@@ -214,7 +239,7 @@ namespace DiceHero
                     for (int i = 0; i < group; i++)
                     {
                         var e = Spawn(spawnQueue.Dequeue(), anchor + new Vector3(i % 2, 0f, i / 2) * 1.1f);
-                        e.hp *= 1f + 0.12f * (Wave - 1);
+                        if (Stage == null) e.hp *= 1f + 0.12f * (Wave - 1); // stages set their own difficulty
                         e.maxHp = e.hp;
                     }
                 }
@@ -329,11 +354,14 @@ namespace DiceHero
         public void Juice(float shake, float hitStop) => loop.Juice(shake, hitStop);
         public void Flash(float amount) => loop.FlashScreen(amount);
 
-        public void HurtPlayer(int amount, Vector3 from)
+        public void HurtPlayer(int amount, Vector3 from, string cause = "hit")
         {
+            if (dice.Shielded && invuln <= 0f && !Lost && !Won && amount > 0) { Dodged?.Invoke(); return; }
             if (invuln > 0f || dice.Shielded || Lost || Won || amount <= 0) return;
             if (Invincible) { invuln = 1.2f; HurtFlash = 0.2f; Juice(0.3f, 0.03f); return; }
             Hp = Mathf.Max(0, Hp - amount);
+            HitsTaken++;
+            Hurt?.Invoke(cause);
             invuln = 1.2f;
             HurtFlash = 0.45f;
             Combo = 1;
@@ -392,6 +420,16 @@ namespace DiceHero
             waveDelay -= dt;
             if (waveDelay > 0f) return;
             if (Wave == 0) { StartWave(); return; }
+            if (Stage != null)
+            {
+                // Stages run their waves back to back; cards come between stages, not waves.
+                if (Wave < Stage.waves.Length) { StartWave(); return; }
+                Won = true;
+                Intermission = true;
+                Sound.Play(Sfx.WaveClear, 0.8f, 0f);
+                StageCleared?.Invoke();
+                return;
+            }
 
             // Wave cleared: small repair, then the loop shows the upgrade pick and calls StartNextWave().
             Intermission = true;
@@ -402,6 +440,9 @@ namespace DiceHero
 
         /// <summary>Starts the next wave (after the upgrade pick).</summary>
         public void StartNextWave() => StartWave();
+
+        /// <summary>Demo capture: end the run now (to show the retry screen).</summary>
+        public void DemoKill() { Invincible = false; Hp = 0; }
 
         /// <summary>Full repair (the Reinforced Shell upgrade).</summary>
         public void RepairFull() => Hp = MaxHp;
@@ -467,7 +508,7 @@ namespace DiceHero
             // Contact damage (ground units only)
             if (!e.Flying && dist < e.radius + 0.5f)
             {
-                HurtPlayer(1, e.pos);
+                HurtPlayer(1, e.pos, "contact:" + e.kind);
                 e.vel = -dir * 3f;
             }
         }
@@ -555,7 +596,7 @@ namespace DiceHero
             // Touching it hurts.
             if (to.magnitude < half + 0.5f)
             {
-                HurtPlayer(1, e.pos);
+                HurtPlayer(1, e.pos, "boss");
                 dice.Knock(to.normalized * 6f);
             }
         }
@@ -602,7 +643,7 @@ namespace DiceHero
             Sound.Play(Sfx.MegaSlam, 1f, 0.02f);
             Juice(0.5f * strength, 0.03f);
             Vector3 to = dp - e.pos; to.y = 0f;
-            if (to.magnitude < 2.6f) { HurtPlayer(1, e.pos); dice.Knock(to.normalized * 7f); }
+            if (to.magnitude < 2.6f) { HurtPlayer(1, e.pos, "boss-landing"); dice.Knock(to.normalized * 7f); }
             Bombs.Slam(e.pos, 2.6f, 1);
 
             int count = 6 + b.tier * 2 + b.phase * 2;
@@ -658,7 +699,7 @@ namespace DiceHero
                 bool done = b.life <= 0f || b.pos.y < 0f || Mathf.Abs(b.pos.x) > World.HalfSize || Mathf.Abs(b.pos.z) > World.HalfSize;
                 if (!done && (b.pos - center).sqrMagnitude < 0.6f * 0.6f)
                 {
-                    HurtPlayer(b.dmg, b.pos);
+                    HurtPlayer(b.dmg, b.pos, "bullet");
                     done = true;
                 }
                 if (done)
