@@ -112,8 +112,9 @@ namespace DiceHero
                         Vector3 d = e.pos - b.pos; d.y = 0f;
                         if (d.magnitude > e.radius + Bomb.Radius) continue;
                         e.vel += d.normalized * b.vel.magnitude * 0.9f;
-                        game.BlastEnemy(e, 1f, b.pos, "BOWLED");
+                        game.BlastEnemy(e, RunStats.Current.bowlDamage, b.pos, "BOWLED");
                         b.vel *= 0.8f;
+                        if (RunStats.Current.contactFuse) { b.fuse = 0f; break; } // Slow Burn: blows up on impact
                     }
 
                 // Off the edge: no fence for bombs.

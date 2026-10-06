@@ -22,6 +22,8 @@ namespace DiceHero
         public int repairEvery;        // 0 = off; otherwise every Nth roll repairs 1 integrity
         public int extraShots;
         public float fuseBonus;
+        public float bowlDamage = 1f;   // damage a moving bomb deals to the enemies it bowls over
+        public bool contactFuse;        // shoved bombs explode on the first enemy they hit
         // Face upgrades: per-face multipliers (index = face number).
         public readonly float[] faceDamage = { 1f, 1f, 1f, 1f, 1f, 1f, 1f };
         public readonly float[] faceRate = { 1f, 1f, 1f, 1f, 1f, 1f, 1f };
@@ -90,14 +92,14 @@ namespace DiceHero
                 apply = (s, l) => s.repairEvery = l == 1 ? 3 : 2 },
             new UpgradeDef { id = "resist", name = "BLAST PLATING", desc = "Bomb blasts deal 1 less damage to you", maxLevel = 2, color = Palette.Hex("#B8C4D6"),
                 apply = (s, l) => s.blastResist++ },
-            new UpgradeDef { id = "kick", name = "POWER SHOVE", desc = "Shove bombs 35% harder", maxLevel = 2, color = Palette.Hex("#4D8BFF"),
-                apply = (s, l) => s.kickMul += 0.35f },
+            new UpgradeDef { id = "kick", name = "POWER SHOVE", desc = "Shove bombs 35% harder, and a rolling bomb deals 3 damage to every enemy it bowls over", maxLevel = 2, color = Palette.Hex("#4D8BFF"),
+                apply = (s, l) => { s.kickMul += 0.35f; s.bowlDamage += l == 1 ? 2f : 1f; } },
             new UpgradeDef { id = "chain", name = "CHAIN REACTION", desc = "Kills have a 25% chance to explode", maxLevel = 3, color = Palette.Hex("#FF3FA4"),
                 apply = (s, l) => s.chainChance += 0.25f },
             new UpgradeDef { id = "barrel", name = "EXTRA BARREL", desc = "Multi-shot guns fire +1 projectile", maxLevel = 2, color = Palette.Hex("#5CFF8A"),
                 apply = (s, l) => s.extraShots++ },
-            new UpgradeDef { id = "fuse", name = "SLOW BURN", desc = "Bomb fuses last 2s longer", maxLevel = 2, color = Palette.Hex("#FF7A1A"),
-                apply = (s, l) => s.fuseBonus += 2f },
+            new UpgradeDef { id = "fuse", name = "SLOW BURN", desc = "Bomb fuses last 2s longer, and a bomb you shove explodes on the first enemy it hits", maxLevel = 2, color = Palette.Hex("#FF7A1A"),
+                apply = (s, l) => { s.fuseBonus += 2f; s.contactFuse = true; } },
         };
     }
 

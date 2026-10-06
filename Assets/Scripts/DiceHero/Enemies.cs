@@ -41,7 +41,7 @@ namespace DiceHero
                 case EnemyKind.Tank: return "TANKS ARE ARMOURED: USE " + Faces(w => w.armorPiercing);
                 case EnemyKind.Mite: return "MITE SWARM: USE " + Faces(w => w.shots > 1 || w.aoe > 0f);
                 case EnemyKind.Bomber: return "BOMBERS PLANT BOMBS: SHOVE THEM OFF THE EDGE";
-                case EnemyKind.Boss: return "HIGH ROLLER: MATCH THE NUMBER ON ITS TOP FACE";
+                case EnemyKind.Boss: return "ONLY THE GUN ON ITS TOP NUMBER HURTS IT · 3 PHASES";
                 default: return "CRAWLERS: ANY GUN WORKS";
             }
         }

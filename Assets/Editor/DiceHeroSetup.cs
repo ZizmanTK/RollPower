@@ -195,7 +195,8 @@ public static class DiceHeroSetup
         var cam = Camera.main.GetComponent<CameraFollow>();
         int rolls = 0, shots = 0, lastWave = 0, frame = 0, bombs = 0;
         boot.Controller.TopChanged += (a, b) => rolls++;
-        loop.Weapons.Fired += d => shots++;
+        var perGun = new System.Collections.Generic.Dictionary<string, int>();
+        loop.Weapons.Fired += d => { shots++; perGun[d.name] = perGun.TryGetValue(d.name, out int c) ? c + 1 : 1; };
         game.WaveCleared += w => Debug.Log($"[RollPower] {frame / 30f:0.0}s wave {w} cleared, hp {game.Hp}/{game.MaxHp}, score {game.Score}, bombs disposed {game.BombsDisposed}/{bombs}");
 
         const float dt = 1f / 30f;
@@ -212,6 +213,7 @@ public static class DiceHeroSetup
             }
             if (frame % 60 == 0) Shot(cam, outDir, frame / 60);
         }
+        foreach (var kv in perGun) Debug.Log($"[RollPower] shots {kv.Key}: {kv.Value}");
         Debug.Log($"[RollPower] PlayTest end after {frame / 30f:0}s: wave {game.Wave}, lost {game.Lost}, hp {game.Hp}, rolls {rolls}, shots {shots}, " +
                   $"kills {game.Kills}, bombs {bombs} (disposed {game.BombsDisposed}), best combo x{game.BestCombo}, score {game.Score}");
     }

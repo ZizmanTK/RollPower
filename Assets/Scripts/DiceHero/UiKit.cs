@@ -186,16 +186,55 @@ namespace DiceHero
             return st;
         }
 
-        public static float TextWidth(string s, int size, int weight = 2) => s.Length == 0 ? 0f : TextStyle(size, weight).CalcSize(new GUIContent(s)).x;
+        // Arrows are drawn as icons: Rajdhani has no arrow glyphs, and WebGL has no fallback font.
+        const string ArrowChars = "←→↑↓"; // ← → ↑ ↓
+        static float ArrowAngle(char c) => c == '→' ? 0f : c == '←' ? 180f : c == '↑' ? -90f : 90f;
+
+        static float Measure(string s, GUIStyle st)
+        {
+            if (s.IndexOfAny(ArrowChars.ToCharArray()) < 0) return st.CalcSize(new GUIContent(s)).x;
+            float w = 0f;
+            foreach (char c in s) w += ArrowChars.IndexOf(c) >= 0 ? st.fontSize * 0.9f : 0f;
+            foreach (var part in s.Split(ArrowChars.ToCharArray())) if (part.Length > 0) w += st.CalcSize(new GUIContent(part)).x;
+            return w;
+        }
+
+        /// <summary>Draws s left-aligned in r, with arrow characters replaced by arrow icons.</summary>
+        static void DrawText(Rect r, string s, GUIStyle st, Color c)
+        {
+            if (s.IndexOfAny(ArrowChars.ToCharArray()) < 0) { Label(r, s, st, c); return; }
+            float x = r.x, a = st.fontSize * 0.9f;
+            int start = 0;
+            for (int i = 0; i <= s.Length; i++)
+            {
+                if (i < s.Length && ArrowChars.IndexOf(s[i]) < 0) continue;
+                if (i > start)
+                {
+                    string part = s.Substring(start, i - start);
+                    float pw = st.CalcSize(new GUIContent(part)).x;
+                    Label(new Rect(x, r.y, pw + 4f, r.height), part, st, c);
+                    x += pw;
+                }
+                if (i < s.Length)
+                {
+                    float cy = r.y + st.fontSize * 0.24f + st.fontSize * 0.36f; // middle of the caps
+                    DrawIcon(new Rect(x + a * 0.08f, cy - a * 0.42f, a * 0.84f, a * 0.84f), "ui_arrow", c, ArrowAngle(s[i]));
+                    x += a;
+                }
+                start = i + 1;
+            }
+        }
+
+        public static float TextWidth(string s, int size, int weight = 2) => s.Length == 0 ? 0f : Measure(s, TextStyle(size, weight));
 
         /// <summary>Single-line text whose cap height starts at y. align: 0 left, 0.5 centre, 1 right.</summary>
         public static void Line(string s, float x, float y, int size, Color c, float align = 0f, int weight = 2, float shadow = 0f)
         {
             var st = TextStyle(size, weight);
-            float wdt = st.CalcSize(new GUIContent(s)).x;
+            float wdt = Measure(s, st);
             var r = new Rect(x - wdt * align, y - size * 0.24f, wdt + 4f, size * 1.4f);
-            if (shadow > 0f) Label(new Rect(r.x + shadow, r.y + shadow * 1.4f, r.width, r.height), s, st, new Color(0f, 0f, 0f, 0.6f * c.a));
-            Label(r, s, st, c);
+            if (shadow > 0f) DrawText(new Rect(r.x + shadow, r.y + shadow * 1.4f, r.width, r.height), s, st, new Color(0f, 0f, 0f, 0.6f * c.a));
+            DrawText(r, s, st, c);
         }
 
         // Legacy pixel-font API, now drawn with Rajdhani: px is the old pixel size (cap height = 7 * px).
@@ -210,10 +249,10 @@ namespace DiceHero
             if (string.IsNullOrEmpty(s)) return;
             int size = SizeFor(px);
             var st = TextStyle(size, WeightFor(px));
-            float wdt = st.CalcSize(new GUIContent(s)).x;
+            float wdt = Measure(s, st);
             var r = new Rect(x - wdt * align, y - size * 0.24f, wdt + 4f, size * 1.4f);
-            if (shadow > 0f) Label(new Rect(r.x + px * shadow * 2.2f, r.y + px * shadow * 3f, r.width, r.height), s, st, shadowColor ?? new Color(0f, 0f, 0f, 0.55f * c.a));
-            Label(r, s, st, c);
+            if (shadow > 0f) DrawText(new Rect(r.x + px * shadow * 2.2f, r.y + px * shadow * 3f, r.width, r.height), s, st, shadowColor ?? new Color(0f, 0f, 0f, 0.55f * c.a));
+            DrawText(r, s, st, c);
         }
 
         // ------------------------------------------------------------------ icons, diamonds, keycaps, chamfered panels

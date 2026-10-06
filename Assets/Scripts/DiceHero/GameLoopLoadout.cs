@@ -36,7 +36,14 @@ namespace DiceHero
 
         void ActivateLoadoutRow(int row)
         {
-            if (row >= WeaponDef.Catalog.Length) { Sound.Play(Sfx.UiConfirm, 0.7f, 0f); Reload(true); return; } // launch with the new die
+            if (row >= WeaponDef.Catalog.Length)
+            {
+                string missing = Loadout.Missing();
+                if (missing != null) { Toast("YOUR DIE NEEDS " + missing, 2.5f); Sound.Play(Sfx.UiMove, 0.5f, 0f); return; }
+                Sound.Play(Sfx.UiConfirm, 0.7f, 0f);
+                Reload(true); // launch with the new die
+                return;
+            }
             var w = WeaponDef.Catalog[row];
             if (!Loadout.Owns(w.id))
             {
@@ -127,6 +134,8 @@ namespace DiceHero
             UiKit.ChamferPanel(lr, lsel ? UiKit.Cyan : new Color(0.06f, 0.16f, 0.25f, 0.95f), UiKit.Cyan);
             UiKit.DrawIcon(new Rect(lr.x + 24, lr.center.y - 14, 28, 28), "ui_play", lsel ? UiKit.Ink : UiKit.Cyan);
             UiKit.Line("LAUNCH RUN", lr.x + 66, lr.center.y - 12, 28, lsel ? UiKit.Ink : UiKit.Text, 0f, 2);
+            string need = Loadout.Missing();
+            if (need != null) UiKit.Line("NEEDS " + need, lr.xMax - 20, lr.center.y - 8, 15, new Color(1f, 0.45f, 0.35f), 1f, 2);
             if (lr.Contains(e.mousePosition) && e.type == EventType.MouseMove) loadoutRow = WeaponDef.Catalog.Length;
             if (e.type == EventType.MouseDown && e.button == 0 && lr.Contains(e.mousePosition)) { e.Use(); ActivateLoadoutRow(WeaponDef.Catalog.Length); return; }
 

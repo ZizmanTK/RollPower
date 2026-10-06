@@ -298,7 +298,7 @@ namespace DiceHero
         {
             if (!Settings.ShowTutorial || Game.Wave > 3 || Game.Lost) return null;
             if (Game.Rolls == 0 && Game.TimeAlive < 5f) return "GLIDE WITH WASD, ARROWS OR THE LEFT STICK";
-            if (Game.Rolls == 0) return "SLAM INTO A RED BARRIER TO ROLL: THE TOP NUMBER PICKS YOUR GUN";
+            if (Game.Rolls == 0) return Art.Theme == 3 ? "SLAM INTO A VENT BOX OR PIPE RACK TO ROLL: THE TOP NUMBER PICKS YOUR GUN" : "SLAM INTO A RED BARRIER TO ROLL: THE TOP NUMBER PICKS YOUR GUN";
             if (Game.Bombs.All.Count > 0 && Game.BombsDisposed == 0) return "SHOVE BOMBS OFF THE EDGE";
             if (Game.Rolls < 3 && Game.TimeAlive < 40f) return "SPACE OR A TO DASH";
             return null;

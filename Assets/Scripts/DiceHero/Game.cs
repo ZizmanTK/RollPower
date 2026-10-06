@@ -150,7 +150,7 @@ namespace DiceHero
                 b.hp = b.maxHp;
                 bombsLeft = 3 + tier * 2;
                 bombTimer = 6f;
-                loop.ShowBanner("BOSS: HIGH ROLLER", Enemy.Hint(EnemyKind.Boss), 4f, UiKit.Red);
+                loop.ShowBanner("BOSS: HIGH ROLLER", $"WEAK TO {b.boss.weak}: {WeaponDef.All[b.boss.weak].name}  ·  " + Enemy.Hint(EnemyKind.Boss), 4f, UiKit.Red);
                 Sound.Play(Sfx.BossRoar, 1f, 0f);
                 Juice(0.5f, 0f);
                 return;
@@ -159,7 +159,7 @@ namespace DiceHero
             int slot = Wave - 1 - (Wave - 1) / 5; // skip boss waves in the focus order
             Focus = slot < FocusOrder.Length ? FocusOrder[slot] : FocusOrder[rng.Next(1, FocusOrder.Length)];
             int unlocked = Mathf.Min(slot + 1, FocusOrder.Length);
-            int count = 4 + Wave * 2;
+            int count = 8 + Wave * 2; // early waves used to end in under 10 s
             var list = new List<EnemyKind>();
             for (int i = 0; i < count; i++)
             {

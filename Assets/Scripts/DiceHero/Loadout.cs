@@ -68,6 +68,15 @@ namespace DiceHero
             Save();
         }
 
+        /// <summary>What the die is missing to face every enemy (drones fly, tanks are armoured), or null if it is complete.</summary>
+        public static string Missing()
+        {
+            bool air = false, armour = false;
+            for (int f = 1; f <= 6; f++) { var w = WeaponDef.Find(Faces[f]); air |= w.antiAir; armour |= w.armorPiercing; }
+            if (!air && !armour) return "A GUN THAT HITS FLIERS AND ONE THAT PIERCES ARMOUR";
+            return !air ? "A GUN THAT HITS FLIERS (FOR DRONES)" : !armour ? "A GUN THAT PIERCES ARMOUR (FOR TANKS)" : null;
+        }
+
         /// <summary>Chips for a finished run: 10 per wave reached, 40 per boss beaten, 1 per 5 kills.</summary>
         public static int ChipsFor(int wave, int bosses, int kills) => wave * 10 + bosses * 40 + kills / 5;
     }

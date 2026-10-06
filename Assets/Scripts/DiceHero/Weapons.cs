@@ -32,9 +32,9 @@ namespace DiceHero
         public static readonly WeaponDef[] Catalog =
         {
             new WeaponDef { id = "rail", model = 1, name = "RAILGUN", role = "Piercing beam, pierces armour", color = Palette.Hex("#35E6FF"),
-                cooldown = 0.9f, shots = 1, speed = 0f, damage = 3f, range = 18f, beam = true, armorPiercing = true },
+                cooldown = 0.9f, shots = 1, speed = 0f, damage = 4f, range = 18f, beam = true, armorPiercing = true },
             new WeaponDef { id = "twin", model = 2, name = "TWIN BLASTERS", role = "Fast twin bolts", color = Palette.Hex("#5CFF8A"),
-                cooldown = 0.22f, shots = 2, spread = 0f, speed = 22f, damage = 1f, range = 16f },
+                cooldown = 0.28f, shots = 2, spread = 0f, speed = 22f, damage = 1f, range = 16f },
             new WeaponDef { id = "tri", model = 3, name = "TRI-SHOT", role = "3-way spread, hits fliers", color = Palette.Hex("#FFE14D"),
                 cooldown = 0.42f, shots = 3, spread = 24f, speed = 20f, damage = 1f, range = 16f, antiAir = true },
             new WeaponDef { id = "plasma", model = 4, name = "PLASMA CANNON", role = "Explosive orb, breaks armour", color = Palette.Hex("#FF3FA4"),
@@ -42,16 +42,16 @@ namespace DiceHero
             new WeaponDef { id = "scatter", model = 5, name = "SCATTER GUN", role = "5 pellets, close range", color = Palette.Hex("#FF8A2A"),
                 cooldown = 0.65f, shots = 5, spread = 50f, speed = 19f, damage = 1f, range = 7f, radius = 0.1f },
             new WeaponDef { id = "missile", model = 6, name = "MISSILE POD", role = "6 homing missiles, hits fliers", color = Palette.Hex("#FF4B3A"),
-                cooldown = 2.0f, shots = 6, spread = 70f, speed = 12f, damage = 1f, range = 20f, radius = 0.14f, aoe = 1.0f, homing = true, antiAir = true },
+                cooldown = 2.0f, shots = 6, spread = 70f, speed = 12f, damage = 1.3f, range = 20f, radius = 0.14f, aoe = 1.0f, homing = true, antiAir = true },
             // Unlockable with chips.
             new WeaponDef { id = "flak", model = 3, cost = 120, name = "FLAK CANNON", role = "Bursting shells, shreds fliers", color = Palette.Hex("#B98CFF"),
                 cooldown = 0.75f, shots = 4, spread = 34f, speed = 18f, damage = 1f, range = 12f, radius = 0.13f, aoe = 0.9f, antiAir = true },
             new WeaponDef { id = "lance", model = 1, cost = 160, name = "ARC LANCE", role = "Short rapid beam, pierces armour", color = Palette.Hex("#E8F1FF"),
                 cooldown = 0.35f, shots = 1, speed = 0f, damage = 1.6f, range = 9f, beam = true, armorPiercing = true },
             new WeaponDef { id = "mortar", model = 4, cost = 200, name = "MORTAR", role = "Slow shell, huge blast, breaks armour", color = Palette.Hex("#2FE6C8"),
-                cooldown = 1.3f, shots = 1, speed = 10f, damage = 3f, range = 15f, radius = 0.28f, aoe = 2.4f, armorPiercing = true },
+                cooldown = 1.2f, shots = 1, speed = 10f, damage = 4f, range = 15f, radius = 0.28f, aoe = 2.4f, armorPiercing = true },
             new WeaponDef { id = "needler", model = 6, cost = 250, name = "NEEDLER", role = "8 homing needles, hits fliers", color = Palette.Hex("#C6FF3D"),
-                cooldown = 1.1f, shots = 8, spread = 40f, speed = 16f, damage = 0.5f, range = 16f, radius = 0.08f, homing = true, antiAir = true },
+                cooldown = 1.1f, shots = 8, spread = 40f, speed = 16f, damage = 0.6f, range = 16f, radius = 0.08f, homing = true, antiAir = true },
         };
 
         public static WeaponDef Find(string id)
