@@ -13,7 +13,7 @@ namespace DiceHero
     {
         static float H => World.HalfSize;
 
-        public static Color Floor(int t) => t == 5 ? Palette.Hex("#3E5446") : t == 6 ? Palette.Hex("#9FB7C4") : Palette.Hex("#2E2A28");
+        public static Color Floor(int t) => t == 5 ? Palette.Hex("#56715E") : t == 6 ? Palette.Hex("#9FB7C4") : Palette.Hex("#2E2A28");
         public static Color Accent(int t) => t == 5 ? Palette.Hex("#8EE06A") : t == 6 ? Palette.Hex("#7FD8FF") : Palette.Hex("#FF6A1A");
 
         public static void Light(int t, Light sun)

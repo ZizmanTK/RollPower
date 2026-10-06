@@ -38,7 +38,7 @@ namespace DiceHero
             if (defs == null) return;
             ventIdle = pal.Glow("HzVentIdle", Palette.Hex("#5A2410"), 0.6f);
             ventWarn = pal.Glow("HzVentWarn", Palette.Hex("#FF7A1A"), 2.2f);
-            ventHot = pal.Glow("HzVentHot", Palette.Hex("#FFD05A"), 5f);
+            ventHot = pal.Glow("HzVentHot", Palette.Hex("#FF8A2A"), 2.4f);
             foreach (var d in defs)
             {
                 var t = new GameObject("Hazard" + d.kind).transform;

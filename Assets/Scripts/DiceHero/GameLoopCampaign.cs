@@ -54,6 +54,8 @@ namespace DiceHero
 
         // Hooks for the demo director's campaign walk-through.
         public void DemoOpenCampaign() => OpenCampaign();
+        public void DemoWorkshop() => EnterWorkshop();
+        public void DemoEnding() { story = Campaign.Ending; storyIndex = 0; storyToMap = false; State = Screen2.Story; }
         public void DemoAdvanceStory() { storyIndex++; if (storyIndex >= story.Length) FinishStory(); }
         public void DemoLaunchFirstStage() => LaunchStage(Campaign.Decks[0].stages[0], true);
         public void DemoStageMenu(int index) { if (State == Screen2.StageClear) ActivateStageClear(index); else if (State == Screen2.StageFailed) ActivateStageFail(index); }
@@ -335,14 +337,15 @@ namespace DiceHero
                 var r = new Rect(lx, ly + d * rowH, lw, rowH - 12f);
                 bool sel = d == mapDeck;
                 if (e.type == EventType.MouseDown && e.button == 0 && r.Contains(e.mousePosition)) { mapDeck = d; mapStage = 0; e.Use(); }
-                float a = deck.playable ? 1f : 0.45f;
+                bool deckOpen = deck.playable && deck.stages.Length > 0 && Campaign.Unlocked(deck.stages[0]);
+                float a = deckOpen ? 1f : 0.45f;
                 UiKit.ChamferPanel(r, new Color(sel ? 0.06f : UiKit.Ink.r, sel ? 0.16f : UiKit.Ink.g, sel ? 0.25f : UiKit.Ink.b, 0.94f), sel ? UiKit.Cyan : new Color(UiKit.Steel.r, UiKit.Steel.g, UiKit.Steel.b, 0.6f));
                 UiKit.Line($"DECK {d + 1}", r.x + 22f, r.y + 14f, 16, new Color(UiKit.Mutedish.r, UiKit.Mutedish.g, UiKit.Mutedish.b, a), 0f, 2);
                 UiKit.Line(deck.name, r.x + 22f, r.y + 34f, 30, new Color(1f, 1f, 1f, a), 0f, 2);
                 UiKit.Line(deck.mechanic, r.x + 22f, r.y + 70f, 16, new Color(UiKit.Soft.r, UiKit.Soft.g, UiKit.Soft.b, a), 0f, 1);
                 int got = 0, max = deck.stages.Length * 3;
                 foreach (var s in deck.stages) got += Campaign.StarCount(Campaign.Stars(s));
-                UiKit.Line(deck.playable ? $"{got}/{max} ★" : "LOCKED", r.xMax - 22f, r.y + 38f, 20, deck.playable ? Palette.Hex("#FFB020") : UiKit.Mutedish, 1f, 2);
+                UiKit.Line(deckOpen ? $"{got}/{max} ★" : "LOCKED", r.xMax - 22f, r.y + 38f, 20, deckOpen ? Palette.Hex("#FFB020") : UiKit.Mutedish, 1f, 2);
             }
 
             // Right: the stages of the selected deck.

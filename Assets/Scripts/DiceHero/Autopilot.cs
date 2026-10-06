@@ -118,7 +118,7 @@ namespace DiceHero
                 if (dice.TryRoll()) return;
             }
             bool wrong = RollAdvisor.Needed(dice, game);
-            if (wrong && wrongFor == 0f) ignoring = Random.value < IgnoreAdvice;
+            if (wrong && (wrongFor == 0f || wrongFor > 3f && ignoring)) { ignoring = Random.value < IgnoreAdvice; if (wrongFor > 3f) wrongFor = 0.01f; } // a missed hint is noticed again after a few seconds
             wrongFor = wrong ? wrongFor + dt : 0f;
             if (wrong && !ignoring && wrongFor > ReactionTime && dice.DashCooldownLeft <= 0f)
             {

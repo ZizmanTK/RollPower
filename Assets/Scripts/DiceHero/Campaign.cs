@@ -117,10 +117,10 @@ namespace DiceHero
                         layout = new[] { new Placement(B, -5f, 3f), new Placement(B, 5f, 3f), new Placement(B, -3f, -3f), new Placement(B, 3f, -3f), new Placement(C, 0f, 2f, false) },
                         waves = new[]
                         {
-                            new WaveDef { title = "DRONES INCOMING", enemies = new[] { (EnemyKind.Drone, 6) }, radio = "Drones fly over most shots. Look at the markers around you: roll to the one that lights up." },
+                            new WaveDef { title = "DRONES INCOMING", enemies = new[] { (EnemyKind.Drone, 4), (EnemyKind.Crawler, 2) }, radio = "Drones fly over most shots. Look at the markers around you: roll to the one that lights up." },
                             new WaveDef { title = "MIXED SWARM", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 4) } },
                             new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 2), (EnemyKind.Crawler, 8) }, bombs = 2, radio = "Bombs! Shove them off the edge before they blow." },
-                            new WaveDef { title = "AIR RAID", enemies = new[] { (EnemyKind.Drone, 9), (EnemyKind.Crawler, 6) }, radio = "A big flight coming in. Stay on the tri-shot, and only roll when you have to." },
+                            new WaveDef { title = "AIR RAID", enemies = new[] { (EnemyKind.Drone, 7), (EnemyKind.Crawler, 4) }, radio = "A big flight coming in. Stay on the tri-shot, and only roll when you have to." },
                         },
                         startRadio = new[] { "Something's flying in from the vents. Your twin blasters won't reach it." },
                         clearRadio = new[] { "You're learning faster than the House can adapt." },

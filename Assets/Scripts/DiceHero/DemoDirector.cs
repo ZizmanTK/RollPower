@@ -121,15 +121,20 @@ namespace DiceHero
             {
                 case Screen2.Title:
                     if (campaignStep == 0 && Near(1.5f)) { Campaign.SeenIntro = false; loop.DemoOpenCampaign(); }
+                    if (campaignStep >= 5 && Near(1f)) { Debug.Log("[RollPower] campaign walk-through done"); Application.Quit(); }
+                    break;
+                case Screen2.Workshop:
+                    if (Near(1f)) Shot("workshop");
+                    if (Near(2f)) { campaignStep = 5; loop.DemoEnding(); }
                     break;
                 case Screen2.Story:
-                    if (Near(1f)) Shot("story");
+                    if (Near(1f)) Shot(campaignStep >= 5 ? "ending" : "story");
                     if (stateTime > 1.8f) { loop.DemoAdvanceStory(); stateTime = 0f; } // same state, next slide
                     break;
                 case Screen2.Campaign:
                     if (Near(1.2f)) Shot("map");
                     if (campaignStep == 0 && Near(2.2f)) { campaignStep = 1; loop.DemoLaunchFirstStage(); }
-                    if (campaignStep == 3 && Near(2.4f)) { Debug.Log("[RollPower] campaign walk-through done"); Application.Quit(); }
+                    if (campaignStep == 3 && Near(2.4f)) { campaignStep = 4; loop.DemoWorkshop(); }
                     break;
                 case Screen2.Playing:
                     bot.Step(Mathf.Min(dt, 0.05f));
