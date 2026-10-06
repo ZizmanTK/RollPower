@@ -192,10 +192,26 @@ namespace DiceHero
                 UiKit.Line("HIGH ROLLER", w * 0.5f, 28, 24, UiKit.Text, 0.5f, 2, 2f);
                 UiKit.Rect(new Rect(bossX - 2, 60, bw + 4, 14), new Color(0f, 0f, 0f, 0.6f));
                 UiKit.Rect(new Rect(bossX, 62, bw * Mathf.Clamp01(boss.hp / boss.maxHp), 10), HudHull);
-                int weak = boss.Weakness;
-                UiKit.DieFace(new Rect(bossX + bw + 18, 40, 46, 46), weak, def.number == weak ? UiKit.Gold : WeaponDef.All[weak].color, UiKit.Ink);
-                UiKit.Line("WEAK TO", bossX + bw + 70, 46, 14, HudMuted, 0f, 1);
-                UiKit.Line(weak.ToString(), bossX + bw + 70, 62, 20, UiKit.Text, 0f, 2);
+                // Phase marks at two thirds and one third.
+                foreach (float f in new[] { 1f / 3f, 2f / 3f }) UiKit.Rect(new Rect(bossX + bw * f - 1.5f, 58, 3, 18), UiKit.Text);
+                var bs = boss.boss;
+                int weak = boss.PlannedWeakness;
+                var wd = WeaponDef.All[weak];
+                bool match = def.number == weak;
+                var dr = new Rect(bossX + bw + 18, 34, 52, 52);
+                if (bs.Rerolling) UiKit.Glow(new Rect(dr.x - 30, dr.y - 30, 112, 112), new Color(wd.color.r, wd.color.g, wd.color.b, 0.3f + 0.2f * Mathf.Sin(uiTime * 12f)));
+                UiKit.DieFace(dr, weak, wd.color, UiKit.Ink);
+                if (bs.Rerolling)
+                {
+                    UiKit.Line("NEXT", dr.xMax + 12, 38, 15, HudMuted, 0f, 2);
+                    UiKit.Line($"{bs.reroll:0.0}s", dr.xMax + 12, 56, 22, UiKit.Text, 0f, 2);
+                }
+                else
+                {
+                    UiKit.Line(match ? "HITTING" : "WEAK TO", dr.xMax + 12, 38, 15, match ? HudMint : HudMuted, 0f, 2);
+                    UiKit.Line(wd.name, dr.xMax + 12, 56, 20, wd.color, 0f, 2);
+                }
+                UiKit.Line($"PHASE {bs.phase + 1}/3", bossX, 82, 15, HudMuted, 0f, 2);
             }
 
             DrawBombAlerts(w);

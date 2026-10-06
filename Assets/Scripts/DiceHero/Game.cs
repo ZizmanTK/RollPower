@@ -447,20 +447,53 @@ namespace DiceHero
         }
 
         // ---------------- Boss: High Roller ----------------
+        // Three phases. In each phase the boss keeps one number on top (it hops and turns, never rolls), and only
+        // the gun on that face can hurt it. When its health crosses a third it rerolls: 3 s, untouchable, the next
+        // number shown from the start, so the player has time to line up the roll.
+
+        public const float BossRerollTime = 3f;
 
         void StepBoss(Enemy e, float dt, Vector3 dp)
         {
             var b = e.boss;
-            float enrage = e.hp < e.maxHp * 0.4f ? 0.7f : 1f;
             Vector3 to = dp - e.pos; to.y = 0f;
+            float half = BossState.Size * 0.5f;
+            if (e.spawnT < 1f) return;
 
-            if (!b.Tumbling)
+            // Phase change when health crosses a third.
+            int phaseByHp = e.hp > e.maxHp * 2f / 3f ? 0 : e.hp > e.maxHp / 3f ? 1 : 2;
+            if (!b.Rerolling && phaseByHp > b.phase) StartReroll(e);
+
+            if (b.Rerolling)
             {
-                if (e.spawnT < 1f) return;
+                b.reroll -= dt;
+                float u = Mathf.Clamp01(1f - b.reroll / BossRerollTime);
+                float ease = u * u * (3f - 2f * u);
+                // Spins in place: two full turns around a tilted axis while easing toward the new face.
+                b.orientation = Quaternion.Slerp(b.startRot, b.targetRot, ease) * Quaternion.AngleAxis(720f * ease, b.axis);
+                b.model.Body.localPosition = new Vector3(0f, half + Mathf.Sin(u * Mathf.PI) * 1.4f, 0f);
+                b.model.Body.localRotation = b.orientation;
+                if (b.reroll <= 0f)
+                {
+                    b.orientation = b.targetRot;
+                    b.weak = b.next;
+                    b.phase++;
+                    b.rest = 0.8f;
+                    b.model.Body.localRotation = b.orientation;
+                    b.model.Body.localPosition = new Vector3(0f, half, 0f);
+                    BossImpact(e, dp, 1.2f);
+                    loop.ShowBanner(null, $"WEAK TO {b.weak}: {WeaponDef.All[b.weak].name}", 2.2f, WeaponDef.All[b.weak].color);
+                }
+                return;
+            }
+
+            float enrage = b.phase == 2 ? 0.75f : 1f;
+            if (!b.Hopping)
+            {
                 b.rest -= dt;
                 // Aimed triple burst while resting.
                 e.fireTimer += dt;
-                if (e.fireTimer > 1.5f * enrage)
+                if (e.fireTimer > 1.6f * enrage)
                 {
                     e.fireTimer = 0f;
                     Vector3 from = e.pos + Vector3.up * 1f;
@@ -468,86 +501,93 @@ namespace DiceHero
                         FireBullet(from, Quaternion.Euler(0f, i * 14f, 0f) * (dp + Vector3.up * 0.5f - from).normalized * 7f, 1, 0.3f);
                     Sound.Play(Sfx.EnemyShot, 0.6f);
                 }
-                if (b.rest <= 0f) StartTumble(e, to);
+                if (b.rest <= 0f) StartHop(e, to);
             }
             else
             {
-                b.tumbleT += dt / 0.55f;
-                float u = Mathf.Clamp01(b.tumbleT);
+                b.hopT += dt / 0.6f;
+                float u = Mathf.Clamp01(b.hopT);
                 float ease = u * u * (3f - 2f * u);
-                float angle = 90f * ease;
-                b.orientation = Quaternion.AngleAxis(angle, b.axis) * b.startRot;
                 e.pos = Vector3.Lerp(b.from, b.to, ease);
-                float a = angle * Mathf.Deg2Rad;
-                float half = BossState.Size * 0.5f;
-                float lift = half * (Mathf.Abs(Mathf.Cos(a)) + Mathf.Abs(Mathf.Sin(a))) - half;
-                b.model.Body.localPosition = new Vector3(0f, half + lift * 0.9f, 0f);
-                if (u >= 1f) LandBoss(e, dp);
+                // Turns a quarter around the vertical axis while airborne: the top face never changes.
+                b.orientation = Quaternion.AngleAxis(b.yaw * ease, Vector3.up) * b.startRot;
+                b.model.Body.localPosition = new Vector3(0f, half + Mathf.Sin(u * Mathf.PI) * 1.1f, 0f);
+                b.model.Body.localRotation = b.orientation;
+                if (u >= 1f)
+                {
+                    b.hopT = -1f;
+                    b.orientation = Quaternion.LookRotation(SnapAxis(b.orientation * Vector3.forward), SnapAxis(b.orientation * Vector3.up));
+                    b.model.Body.localPosition = new Vector3(0f, half, 0f);
+                    b.hops++;
+                    b.rest = Mathf.Max(1.4f, 2.4f - b.tier * 0.3f) * enrage;
+                    BossImpact(e, dp, 1f);
+                }
             }
             b.model.Body.localRotation = b.orientation;
             e.t.position = e.pos;
 
             // Touching it hurts.
-            if (to.magnitude < BossState.Size * 0.5f + 0.5f)
+            if (to.magnitude < half + 0.5f)
             {
                 HurtPlayer(1, e.pos);
                 dice.Knock(to.normalized * 6f);
             }
         }
 
-        void StartTumble(Enemy e, Vector3 toPlayer)
+        void StartHop(Enemy e, Vector3 toPlayer)
         {
             var b = e.boss;
-            Vector3 primary = Mathf.Abs(toPlayer.x) > Mathf.Abs(toPlayer.z) ? new Vector3(Mathf.Sign(toPlayer.x), 0f, 0f) : new Vector3(0f, 0f, Mathf.Sign(toPlayer.z));
-            Vector3 secondary = Mathf.Abs(toPlayer.x) > Mathf.Abs(toPlayer.z) ? new Vector3(0f, 0f, Mathf.Sign(toPlayer.z == 0f ? 1f : toPlayer.z)) : new Vector3(Mathf.Sign(toPlayer.x == 0f ? 1f : toPlayer.x), 0f, 0f);
-            Vector3[] options = { primary, secondary, -secondary, -primary };
+            Vector3 dir = toPlayer.magnitude > 0.1f ? toPlayer.normalized : Vector3.forward;
+            float dist = Mathf.Clamp(toPlayer.magnitude - 2.5f, 0.5f, 3f);
             float lim = World.HalfSize - BossState.Size * 0.5f - 0.2f;
-            foreach (var d in options)
-            {
-                Vector3 dest = e.pos + d * BossState.Size;
-                if (Mathf.Abs(dest.x) > lim || Mathf.Abs(dest.z) > lim) continue;
-                bool blocked = false;
-                foreach (var ob in World.Obstacles) if (ob.Overlaps(dest, BossState.Size * 0.5f)) { blocked = true; break; }
-                if (blocked) continue;
-                b.from = e.pos;
-                b.to = dest;
-                b.axis = Vector3.Cross(Vector3.up, d);
-                b.startRot = b.orientation;
-                b.tumbleT = 0f;
-                return;
-            }
-            b.rest = 1f; // boxed in; try again shortly
+            Vector3 dest = e.pos + dir * dist;
+            dest.x = Mathf.Clamp(dest.x, -lim, lim);
+            dest.z = Mathf.Clamp(dest.z, -lim, lim);
+            b.from = e.pos;
+            b.to = dest;
+            b.startRot = b.orientation;
+            b.yaw = (b.hops % 2 == 0 ? 90f : -90f);
+            b.hopT = 0f;
         }
 
-        void LandBoss(Enemy e, Vector3 dp)
+        void StartReroll(Enemy e)
         {
             var b = e.boss;
-            b.tumbleT = -1f;
-            b.orientation = Quaternion.LookRotation(SnapAxis(b.orientation * Vector3.forward), SnapAxis(b.orientation * Vector3.up));
-            b.model.Body.localPosition = new Vector3(0f, BossState.Size * 0.5f, 0f);
-            b.tumbles++;
-            float enrage = e.hp < e.maxHp * 0.4f ? 0.7f : 1f;
-            // Rolls twice in a row, then rests: the rest is the window to match its number.
-            b.rest = b.tumbles % 2 == 1 ? 0.15f : Mathf.Max(3.2f, 4.6f - b.tier * 0.4f) * enrage;
+            var rng2 = new System.Random(b.tier * 31 + b.phase * 7 + Wave);
+            int next;
+            do next = 1 + rng2.Next(6); while (next == b.weak);
+            b.next = next;
+            b.reroll = BossRerollTime;
+            b.hopT = -1f;
+            b.startRot = b.orientation;
+            b.targetRot = BossState.RotationFor(next, rng2.Next(4));
+            b.axis = new Vector3(1f, 0.6f, 0.4f).normalized;
+            loop.ShowBanner("REROLL", $"NEXT WEAK NUMBER: {next}  ({WeaponDef.All[next].name})", BossRerollTime, WeaponDef.All[next].color);
+            Sound.Play(Sfx.BossRoar, 0.8f, 0f);
+            Juice(0.4f, 0f);
+        }
 
-            Fx.Shockwave(pal, e.pos, UiKit.Red, 3f);
+        /// <summary>Landing: shockwave, a ring of bullets, bombs nearby get shoved, mites now and then.</summary>
+        void BossImpact(Enemy e, Vector3 dp, float strength)
+        {
+            var b = e.boss;
+            Fx.Shockwave(pal, e.pos, UiKit.Red, 3f * strength);
             Fx.Debris(pal, e.pos + Vector3.up * 0.1f, Palette.Hex("#6A707C"), 10, 5f);
             Sound.Play(Sfx.MegaSlam, 1f, 0.02f);
-            Juice(0.5f, 0.03f);
+            Juice(0.5f * strength, 0.03f);
             Vector3 to = dp - e.pos; to.y = 0f;
             if (to.magnitude < 2.6f) { HurtPlayer(1, e.pos); dice.Knock(to.normalized * 7f); }
             Bombs.Slam(e.pos, 2.6f, 1);
 
-            // Ring of bullets.
-            int count = 8 + b.tier * 2 + (enrage < 1f ? 4 : 0);
-            float offset = b.tumbles * 11f;
+            int count = 6 + b.tier * 2 + b.phase * 2;
+            float offset = b.hops * 11f;
             for (int i = 0; i < count; i++)
             {
                 Vector3 d = Quaternion.Euler(0f, offset + i * 360f / count, 0f) * Vector3.forward;
-                FireBullet(e.pos + Vector3.up * 0.5f + d * 1.2f, d * 5.5f, 1, 0.28f);
+                FireBullet(e.pos + Vector3.up * 0.5f + d * 1.2f, d * 5f, 1, 0.28f);
             }
-            if (b.tumbles % 3 == 0)
-                for (int i = 0; i < 1 + b.tier; i++) Spawn(EnemyKind.Mite, e.pos + Quaternion.Euler(0f, i * 120f, 0f) * Vector3.forward * 1.6f);
+            if (b.hops > 0 && b.hops % 4 == 0)
+                for (int i = 0; i < b.tier; i++) Spawn(EnemyKind.Mite, e.pos + Quaternion.Euler(0f, i * 120f, 0f) * Vector3.forward * 1.6f);
         }
 
         static Vector3 SnapAxis(Vector3 v)

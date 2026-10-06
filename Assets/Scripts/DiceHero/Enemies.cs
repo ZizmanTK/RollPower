@@ -28,7 +28,10 @@ namespace DiceHero
         public bool Alive => hp > 0f && t != null;
         public bool Flying => kind == EnemyKind.Drone;
         public bool Armored => kind == EnemyKind.Tank;
-        public int Weakness => boss != null ? DiceController.TopFor(boss.orientation) : 0;
+        /// <summary>Boss: the face number that hurts it now (0 while it rerolls).</summary>
+        public int Weakness => boss == null || boss.Rerolling ? 0 : boss.weak;
+        /// <summary>Boss: the number to line up for, including the one it is rerolling to.</summary>
+        public int PlannedWeakness => boss == null ? 0 : boss.Rerolling ? boss.next : boss.weak;
 
         public static string Hint(EnemyKind k)
         {
@@ -62,7 +65,7 @@ namespace DiceHero
             {
                 case EnemyKind.Drone: return w.number == 3 || w.number == 6;
                 case EnemyKind.Tank: return w.armorPiercing;
-                case EnemyKind.Boss: return w.number == Weakness;
+                case EnemyKind.Boss: return Weakness != 0 && w.number == Weakness;
                 default: return true;
             }
         }
@@ -72,7 +75,7 @@ namespace DiceHero
             if (!Alive) return false;
             if (!CanBeHitBy(w))
             {
-                if (Game.I != null) Game.I.Deflect(this, kind == EnemyKind.Boss ? $"NEED A {Weakness}" : Flying ? "OUT OF REACH" : "DEFLECTED");
+                if (Game.I != null) Game.I.Deflect(this, kind == EnemyKind.Boss ? (boss.Rerolling ? "REROLLING" : $"NEED A {Weakness}") : Flying ? "OUT OF REACH" : "DEFLECTED");
                 return false;
             }
             hp -= damage * RunStats.Current.damageMul;
@@ -108,16 +111,24 @@ namespace DiceHero
         }
     }
 
-    /// <summary>Tumble state for the High Roller boss (a 2-unit die that rolls toward the player).</summary>
+    /// <summary>High Roller state: three phases, each locked on one weak number; hops between rests, rerolls between phases.</summary>
     public class BossState
     {
         public DiceModel model;
-        public Quaternion orientation = Quaternion.identity, startRot;
-        public float rest = 2f, tumbleT = -1f;
+        public Quaternion orientation = Quaternion.identity, startRot, targetRot;
+        public float rest = 2f, hopT = -1f, reroll, yaw;
         public Vector3 from, to, axis;
-        public int tumbles, tier;
+        public int hops, tier, phase, weak, next;
         public const float Size = 2f;
-        public bool Tumbling => tumbleT >= 0f;
+        public bool Hopping => hopT >= 0f;
+        public bool Rerolling => reroll > 0f;
+
+        /// <summary>Orientation with face number on top, turned by quarter turns around the vertical.</summary>
+        public static Quaternion RotationFor(int number, int quarterTurns)
+        {
+            int i = System.Array.IndexOf(DiceModel.FaceNumbers, number);
+            return Quaternion.AngleAxis(90f * quarterTurns, Vector3.up) * Quaternion.FromToRotation(DiceModel.FaceNormals[i], Vector3.up);
+        }
     }
 
     /// <summary>Builds enemy models from primitives.</summary>
@@ -198,7 +209,8 @@ namespace DiceHero
                     var m = DiceModel.Build(pal, root, pos, look, BossState.Size);
                     // Start with a random face up.
                     var rng = new System.Random(tier * 17);
-                    e.boss.orientation = Quaternion.Euler(90f * rng.Next(4), 90f * rng.Next(4), 90f * rng.Next(4));
+                    e.boss.weak = 1 + rng.Next(6);
+                    e.boss.orientation = BossState.RotationFor(e.boss.weak, rng.Next(4));
                     m.Body.localRotation = e.boss.orientation;
                     e.boss.model = m;
                     break;

@@ -26,7 +26,11 @@ namespace DiceHero
         {
             int n = 0;
             foreach (var e in game.Enemies)
-                if (e.Alive && e.CanBeHitBy(w)) n += e.kind == EnemyKind.Mite ? 1 : e.kind == EnemyKind.Boss ? 6 : 2;
+            {
+                if (!e.Alive) continue;
+                if (e.kind == EnemyKind.Boss) { if (w.number == e.PlannedWeakness) n += 6; }
+                else if (e.CanBeHitBy(w)) n += e.kind == EnemyKind.Mite ? 1 : 2;
+            }
             return n;
         }
 
