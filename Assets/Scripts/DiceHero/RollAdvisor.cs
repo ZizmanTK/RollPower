@@ -33,7 +33,7 @@ namespace DiceHero
             {
                 if (!e.Alive) continue;
                 if (e.kind == EnemyKind.Boss) { if (w.number == e.PlannedWeakness) n += 6; }
-                else if (e.CanBeHitBy(w)) n += e.kind == EnemyKind.Mite ? 1 : 2;
+                else if (e.CanBeHitBy(w)) n += e.IsForeman ? 6 : e.kind == EnemyKind.Mite ? 1 : 2;
             }
             return n;
         }

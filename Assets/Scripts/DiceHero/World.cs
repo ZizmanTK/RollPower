@@ -36,6 +36,8 @@ namespace DiceHero
 
         /// <summary>Hand-placed obstacles for a campaign stage (null: the gauntlet's default layout). Navy theme only.</summary>
         public static Placement[] Layout;
+        /// <summary>Floor hazards for a campaign stage (null: none).</summary>
+        public static HazardDef[] HazardLayout;
 
         public static readonly Vector3 PlayerStart = new Vector3(0f, 0f, -6f);
         static Vector2 PlayerStart2D => new Vector2(PlayerStart.x, PlayerStart.z);

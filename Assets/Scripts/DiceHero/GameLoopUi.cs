@@ -243,10 +243,10 @@ namespace DiceHero
                 float bossX = w * 0.5f - bw * 0.5f;
                 UiKit.Line("FOREMAN · " + Enemy.Plural(fm.kind), w * 0.5f, 28, 24, UiKit.Text, 0.5f, 2, 2f);
                 UiKit.Rect(new Rect(bossX - 2, 60, bw + 4, 14), new Color(0f, 0f, 0f, 0.6f));
-                UiKit.Rect(new Rect(bossX, 62, bw * Mathf.Clamp01(fm.hp / fm.maxHp), 10), HudHull);
+                UiKit.Rect(new Rect(bossX, 62, bw * Mathf.Clamp01(fm.BossFraction), 10), HudHull);
                 UiKit.Rect(new Rect(bossX + bw * 0.5f - 1.5f, 58, 3, 18), UiKit.Text);
-                string state = fm.Stunned ? "STUNNED: ARMOUR OPEN, FIRE!" : fm.mode == 1 || fm.mode == 2 ? "CHARGING: GET OUT OF THE LANE" : "ARMOURED: MAKE IT CHARGE INTO A WALL OR A VENT BOX";
-                UiKit.Line(state, w * 0.5f, 82, 17, fm.Stunned ? HudMint : fm.mode >= 1 ? UiKit.Red : HudMuted, 0.5f, 2, 1.5f);
+                bool open = fm.CanBeHitBy(def);
+                UiKit.Line(fm.ForemanState(), w * 0.5f, 82, 17, open ? HudMint : fm.kind == EnemyKind.Compactor && fm.mode >= 1 ? UiKit.Red : HudMuted, 0.5f, 2, 1.5f);
             }
 
             DrawBombAlerts(w);

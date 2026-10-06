@@ -121,7 +121,7 @@ namespace DiceHero
             if (rolling || DashCooldownLeft > 0f) return false;
             Vector3 dir = RollDirection();
             Vector3 from = transform.position;
-            float distance = rollDistance;
+            float distance = rollDistance * (Hazards.OnIce(from) ? 1.5f : 1f); // rolls skid further on ice
             Obstacle vault = null;
             for (float d = 0.2f; d <= rollDistance + 0.01f; d += 0.1f)
             {
@@ -203,9 +203,13 @@ namespace DiceHero
             Vector2 input = ReadInput();
             // Button mode steers tightly (ice is saved for an environment that wants it); bump mode glides.
             float accel = ButtonMode ? 38f : acceleration, drag = ButtonMode ? 6f : glideDrag;
-            velocity += new Vector3(input.x, 0f, input.y) * accel * dt;
+            // Deck hazards: ice makes Pip slide (Cryo Mines), spores slow it (Hydroponics).
+            bool ice = Hazards.OnIce(transform.position);
+            if (ice) { accel = 12f; drag = 0.7f; }
+            float slow = Hazards.SpeedMul(transform.position);
+            velocity += new Vector3(input.x, 0f, input.y) * accel * slow * dt;
             velocity *= Mathf.Exp(-drag * dt);
-            velocity = Vector3.ClampMagnitude(velocity, dashTime > 0f ? dashSpeed : maxSpeed);
+            velocity = Vector3.ClampMagnitude(velocity, (dashTime > 0f ? dashSpeed : maxSpeed) * slow);
 
             Vector3 pos = transform.position + velocity * dt;
 

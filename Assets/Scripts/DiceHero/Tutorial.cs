@@ -137,7 +137,9 @@ namespace DiceHero
         static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
         static void Slow(Enemy e, float k) => e.speed *= k;
 
-        Transform Marker(string name, Vector3 at, Color c)
+        Transform Marker(string name, Vector3 at, Color c) => MarkerRing(pal, name, at, c);
+
+        public static Transform MarkerRing(Palette pal, string name, Vector3 at, Color c)
         {
             var root = new GameObject(name).transform;
             root.position = at;
@@ -151,19 +153,22 @@ namespace DiceHero
             return root;
         }
 
-        Transform Pickup(Vector3 at)
+        Transform Pickup(Vector3 at) => ModulePickup(pal, at, "tri");
+
+        /// <summary>A module lying on the floor: its socket plate, its outline in light and a ring (tutorial pickup, caches).</summary>
+        public static Transform ModulePickup(Palette pal, Vector3 at, string gunId)
         {
             var root = new GameObject("ModulePickup").transform;
             root.position = at;
-            var tri = WeaponDef.Find("tri");
-            var glow = pal.Glow("TutPickup", tri.color, 2.6f);
-            Prim.Make(PrimitiveType.Cube, "Plate", root, Vector3.zero, new Vector3(0.6f, 0.06f, 0.6f), pal.Get("TutPickupPlate", tri.color * 0.2f + Color.black * 0.8f, 0.6f, 0.3f));
+            var tri = WeaponDef.Find(gunId);
+            var glow = pal.Glow("TutPickup" + gunId, tri.color, 2.6f);
+            Prim.Make(PrimitiveType.Cube, "Plate", root, Vector3.zero, new Vector3(0.6f, 0.06f, 0.6f), pal.Get("TutPickupPlate" + gunId, tri.color * 0.2f + Color.black * 0.8f, 0.6f, 0.3f));
             var g = new GameObject("Glyph").transform;
             g.SetParent(root, false);
             g.localPosition = new Vector3(0f, 0.05f, 0f);
             g.localScale = Vector3.one * 0.8f;
             Glyphs.Build(tri.model, g, glow);
-            Marker("PickupRing", at, tri.color).SetParent(root, true);
+            MarkerRing(pal, "PickupRing" + gunId, at, tri.color).SetParent(root, true);
             return root;
         }
     }

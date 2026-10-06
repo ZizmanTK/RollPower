@@ -4,7 +4,7 @@ using UnityEngine;
 namespace DiceHero
 {
     /// <summary>Waves, bombs, the boss, enemy AI and fire, dice health, score and combo.</summary>
-    public class Game
+    public partial class Game
     {
         public static Game I { get; private set; }
 
@@ -94,6 +94,7 @@ namespace DiceHero
         static readonly EnemyKind[] FocusOrder = { EnemyKind.Crawler, EnemyKind.Drone, EnemyKind.Tank, EnemyKind.Mite, EnemyKind.Bomber };
         readonly Queue<EnemyKind> spawnQueue = new Queue<EnemyKind>();
         float spawnTimer;
+        int shieldTurn;
         public EnemyKind Focus { get; private set; }
         public bool BossWave => Wave > 0 && Wave % 5 == 0;
         /// <summary>Enemies on the field plus those still queued for this wave.</summary>
@@ -159,7 +160,7 @@ namespace DiceHero
             Targets.All.Add(e);
             Fx.Flash(pal, pos + Vector3.up * 0.5f, Palette.Hex("#FF2A3D"), kind == EnemyKind.Boss ? 3f : 1.2f, 0.25f);
             if (kind == EnemyKind.Boss) Boss = e;
-            if (kind == EnemyKind.Compactor) Foreman = e;
+            if (e.IsForeman) Foreman = e;
             return e;
         }
 
@@ -229,8 +230,10 @@ namespace DiceHero
             var list = new List<EnemyKind>();
             if (w.boss.HasValue)
             {
-                var b = Spawn(w.boss.Value, new Vector3(0f, 0f, 5f));
-                loop.ShowBanner("FOREMAN: " + Enemy.Plural(w.boss.Value), Enemy.Hint(w.boss.Value), 4.5f, UiKit.Red);
+                var b = Spawn(w.boss.Value, new Vector3(0f, 0f, 5f), w.bossTier);
+                b.hp = b.maxHp = b.maxHp * w.bossHealth;
+                loop.ShowBanner((b.kind == EnemyKind.Boss ? "THE HOUSE: " : "FOREMAN: ") + Enemy.Plural(w.boss.Value),
+                    b.kind == EnemyKind.Boss ? $"WEAK TO {b.boss.weak}: {WeaponDef.All[b.boss.weak].name}" : Enemy.Hint(w.boss.Value), 4.5f, UiKit.Red);
                 Sound.Play(Sfx.BossRoar, 1f, 0f);
                 Juice(0.5f, 0f);
                 if (w.radio != null) loop.Radio(w.radio);
@@ -258,6 +261,8 @@ namespace DiceHero
                     for (int i = 0; i < group; i++)
                     {
                         var e = Spawn(spawnQueue.Dequeue(), anchor + new Vector3(i % 2, 0f, i / 2) * 1.1f);
+                        var sh = Stage != null && Wave >= 1 && Wave <= Stage.waves.Length ? Stage.waves[Wave - 1].shields : null;
+                        if (sh != null && sh.Length > 0 && (e.kind == EnemyKind.Crawler || e.kind == EnemyKind.Bomber)) GiveShield(e, sh[shieldTurn++ % sh.Length]);
                         if (Stage == null) e.hp *= 1f + 0.12f * (Wave - 1); // stages set their own difficulty
                         e.maxHp = e.hp;
                     }
@@ -300,13 +305,13 @@ namespace DiceHero
             Sound.Play(e.kind == EnemyKind.Tank || e.kind == EnemyKind.Boss ? Sfx.BigExplosion : Sfx.Explosion, e.kind == EnemyKind.Mite ? 0.5f : 0.9f);
             Juice(e.kind == EnemyKind.Boss ? 1f : e.kind == EnemyKind.Tank ? 0.35f : 0.12f, e.kind == EnemyKind.Boss ? 0.35f : e.kind == EnemyKind.Tank ? 0.05f : 0.015f);
 
-            if (e.kind == EnemyKind.Compactor)
+            if (e.IsForeman)
             {
                 Foreman = null;
                 BossesBeaten++;
                 Flash(0.6f);
                 Juice(1f, 0.35f);
-                loop.ShowBanner("COMPACTOR DESTROYED", "IT DROPPED A MODULE", 3.5f, UiKit.Gold);
+                loop.ShowBanner(Enemy.Plural(e.kind) + " DESTROYED", "IT DROPPED A MODULE", 3.5f, UiKit.Gold);
                 Hp = MaxHp;
                 Bombs.Clear();
                 foreach (var o in Enemies) if (o != e && o.Alive) { o.hp = 0f; Fx.Explosion(pal, o.Position, Palette.Hex("#FF6A2A"), 0.8f); }
@@ -441,6 +446,7 @@ namespace DiceHero
                 StepEnemy(e, dt, dp);
             }
             Separate();
+            if (Hazards.Step(dt, dp)) HurtPlayer(1, dp, "vent");
             StepBullets(dt, dp);
             Bombs.Step(dt);
 
@@ -468,6 +474,33 @@ namespace DiceHero
 
         /// <summary>Starts the next wave (after the upgrade pick).</summary>
         public void StartNextWave() => StartWave();
+
+        /// <summary>Foundry elite: a ring in the gun's colour; only that gun breaks it.</summary>
+        public void GiveShield(Enemy e, string gunId)
+        {
+            var gun = WeaponDef.Find(gunId);
+            e.shieldGun = gunId;
+            e.shieldHp = 4f;
+            var ring = new GameObject("Shield").transform;
+            ring.SetParent(e.t, false);
+            var m = pal.Glow("Shield" + gunId, gun.color, 2.6f);
+            float r = e.radius + 0.28f;
+            for (int k = 0; k < 14; k++)
+            {
+                float a = k * Mathf.PI * 2f / 14f;
+                Prim.Make(PrimitiveType.Cube, "Seg", ring, new Vector3(Mathf.Cos(a) * r, 0.45f, Mathf.Sin(a) * r), new Vector3(0.06f, 0.5f, r * 0.42f), m, Quaternion.Euler(0f, -a * Mathf.Rad2Deg, 0f));
+            }
+            e.shieldRing = ring;
+        }
+
+        public void ShieldBroken(Enemy e)
+        {
+            if (e.shieldRing != null) Object.Destroy(e.shieldRing.gameObject);
+            e.shieldRing = null;
+            Fx.Shockwave(pal, e.pos, WeaponDef.Find(e.shieldGun).color, 1.2f);
+            Fx.Text(e.Position + Vector3.up * 0.9f, "SHIELD DOWN", WeaponDef.Find(e.shieldGun).color, 0.8f, 0.8f);
+            Sound.Play(Sfx.Clonk, 0.8f, 0f);
+        }
 
         /// <summary>Distance from p to the closest enemy bullet (infinity when there is none).</summary>
         public float NearestBullet(Vector3 p)
@@ -503,6 +536,7 @@ namespace DiceHero
 
             if (e.kind == EnemyKind.Boss) { StepBoss(e, dt, dp); return; }
             if (e.kind == EnemyKind.Compactor) { StepCompactor(e, dt, dp); return; }
+            if (e.IsForeman) { StepForeman(e, dt, dp); return; }
 
             Vector3 to = dp - e.pos; to.y = 0f;
             float dist = to.magnitude;
@@ -691,12 +725,12 @@ namespace DiceHero
                 b.rest -= dt;
                 // Aimed triple burst while resting.
                 e.fireTimer += dt;
-                if (e.fireTimer > 1.6f * enrage)
+                if (e.fireTimer > 2.3f * enrage)
                 {
                     e.fireTimer = 0f;
                     Vector3 from = e.pos + Vector3.up * 1f;
                     for (int i = -1; i <= 1; i++)
-                        FireBullet(from, Quaternion.Euler(0f, i * 14f, 0f) * (dp + Vector3.up * 0.5f - from).normalized * 7f, 1, 0.3f);
+                        FireBullet(from, Quaternion.Euler(0f, i * 14f, 0f) * (dp + Vector3.up * 0.5f - from).normalized * 5.5f, 1, 0.34f);
                     Sound.Play(Sfx.EnemyShot, 0.6f);
                 }
                 if (b.rest <= 0f) StartHop(e, to);
@@ -761,6 +795,7 @@ namespace DiceHero
             b.targetRot = BossState.RotationFor(next, rng2.Next(4));
             b.axis = new Vector3(1f, 0.6f, 0.4f).normalized;
             loop.ShowBanner("REROLL", $"NEXT WEAK NUMBER: {next}  ({WeaponDef.All[next].name})", BossRerollTime, WeaponDef.All[next].color);
+            if (Stage != null && Hp < MaxHp) { Hp = Mathf.Min(MaxHp, Hp + 2); Fx.Text(dice.transform.position + Vector3.up * 2f, "+2 HULL", UiKit.Mint, 1.2f, 1f); loop.Radio("Patched you up. Two more. Watch the new number."); }
             Sound.Play(Sfx.BossRoar, 0.8f, 0f);
             Juice(0.4f, 0f);
         }
@@ -782,7 +817,7 @@ namespace DiceHero
             for (int i = 0; i < count; i++)
             {
                 Vector3 d = Quaternion.Euler(0f, offset + i * 360f / count, 0f) * Vector3.forward;
-                FireBullet(e.pos + Vector3.up * 0.5f + d * 1.2f, d * 5f, 1, 0.28f);
+                FireBullet(e.pos + Vector3.up * 0.5f + d * 1.2f, d * 4.2f, 1, 0.3f);
             }
             if (b.hops > 0 && b.hops % 4 == 0)
                 for (int i = 0; i < b.tier; i++) Spawn(EnemyKind.Mite, e.pos + Quaternion.Euler(0f, i * 120f, 0f) * Vector3.forward * 1.6f);

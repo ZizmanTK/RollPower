@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace DiceHero
 {
-    public enum EnemyKind { Crawler, Drone, Tank, Mite, Bomber, Boss, Compactor }
+    public enum EnemyKind { Crawler, Drone, Tank, Mite, Bomber, Boss, Compactor, Gardener, Driller, Smelter }
 
     /// <summary>
     /// A hostile bot. Weaknesses:
@@ -26,8 +26,36 @@ namespace DiceHero
         public Transform[] plates;
         public Transform lane;
         public bool Stunned => kind == EnemyKind.Compactor && mode == 3;
+        // Foundry elites: a shield in one gun's colour; only that gun breaks it, then the enemy is normal.
+        public string shieldGun;
+        public float shieldHp;
+        public Transform shieldRing;
+        public bool Shielded => shieldHp > 0f && shieldGun != null;
         /// <summary>Bosses don't get shoved by bullets, minions or slams.</summary>
-        public bool IsBig => kind == EnemyKind.Boss || kind == EnemyKind.Compactor;
+        public bool IsBig => kind >= EnemyKind.Boss;
+        /// <summary>A deck foreman (every boss except the High Roller).</summary>
+        public bool IsForeman => kind >= EnemyKind.Compactor;
+        // Smelter: the gun each plate needs, and what's left of the current plate.
+        public string[] plateGuns;
+        public float plateHp;
+        public const float SmelterPlateHp = 70f;
+        /// <summary>Health left as a fraction, counting the Smelter's plates.</summary>
+        public float BossFraction => kind == EnemyKind.Smelter
+            ? (Mathf.Max(0, 2 - mode) * SmelterPlateHp + (mode < 3 ? plateHp : 0f) + hp) / (3 * SmelterPlateHp + maxHp)
+            : hp / Mathf.Max(1f, maxHp);
+
+        /// <summary>What to do about this foreman right now (HUD line and deflect text).</summary>
+        public string ForemanState()
+        {
+            switch (kind)
+            {
+                case EnemyKind.Compactor: return Stunned ? "STUNNED: ARMOUR OPEN, FIRE!" : mode == 1 || mode == 2 ? "CHARGING: GET OUT OF THE LANE" : "ARMOURED: MAKE IT CHARGE INTO A WALL OR A VENT BOX";
+                case EnemyKind.Gardener: return mode == 0 ? "ARMOURED: ONLY A PIERCING GUN HURTS IT" : "MOVING: WATCH WHERE IT COMES UP";
+                case EnemyKind.Driller: return mode == 2 ? "SURFACED: FIRE!" : mode == 1 ? "SURFACING: GET CLEAR!" : "BURROWED: FOLLOW THE DUST";
+                case EnemyKind.Smelter: return mode < 3 ? $"PLATE {mode + 1}/3: ONLY {WeaponDef.Find(plateGuns[mode]).name} BREAKS IT" : "CORE EXPOSED: ANY GUN";
+                default: return "";
+            }
+        }
         Renderer[] renderers;
         Material[] baseMats;
         Material flashMat;
@@ -52,6 +80,9 @@ namespace DiceHero
                 case EnemyKind.Bomber: return "BOMBERS PLANT BOMBS: SHOVE THEM OFF THE EDGE";
                 case EnemyKind.Boss: return "ONLY THE GUN ON ITS TOP NUMBER HURTS IT · 3 PHASES";
                 case EnemyKind.Compactor: return "ARMOURED: MAKE IT CHARGE INTO A WALL OR A VENT BOX, THEN FIRE";
+                case EnemyKind.Gardener: return "ARMOURED: ONLY A PIERCING GUN HURTS IT. YOUR RAILGUN IS ON FACE 6";
+                case EnemyKind.Driller: return "IT BURROWS: HIT IT WHILE IT'S UP, AND GET CLEAR WHEN THE RING SHOWS";
+                case EnemyKind.Smelter: return "THREE PLATES: EACH ONE BREAKS ONLY TO THE GUN OF ITS COLOUR";
                 default: return "CRAWLERS: ANY GUN WORKS";
             }
         }
@@ -74,6 +105,9 @@ namespace DiceHero
                 case EnemyKind.Bomber: return "BOMBERS";
                 case EnemyKind.Boss: return "HIGH ROLLER";
                 case EnemyKind.Compactor: return "COMPACTOR";
+                case EnemyKind.Gardener: return "GARDENER";
+                case EnemyKind.Driller: return "DRILLER";
+                case EnemyKind.Smelter: return "SMELTER";
                 default: return "CRAWLERS";
             }
         }
@@ -81,12 +115,16 @@ namespace DiceHero
         public bool CanBeHitBy(WeaponDef w)
         {
             if (w.IsEmpty) return false;
+            if (Shielded) return w.id == shieldGun;
             switch (kind)
             {
                 case EnemyKind.Drone: return w.antiAir;
                 case EnemyKind.Tank: return w.armorPiercing;
                 case EnemyKind.Boss: return Weakness != 0 && w.number == Weakness;
                 case EnemyKind.Compactor: return Stunned || w.armorPiercing;
+                case EnemyKind.Gardener: return w.armorPiercing && mode == 0;
+                case EnemyKind.Driller: return mode == 2;
+                case EnemyKind.Smelter: return mode >= 3 || w.id == plateGuns[mode];
                 default: return true;
             }
         }
@@ -96,9 +134,27 @@ namespace DiceHero
             if (!Alive) return false;
             if (!CanBeHitBy(w))
             {
-                if (Game.I != null) Game.I.Deflect(this, kind == EnemyKind.Boss ? (boss.Rerolling ? "REROLLING" : $"NEED A {Weakness}")
-                    : kind == EnemyKind.Compactor ? "ARMOURED: STUN IT" : Flying ? "OUT OF REACH" : "DEFLECTED");
+                if (Game.I != null) Game.I.Deflect(this, Shielded ? "SHIELD: " + WeaponDef.Find(shieldGun).name : kind == EnemyKind.Boss ? (boss.Rerolling ? "REROLLING" : $"NEED A {Weakness}")
+                    : kind == EnemyKind.Compactor ? "ARMOURED: STUN IT" : kind == EnemyKind.Gardener ? "NEEDS PIERCING" : kind == EnemyKind.Driller ? "BURROWED"
+                    : kind == EnemyKind.Smelter ? "NEEDS " + WeaponDef.Find(plateGuns[mode]).name : Flying ? "OUT OF REACH" : "DEFLECTED");
                 return false;
+            }
+            if (kind == EnemyKind.Smelter && mode < 3)
+            {
+                float pd = damage * RunStats.Current.damageMul * RunStats.Current.FaceDamage(w.number);
+                plateHp -= pd;
+                hitFlash = 0.1f;
+                Sound.Play(Sfx.Hit, 0.5f, 0.15f);
+                if (Game.I != null) { Game.I.DamageNumber(this, pd, w.color); if (plateHp <= 0f) Game.I.SmelterPlateBroken(this); }
+                return true;
+            }
+            if (Shielded)
+            {
+                shieldHp -= damage * RunStats.Current.damageMul * RunStats.Current.FaceDamage(w.number);
+                hitFlash = 0.1f;
+                Sound.Play(Sfx.Hit, 0.5f, 0.15f);
+                if (shieldHp <= 0f && Game.I != null) Game.I.ShieldBroken(this);
+                return true;
             }
             hp -= damage * RunStats.Current.damageMul * RunStats.Current.FaceDamage(w.number);
             hitFlash = 0.1f;
@@ -171,7 +227,7 @@ namespace DiceHero
             var armour = pal.Get("EnemyArmour", Palette.Hex("#C8913E"), 0.75f, 0.95f);
 
             // Navy theme: same stats, model rebuilt from references (NavyEnemies); the 2.0 parts go to a discarded parent.
-            bool navy = Art.Theme >= 3 && kind != EnemyKind.Boss && kind != EnemyKind.Compactor;
+            bool navy = Art.Theme >= 3 && kind < EnemyKind.Boss;
             Transform mroot = navy ? new GameObject("Discard").transform : root;
             switch (kind)
             {
@@ -272,6 +328,11 @@ namespace DiceHero
                     e.lane.gameObject.SetActive(false);
                     break;
                 }
+                case EnemyKind.Gardener:
+                case EnemyKind.Driller:
+                case EnemyKind.Smelter:
+                    BossModels.Build(e, pal, root);
+                    break;
                 default: // Mite
                     e.hp = 1f; e.speed = 3.6f; e.radius = 0.24f;
                     Prim.Make(PrimitiveType.Sphere, "Body", mroot, new Vector3(0f, 0.2f, 0f), new Vector3(0.42f, 0.3f, 0.5f), hull);

@@ -30,7 +30,10 @@ namespace DiceHero
             Palette = new Palette(baseMaterial, glowMaterial);
             SetupLighting();
             World.Layout = Campaign.Pending?.layout; // a campaign stage brings its own arena
+            World.HazardLayout = Campaign.Pending?.hazards;
             var world = World.Build(Palette);
+            // Hazards animate, so they stay out of the static batch.
+            Hazards.Build(Palette, new GameObject("Hazards").transform, World.HazardLayout);
             if (Application.isPlaying) StaticBatchingUtility.Combine(world.gameObject); // hundreds of static primitives → a few batches
             Dice = Art.Pip ? PipBuilder.Build(Palette, null, World.PlayerStart) : DiceModel.Build(Palette, null, World.PlayerStart);
             Controller = Dice.Root.gameObject.AddComponent<DiceController>();

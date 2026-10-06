@@ -98,6 +98,9 @@ namespace DiceHero
             Game.RepairFull();
             Game.StageCleared += OnStageCleared;
             if (Campaign.Active.tutorial) tutorial = new Tutorial(this, Game, Dice, Palette);
+            var st = Campaign.Active;
+            if (st.cache != null && !Campaign.CacheFound(st.cache))
+                cachePickup = Tutorial.ModulePickup(Palette, new Vector3(st.cachePos.x, 0.35f, st.cachePos.y), st.cache);
             foreach (var l in Campaign.Active.startRadio) Radio(l);
             Telemetry.Log("stage_start", "stage", Campaign.Active.id, "attempt", Campaign.Deaths + 1, "par", Campaign.Active.parTime);
         }
@@ -117,9 +120,32 @@ namespace DiceHero
         }
 
         /// <summary>Per-tick measurements while fighting (called from Step).</summary>
+        Transform cachePickup;
+
+        void StepCache(float dt)
+        {
+            if (cachePickup == null) return;
+            cachePickup.Rotate(0f, 90f * dt, 0f);
+            Vector3 d = cachePickup.position - Dice.transform.position; d.y = 0f;
+            if (d.magnitude > 1.1f) return;
+            var id = Campaign.Active.cache;
+            Campaign.FindCache(id);
+            var w = WeaponDef.Find(id);
+            Destroy(cachePickup.gameObject);
+            cachePickup = null;
+            Fx.Text(Dice.transform.position + Vector3.up * 2.4f, "SECRET MODULE: " + w.name, w.color, 1.2f, 1.4f);
+            Fx.Flash(Palette, Dice.transform.position + Vector3.up * 0.8f, w.color, 0.7f, 0.25f);
+            Sound.Play(Sfx.Upgrade, 1f, 0f);
+            RadioNow($"A spare {Title7(w.name)}! I'll keep it in the Workshop: you can swap it onto a face between decks.");
+            Telemetry.Log("cache", "gun", id, "stage", Campaign.Active.id);
+        }
+
+        static string Title7(string caps) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(caps.ToLowerInvariant());
+
         void MeasureStep(float dt)
         {
             tutorial?.Update(dt);
+            StepCache(dt);
             if (Game.Intermission || Game.Lost || Game.Won || Game.EnemiesLeft == 0) return;
             fightTime += dt;
             if (RollAdvisor.Needed(Dice, Game)) wrongTime += dt;

@@ -28,6 +28,9 @@ namespace DiceHero
             2 => Palette.Hex("#07080B"),
             3 => Palette.Hex("#06101A"),
             4 => Palette.Hex("#0E0C0A"),
+            5 => Palette.Hex("#08100C"),
+            6 => Palette.Hex("#0C1218"),
+            7 => Palette.Hex("#100807"),
             _ => World.SpaceColor,
         };
 
@@ -51,6 +54,7 @@ namespace DiceHero
                     RenderSettings.ambientSkyColor = new Color(0.3f, 0.4f, 0.55f);
                     RenderSettings.ambientEquatorColor = new Color(0.16f, 0.22f, 0.3f);
                     break;
+                case 5: case 6: case 7: DeckProps.Light(Theme, sun); break;
                 case 4: // Scrap Bay: warm sodium light indoors
                     sun.color = Palette.Hex("#FFEBD6"); sun.intensity = 1.6f;
                     RenderSettings.ambientSkyColor = new Color(0.34f, 0.32f, 0.3f);

@@ -23,6 +23,7 @@ namespace DiceHero
                 1 => (pal.Get("T1DeckA", Palette.Hex("#5E6470"), 0.35f, 0.1f), pal.Get("T1DeckB", Palette.Hex("#6A707C"), 0.35f, 0.1f), Palette.Hex("#9FD8FF")),
                 2 => (pal.Get("T2DeckA", Palette.Hex("#4A4F57"), 0.35f, 0.2f), pal.Get("T2DeckB", Palette.Hex("#545961"), 0.35f, 0.2f), Palette.Hex("#FF9A3C")),
                 4 => (pal.Get("T4DeckA", ScrapProps.Concrete, 0.35f, 0.05f), pal.Get("T4DeckB", ScrapProps.Concrete, 0.35f, 0.05f), ScrapProps.Sodium),
+                5 or 6 or 7 => (pal.Get("T" + t + "DeckA", DeckProps.Floor(t), t == 6 ? 0.7f : 0.4f, 0.05f), pal.Get("T" + t + "DeckB", DeckProps.Floor(t), 0.4f, 0.05f), DeckProps.Accent(t)),
                 _ => (pal.Get("T3DeckA", Palette.Hex("#1A3350"), 0.8f, 0.15f), pal.Get("T3DeckB", Palette.Hex("#1A3350"), 0.8f, 0.15f), Palette.Hex("#29B6F6")),
             };
             // One continuous deck surface: no tile pattern.
@@ -45,9 +46,10 @@ namespace DiceHero
             if (t == 1) ArenaRings(pal, root);
             else if (t == 2) IndustrialMarkings(pal, root);
             else if (t == 4) ScrapProps.Decor(pal, root);
+            else if (t >= 5) DeckProps.Decor(pal, root, t);
             else { NeonGrid(pal, root); NavyProps.Decor(pal, root); }
 
-            World.BuildFence(pal, root, hullMid, t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FFB547") : t == 4 ? ScrapProps.Sodium : Palette.Hex("#29B6F6"));
+            World.BuildFence(pal, root, hullMid, t == 1 ? Palette.Hex("#22D3FF") : t == 2 ? Palette.Hex("#FFB547") : t == 4 ? ScrapProps.Sodium : t >= 5 ? DeckProps.Accent(t) : Palette.Hex("#29B6F6"));
             Obstacles(pal, root, t);
             Backdrop(pal, root, t);
             return root;
@@ -210,7 +212,8 @@ namespace DiceHero
                 var o = new GameObject("Barrier").transform;
                 o.SetParent(root, false);
                 o.localPosition = new Vector3(b.x, 0f, b.y);
-                if (t == 4) ScrapProps.Barrier(pal, o);
+                if (t >= 5) DeckProps.Barrier(pal, o, t);
+                else if (t == 4) ScrapProps.Barrier(pal, o);
                 else if (t == 3) NavyProps.Barrier(pal, o);
                 else if (t == 2)
                 {
@@ -240,7 +243,8 @@ namespace DiceHero
                 Quaternion rot = c.alongX ? Quaternion.Euler(0f, 0f, 90f) : Quaternion.Euler(90f, 0f, 0f);
                 Vector3 axis = c.alongX ? Vector3.right : Vector3.forward;
                 Vector3 center = new Vector3(0f, 0.24f, 0f);
-                if (t == 4) ScrapProps.Conduit(pal, o, c.alongX);
+                if (t >= 5) DeckProps.Conduit(pal, o, c.alongX, t);
+                else if (t == 4) ScrapProps.Conduit(pal, o, c.alongX);
                 else if (t == 3) NavyProps.Conduit(pal, o, c.alongX);
                 else
                 {
@@ -290,6 +294,7 @@ namespace DiceHero
             space.SetParent(root, false);
             var rng = new System.Random(31);
             if (t == 4) { ScrapProps.Backdrop(pal, space, rng); return; } // indoors: no stars
+            if (t >= 5) { DeckProps.Backdrop(pal, space, rng, t); return; }
             var cube = World.GetCubeMesh();
 
             // Sparse stars (one combined mesh).

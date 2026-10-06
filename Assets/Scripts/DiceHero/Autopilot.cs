@@ -85,6 +85,8 @@ namespace DiceHero
 
         void StepButton(Vector3 p, float dt)
         {
+            // Step off an erupting (or about to erupt) heat vent.
+            if (Hazards.Danger(p) && dice.DashCooldownLeft <= 0f) { dice.TryRoll(); return; }
             var extra = ExtraAdvice?.Invoke();
             if (extra != null && dice.DashCooldownLeft <= 0f) { dice.InputOverride = new Vector2(extra.dir.x, extra.dir.z); dice.TryRoll(); return; }
             var goal = Goal?.Invoke();

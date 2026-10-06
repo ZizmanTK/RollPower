@@ -202,6 +202,8 @@ public static class DiceHeroSetup
         var cam = Camera.main.GetComponent<CameraFollow>();
         int rolls = 0, shots = 0, lastWave = 0, frame = 0, bombs = 0;
         boot.Controller.TopChanged += (a, b) => rolls++;
+        var causes = new System.Collections.Generic.Dictionary<string, int>();
+        game.Hurt += c => causes[c] = causes.TryGetValue(c, out int n) ? n + 1 : 1;
         var perGun = new System.Collections.Generic.Dictionary<string, int>();
         loop.Weapons.Fired += d => { shots++; perGun[d.name] = perGun.TryGetValue(d.name, out int c) ? c + 1 : 1; };
         game.WaveCleared += w => Debug.Log($"[RollPower] {frame / 30f:0.0}s wave {w} cleared, hp {game.Hp}/{game.MaxHp}, score {game.Score}, bombs disposed {game.BombsDisposed}/{bombs}");
@@ -230,6 +232,7 @@ public static class DiceHeroSetup
             if (frame % 60 == 0) Shot(cam, outDir, frame / 60);
         }
         foreach (var kv in perGun) Debug.Log($"[RollPower] shots {kv.Key}: {kv.Value}");
+        foreach (var kv in causes) Debug.Log($"[RollPower] hurt by {kv.Key}: {kv.Value}");
         spells.Sort();
         float median = spells.Count > 0 ? spells[spells.Count / 2] : 0f;
         Debug.Log($"[RollPower] controls {(DiceController.ButtonMode ? "button" : "bump")}: wrong-gun share {(fightTime > 0f ? 100f * wrongTime / fightTime : 0f):0}% of {fightTime:0}s fighting, " +
