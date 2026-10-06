@@ -22,6 +22,11 @@ namespace DiceHero
         public int repairEvery;        // 0 = off; otherwise every Nth roll repairs 1 integrity
         public int extraShots;
         public float fuseBonus;
+        // Face upgrades: per-face multipliers (index = face number).
+        public readonly float[] faceDamage = { 1f, 1f, 1f, 1f, 1f, 1f, 1f };
+        public readonly float[] faceRate = { 1f, 1f, 1f, 1f, 1f, 1f, 1f };
+        public float FaceDamage(int face) => face >= 1 && face <= 6 ? faceDamage[face] : 1f;
+        public float FaceRate(int face) => face >= 1 && face <= 6 ? faceRate[face] : 1f;
     }
 
     public class UpgradeDef
@@ -31,7 +36,43 @@ namespace DiceHero
         public Color color;
         public Action<RunStats, int> apply; // (stats, new level)
 
-        public static readonly UpgradeDef[] All =
+        /// <summary>Face number for a face upgrade ("face3" → 3), else 0.</summary>
+        public int Face => id.StartsWith("face") ? id[4] - '0' : 0;
+
+        /// <summary>Everything the deck can deal: the general upgrades plus one tune-up per face of this die.</summary>
+        static UpgradeDef[] all;
+        public static UpgradeDef[] All => all ??= Combine(BuildFaces()); // lazy: General is declared below
+
+        public static void RebuildFaceCards() => all = Combine(BuildFaces());
+
+        static UpgradeDef[] Combine(UpgradeDef[] faces)
+        {
+            var all = new UpgradeDef[General.Length + faces.Length];
+            General.CopyTo(all, 0);
+            faces.CopyTo(all, General.Length);
+            return all;
+        }
+
+        static UpgradeDef[] BuildFaces()
+        {
+            var list = new UpgradeDef[6];
+            for (int f = 1; f <= 6; f++)
+            {
+                int face = f;
+                var w = WeaponDef.All[f];
+                list[f - 1] = new UpgradeDef
+                {
+                    id = "face" + f, name = w.name + " TUNE-UP", maxLevel = 3, color = w.color,
+                    desc = $"Face {f} only: +30% damage and +15% fire rate for the {Title(w.name)}",
+                    apply = (s, l) => { s.faceDamage[face] += 0.3f; s.faceRate[face] += 0.15f; },
+                };
+            }
+            return list;
+        }
+
+        static string Title(string caps) => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(caps.ToLowerInvariant());
+
+        static readonly UpgradeDef[] General =
         {
             new UpgradeDef { id = "dmg", name = "HOLLOW POINTS", desc = "+25% weapon damage", maxLevel = 4, color = Palette.Hex("#FF5C5C"),
                 apply = (s, l) => s.damageMul += 0.25f },

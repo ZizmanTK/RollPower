@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace DiceHero
 {
-    public enum Screen2 { Title, Playing, Upgrade, Paused, Settings, HowTo, GameOver }
+    public enum Screen2 { Title, Playing, Upgrade, Paused, Settings, HowTo, GameOver, Loadout }
 
     /// <summary>
     /// Drives the whole simulation from one place (dice, guns, projectiles, bombs, effects), owns the
@@ -61,7 +61,7 @@ namespace DiceHero
             Guide = new RollGuide(pal);
             Game = new Game(dice, pal, this, System.Environment.TickCount);
             Deck = new UpgradeDeck(System.Environment.TickCount + 7);
-            Weapons.Fired += d => Sound.Play(Sound.GunSound(d.number), d.number == 2 ? 0.45f : 0.7f);
+            Weapons.Fired += d => Sound.Play(Sound.GunSound(d.model), d.model == 2 ? 0.45f : 0.7f);
             dice.Dashed += () => Sound.Play(Sfx.Dash, 0.7f);
             dice.Tripped += ob => Sound.Play(Sfx.Roll, 0.8f);
             dice.TopChanged += (o, n) => Fx.Text(dice.transform.position + Vector3.up * 2.4f, WeaponDef.All[n].name, WeaponDef.All[n].color, 1f, 0.8f);
@@ -74,7 +74,7 @@ namespace DiceHero
                 Fx.Density = Application.platform == RuntimePlatform.WebGLPlayer ? 0.6f : 1f;
                 if (DemoDirector.Requested) gameObject.AddComponent<DemoDirector>().Begin(this);
                 if (SkipTitle) { SkipTitle = false; StartRun(); }
-                else EnterTitle();
+                else { EnterTitle(); if (OpenLoadout) { OpenLoadout = false; EnterLoadout(); } }
             }
         }
 
@@ -131,6 +131,21 @@ namespace DiceHero
             if (State == Screen2.Upgrade) { State = Screen2.Playing; Sound.Duck(false); }
         }
 
+        Color seamBase;
+        float shieldGlow = -1f;
+
+        /// <summary>The die's edges flare white while it can't be hurt (rolling, dashing, just landed).</summary>
+        void ShieldGlow(float dt)
+        {
+            var seam = Dice.Model.SeamMaterial;
+            if (seam == null || !seam.HasProperty("_EmissionColor")) return;
+            if (shieldGlow < 0f) { seamBase = seam.GetColor("_EmissionColor"); shieldGlow = 0f; }
+            shieldGlow = Mathf.MoveTowards(shieldGlow, Dice.Shielded ? 1f : 0f, dt * (Dice.Shielded ? 12f : 4f));
+            seam.SetColor("_EmissionColor", Color.Lerp(seamBase, Color.white * 3f * Palette.GlowScale, shieldGlow));
+        }
+
+        public void DemoEndRun() => EndRun();
+
         void EndRun()
         {
             State = Screen2.GameOver;
@@ -139,6 +154,8 @@ namespace DiceHero
             if (newBest) Settings.BestScore = Game.Score;
             if (Game.Wave > Settings.BestWave) Settings.BestWave = Game.Wave;
             if (Game.Wave > 3) Settings.ShowTutorial = false;
+            chipsEarned = Loadout.ChipsFor(Game.Wave, Game.BossesBeaten, Game.Kills);
+            Loadout.Chips += chipsEarned;
             Settings.Save();
             Sound.Play(Sfx.GameOver, 0.9f, 0f);
             Sound.Duck(true);
@@ -169,6 +186,7 @@ namespace DiceHero
             switch (State)
             {
                 case Screen2.Title:
+                case Screen2.Loadout:
                     Dice.InputOverride = Vector2.zero;
                     Dice.Step(udt);
                     Weapons.Step(udt, false);
@@ -236,6 +254,7 @@ namespace DiceHero
             bool over = Game.Lost || Game.Won;
             if (over) Dice.InputOverride = Vector2.zero;
             Dice.Step(dt);
+            ShieldGlow(dt);
             Weapons.Step(dt, allowFire && !over && !Game.Intermission);
             Projectiles.Step(Palette, dt);
             Game.Step(dt);

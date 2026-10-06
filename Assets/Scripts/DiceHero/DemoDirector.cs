@@ -75,9 +75,18 @@ namespace DiceHero
                     break;
                 case Screen2.HowTo:
                     if (Near(0.8f)) Shot("howto");
+                    if (stateTime > 2f) loop.DemoSetState(Screen2.Loadout);
+                    break;
+                case Screen2.Loadout:
+                    if (Near(0.8f)) Shot("loadout");
+                    if (stateTime > 2f) loop.DemoSetState(Screen2.Settings);
+                    break;
+                case Screen2.Settings:
+                    if (Near(0.8f)) Shot("settings");
                     if (stateTime > 2f) loop.DemoSetState(Screen2.Title);
                     break;
                 case Screen2.Playing:
+                    if (t > limit - 7f) { loop.DemoEndRun(); break; } // always capture the game-over screen
                     bot.Step(Mathf.Min(dt, 0.05f));
                     if (t > nextShot) { nextShot = t + 9f; Shot($"wave{loop.Game.Wave}"); }
                     if (!pausedOnce && loop.Game.Wave >= 2 && stateTime > 3f) { pausedOnce = true; loop.DemoSetState(Screen2.Paused); }

@@ -25,7 +25,7 @@ namespace DiceHero
         public const float ComboWindow = 3f;
 
         // Run stats for the game-over screen.
-        public int Kills, BombsDisposed, Rolls, BestCombo = 1;
+        public int Kills, BombsDisposed, Rolls, BestCombo = 1, BossesBeaten;
         public float TimeAlive;
 
         /// <summary>True between "wave cleared" and the next wave starting (the upgrade pick happens here).</summary>
@@ -234,6 +234,7 @@ namespace DiceHero
             if (e.kind == EnemyKind.Boss)
             {
                 Boss = null;
+                BossesBeaten++;
                 Flash(0.6f);
                 loop.ShowBanner("HIGH ROLLER DESTROYED", $"+{2000 * Combo} POINTS", 3.5f, UiKit.Gold);
                 Hp = MaxHp;

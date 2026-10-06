@@ -26,7 +26,7 @@ namespace DiceHero
             var amber = pal.Get("NGAmber", Palette.Hex("#FFB020"), 0.45f, 0.1f);
             var orange = pal.Get("NGOrange", Palette.Hex("#FF7A2A"), 0.45f, 0f);
             var screen = pal.Glow("NGScreen", Palette.Hex("#29B6F6"), 1.3f);
-            var emit = pal.Glow("NGEmit" + number, def.color, 1.6f);
+            var emit = pal.Glow("NGEmit" + def.id, def.color, 1.6f);
             var fwd = Quaternion.Euler(90f, 0f, 0f);
             var side = Quaternion.Euler(0f, 0f, 90f);
 
@@ -38,7 +38,7 @@ namespace DiceHero
                 P(PrimitiveType.Cylinder, root, new Vector3(bx, -0.1f, bz), new Vector3(0.045f, 0.012f, 0.045f), steel);
             P(PrimitiveType.Cylinder, root, new Vector3(0f, -0.07f, 0f), new Vector3(0.2f, 0.05f, 0.2f), dark);
 
-            switch (number)
+            switch (def.model)
             {
                 case 1: // The Ascent mech cannon
                     P(PrimitiveType.Cube, root, new Vector3(0f, 0.01f, -0.14f), new Vector3(0.26f, 0.18f, 0.32f), dark);

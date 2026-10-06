@@ -3,10 +3,16 @@ using UnityEngine;
 
 namespace DiceHero
 {
-    /// <summary>Stats for the gun tied to each top number.</summary>
+    /// <summary>
+    /// A gun. The catalogue holds every gun in the game; a run copies the player's loadout into All[1..6], so
+    /// All[n] is the gun on face n and its 'number' is that face.
+    /// </summary>
     public class WeaponDef
     {
-        public int number;
+        public int number;           // face it sits on this run (1-6)
+        public string id;
+        public int model;            // which turret model / sound family (1-6)
+        public int cost;             // chips to unlock (0 = owned from the start)
         public string name;
         public string role;
         public Color color;
@@ -19,25 +25,62 @@ namespace DiceHero
         public float radius = 0.12f; // projectile size
         public float aoe;            // explosion radius (0 = none)
         public bool armorPiercing;
+        public bool antiAir;         // can hit flying drones
         public bool homing;
         public bool beam;            // instant hitscan beam (railgun)
 
-        public static readonly WeaponDef[] All =
+        public static readonly WeaponDef[] Catalog =
         {
-            null,
-            new WeaponDef { number = 1, name = "RAILGUN", role = "Piercing beam, pierces armour", color = Palette.Hex("#35E6FF"),
+            new WeaponDef { id = "rail", model = 1, name = "RAILGUN", role = "Piercing beam, pierces armour", color = Palette.Hex("#35E6FF"),
                 cooldown = 0.9f, shots = 1, speed = 0f, damage = 3f, range = 18f, beam = true, armorPiercing = true },
-            new WeaponDef { number = 2, name = "TWIN BLASTERS", role = "Fast twin bolts", color = Palette.Hex("#5CFF8A"),
+            new WeaponDef { id = "twin", model = 2, name = "TWIN BLASTERS", role = "Fast twin bolts", color = Palette.Hex("#5CFF8A"),
                 cooldown = 0.22f, shots = 2, spread = 0f, speed = 22f, damage = 1f, range = 16f },
-            new WeaponDef { number = 3, name = "TRI-SHOT", role = "3-way spread, hits fliers", color = Palette.Hex("#FFE14D"),
-                cooldown = 0.42f, shots = 3, spread = 24f, speed = 20f, damage = 1f, range = 16f },
-            new WeaponDef { number = 4, name = "PLASMA CANNON", role = "Explosive orb, breaks armour", color = Palette.Hex("#FF3FA4"),
+            new WeaponDef { id = "tri", model = 3, name = "TRI-SHOT", role = "3-way spread, hits fliers", color = Palette.Hex("#FFE14D"),
+                cooldown = 0.42f, shots = 3, spread = 24f, speed = 20f, damage = 1f, range = 16f, antiAir = true },
+            new WeaponDef { id = "plasma", model = 4, name = "PLASMA CANNON", role = "Explosive orb, breaks armour", color = Palette.Hex("#FF3FA4"),
                 cooldown = 1.0f, shots = 1, speed = 12f, damage = 4f, range = 14f, radius = 0.3f, aoe = 1.6f, armorPiercing = true },
-            new WeaponDef { number = 5, name = "SCATTER GUN", role = "5 pellets, close range", color = Palette.Hex("#FF8A2A"),
+            new WeaponDef { id = "scatter", model = 5, name = "SCATTER GUN", role = "5 pellets, close range", color = Palette.Hex("#FF8A2A"),
                 cooldown = 0.65f, shots = 5, spread = 50f, speed = 19f, damage = 1f, range = 7f, radius = 0.1f },
-            new WeaponDef { number = 6, name = "MISSILE POD", role = "6 homing missiles, anti-swarm", color = Palette.Hex("#FF4B3A"),
-                cooldown = 2.0f, shots = 6, spread = 70f, speed = 12f, damage = 1f, range = 20f, radius = 0.14f, aoe = 1.0f, homing = true },
+            new WeaponDef { id = "missile", model = 6, name = "MISSILE POD", role = "6 homing missiles, hits fliers", color = Palette.Hex("#FF4B3A"),
+                cooldown = 2.0f, shots = 6, spread = 70f, speed = 12f, damage = 1f, range = 20f, radius = 0.14f, aoe = 1.0f, homing = true, antiAir = true },
+            // Unlockable with chips.
+            new WeaponDef { id = "flak", model = 3, cost = 120, name = "FLAK CANNON", role = "Bursting shells, shreds fliers", color = Palette.Hex("#B98CFF"),
+                cooldown = 0.75f, shots = 4, spread = 34f, speed = 18f, damage = 1f, range = 12f, radius = 0.13f, aoe = 0.9f, antiAir = true },
+            new WeaponDef { id = "lance", model = 1, cost = 160, name = "ARC LANCE", role = "Short rapid beam, pierces armour", color = Palette.Hex("#E8F1FF"),
+                cooldown = 0.35f, shots = 1, speed = 0f, damage = 1.6f, range = 9f, beam = true, armorPiercing = true },
+            new WeaponDef { id = "mortar", model = 4, cost = 200, name = "MORTAR", role = "Slow shell, huge blast, breaks armour", color = Palette.Hex("#2FE6C8"),
+                cooldown = 1.3f, shots = 1, speed = 10f, damage = 3f, range = 15f, radius = 0.28f, aoe = 2.4f, armorPiercing = true },
+            new WeaponDef { id = "needler", model = 6, cost = 250, name = "NEEDLER", role = "8 homing needles, hits fliers", color = Palette.Hex("#C6FF3D"),
+                cooldown = 1.1f, shots = 8, spread = 40f, speed = 16f, damage = 0.5f, range = 16f, radius = 0.08f, homing = true, antiAir = true },
         };
+
+        public static WeaponDef Find(string id)
+        {
+            foreach (var w in Catalog) if (w.id == id) return w;
+            return Catalog[0];
+        }
+
+        /// <summary>Guns on faces 1-6 for this run (index 0 unused).</summary>
+        public static WeaponDef[] All { get; private set; } = Build(Loadout.Default);
+
+        static WeaponDef[] Build(string[] faces)
+        {
+            var all = new WeaponDef[7];
+            for (int f = 1; f <= 6; f++)
+            {
+                var w = (WeaponDef)Find(faces[f]).MemberwiseClone();
+                w.number = f;
+                all[f] = w;
+            }
+            return all;
+        }
+
+        /// <summary>Puts the loadout's guns on the faces. Call before the world (gun models) is built.</summary>
+        public static void Apply(string[] faces)
+        {
+            All = Build(faces);
+            UpgradeDef.RebuildFaceCards();
+        }
     }
 
     /// <summary>Builds the six gun models from primitives. Each returns its muzzle points (local +Z is forward).</summary>
@@ -49,7 +92,7 @@ namespace DiceHero
             var root = new GameObject("Gun" + number + "_" + def.name).transform;
             root.SetParent(parent, false);
             var (dark, steel, glowPower, scale) = Art.Gun(pal);
-            var glow = pal.Glow("GunGlow" + Art.Theme + "_" + number, def.color, glowPower);
+            var glow = pal.Glow("GunGlow" + Art.Theme + "_" + def.id, def.color, glowPower);
             root.localScale = Vector3.one * scale;
             if (Art.Theme == 3) { GunsNeon.Build(number, pal, root, muzzles); return root; }
 
@@ -58,7 +101,7 @@ namespace DiceHero
             Prim.Make(PrimitiveType.Cylinder, "BaseRing", root, new Vector3(0f, -0.12f, 0f), new Vector3(0.46f, 0.02f, 0.46f), glow);
             var fwd = Quaternion.Euler(90f, 0f, 0f); // cylinder axis → +Z
 
-            switch (number)
+            switch (def.model)
             {
                 case 1: // Railgun: long rail with glowing coils
                     Prim.Make(PrimitiveType.Cube, "Body", root, new Vector3(0f, 0f, -0.05f), new Vector3(0.22f, 0.18f, 0.5f), steel);
@@ -210,9 +253,9 @@ namespace DiceHero
         void Fire()
         {
             var def = Current;
-            cooldown = def.cooldown / RunStats.Current.fireRateMul * (Overcharge > 0f ? 0.5f : 1f);
+            cooldown = def.cooldown / (RunStats.Current.fireRateMul * RunStats.Current.FaceRate(def.number)) * (Overcharge > 0f ? 0.5f : 1f);
             Fired?.Invoke(def);
-            recoil = def.number == 4 || def.number == 1 ? 1f : 0.5f;
+            recoil = def.model == 4 || def.model == 1 ? 1f : 0.5f;
             var ms = muzzles[def.number];
             Vector3 fwd = dice.Model.WeaponMount.forward;
 
@@ -228,8 +271,8 @@ namespace DiceHero
                 if (def.beam) Projectiles.Beam(pal, def, muzzle.position, dir);
                 else Projectiles.Spawn(pal, def, muzzle.position, dir, i * (def.homing ? 0.06f : 0f));
             }
-            foreach (var m in ms) Fx.Flash(pal, m.position, def.color, def.number == 4 ? 0.5f : 0.3f, 0.08f);
-            if (Game.I != null && (def.number == 1 || def.number == 4)) Game.I.Juice(0.07f, 0f); // heavy guns kick the camera
+            foreach (var m in ms) Fx.Flash(pal, m.position, def.color, def.model == 4 ? 0.5f : 0.3f, 0.08f);
+            if (Game.I != null && (def.model == 1 || def.model == 4)) Game.I.Juice(0.07f, 0f); // heavy guns kick the camera
         }
     }
 }

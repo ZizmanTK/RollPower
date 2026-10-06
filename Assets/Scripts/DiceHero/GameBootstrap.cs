@@ -23,6 +23,7 @@ namespace DiceHero
 
         public void BuildWorld()
         {
+            WeaponDef.Apply(Loadout.Faces); // the player's die build, before gun models are made
             Palette = new Palette(baseMaterial, glowMaterial);
             SetupLighting();
             var world = World.Build(Palette);

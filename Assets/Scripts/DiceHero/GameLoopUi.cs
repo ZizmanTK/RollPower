@@ -20,7 +20,7 @@ namespace DiceHero
             titleMenu = new Menu().Add("PLAY", "play").Add("HOW TO PLAY", "help").Add("SETTINGS", "settings");
             if (CanQuit) titleMenu.Add("QUIT", "quit");
             pauseMenu = new Menu().Add("RESUME", "resume").Add("SETTINGS", "settings").Add("HOW TO PLAY", "help").Add("RESTART", "restart").Add("MAIN MENU", "home");
-            gameOverMenu = new Menu().Add("PLAY AGAIN", "restart").Add("MAIN MENU", "home");
+            gameOverMenu = new Menu().Add("PLAY AGAIN", "restart").Add("BUILD YOUR DIE", "help").Add("MAIN MENU", "home");
             settingsMenu = new Menu()
                 .AddSlider("MUSIC", () => Settings.Music, v => Settings.Music = v)
                 .AddSlider("SOUND FX", () => Settings.Sfx, v => Settings.Sfx = v)
@@ -52,6 +52,9 @@ namespace DiceHero
                 case Screen2.HowTo:
                     if (Controls.Back || Controls.Confirm) { State = howToReturn; Sound.Play(Sfx.UiConfirm, 0.6f, 0f); }
                     break;
+                case Screen2.Loadout:
+                    LoadoutInput(udt);
+                    break;
                 case Screen2.GameOver:
                     if (Controls.Restart) { Reload(true); break; }
                     Activate(State, gameOverMenu.UpdateInput(udt));
@@ -75,7 +78,7 @@ namespace DiceHero
             switch (from)
             {
                 case Screen2.Title:
-                    if (index == 0) StartRun();
+                    if (index == 0) EnterLoadout();
                     else if (index == 1) { howToReturn = Screen2.Title; State = Screen2.HowTo; }
                     else if (index == 2) { settingsReturn = Screen2.Title; settingsMenu.Selected = 0; State = Screen2.Settings; }
                     else if (index == 3) Application.Quit();
@@ -91,6 +94,7 @@ namespace DiceHero
                     if (index == settingsMenu.Items.Count - 1) { State = settingsReturn; Settings.Save(); }
                     break;
                 case Screen2.GameOver:
+                    if (index == 1) OpenLoadout = true;
                     Reload(index == 0);
                     break;
             }
@@ -118,6 +122,7 @@ namespace DiceHero
                 case Screen2.HowTo: Dim(w, 0.7f); DrawHowTo(w); break;
                 case Screen2.Upgrade: Dim(w, 0.55f); DrawUpgrade(w); break;
                 case Screen2.GameOver: Dim(w, 0.45f); DrawGameOver(w); break;
+                case Screen2.Loadout: Dim(w, 0.55f); DrawLoadout(w); break;
             }
             UiKit.End();
         }
@@ -140,7 +145,7 @@ namespace DiceHero
             if (Weapons.Overcharge > 0f)
                 UiKit.Glow(new Rect(em.x - 70, em.y - 70, 140, 140), new Color(def.color.r, def.color.g, def.color.b, 0.35f + 0.2f * Mathf.Sin(uiTime * 14f)));
             UiKit.Emblem(em, 80f);
-            UiKit.DrawIcon(new Rect(em.x - 17, em.y - 17, 34, 34), "ui_gun" + def.number, def.color);
+            UiKit.DrawIcon(new Rect(em.x - 17, em.y - 17, 34, 34), GunIcon(def), def.color);
 
             // Hull bar (one cell per heart), then the combo timer bar.
             float bx = 112f;
@@ -226,8 +231,8 @@ namespace DiceHero
                 if (bannerTitle != null)
                 {
                     float px = 11f + (1f - slide) * 4f;
-                    UiKit.Pixel(bannerTitle, w * 0.5f, 250 - px * 3.5f, px, c, 0.5f, 0.2f);
-                    if (bannerSub != null) UiKit.Pixel(bannerSub, w * 0.5f, 320, 3.6f, new Color(1f, 1f, 1f, a), 0.5f);
+                    UiKit.Pixel(bannerTitle, w * 0.5f, 190 - px * 3.5f, px, c, 0.5f, 0.2f);
+                    if (bannerSub != null) UiKit.Pixel(bannerSub, w * 0.5f, 262, 3.6f, new Color(1f, 1f, 1f, a), 0.5f);
                 }
                 else if (bannerSub != null) UiKit.Pixel(bannerSub, w * 0.5f, 150, 4f, c, 0.5f);
             }
@@ -274,7 +279,7 @@ namespace DiceHero
             var gt = new Rect(x, ty, tile, tile);
             UiKit.Rect(gt, new Color(gun.color.r * 0.35f, gun.color.g * 0.35f, gun.color.b * 0.35f, 0.95f));
             UiKit.Rect(new Rect(gt.x, gt.y, gt.width, 2), gun.color);
-            UiKit.DrawIcon(new Rect(gt.x + 13, gt.y + 13, 40, 40), "ui_gun" + gun.number, gun.color);
+            UiKit.DrawIcon(new Rect(gt.x + 13, gt.y + 13, 40, 40), GunIcon(gun), gun.color);
             UiKit.Keycap(gt.center.x - 15f, gt.yMax + 8, plan.top.ToString());
             x += tile + gap;
 
@@ -422,7 +427,7 @@ namespace DiceHero
                 float yy = r.y + 60f + i * 58f;
                 Color cc = CategoryColor(Category(d));
                 UiKit.Rect(new Rect(r.x + 24f, yy, 46f, 46f), new Color(0.03f, 0.08f, 0.14f, 1f));
-                UiKit.DrawIcon(new Rect(r.x + 27f, yy + 3f, 40f, 40f), "up_" + d.id, Color.white);
+                UiKit.DrawIcon(new Rect(r.x + 27f, yy + 3f, 40f, 40f), d.Face > 0 ? GunIcon(WeaponDef.All[d.Face]) : "up_" + d.id, d.Face > 0 ? cc : Color.white);
                 UiKit.Line(d.name, r.x + 84f, yy + 4f, 20, UiKit.Text, 0f, 2);
                 float segW = (r.width - 84f - 24f - (d.maxLevel - 1) * 3f) / d.maxLevel;
                 for (int s = 0; s < d.maxLevel; s++)
@@ -479,7 +484,7 @@ namespace DiceHero
                 float yy = y2 + 34f + (n - 1) * 62f;
                 UiKit.DieFace(new Rect(x2, yy, 44, 44), n, d.color, UiKit.Ink);
                 UiKit.Rect(new Rect(x2 + 54f, yy, 44f, 44f), new Color(d.color.r * 0.3f, d.color.g * 0.3f, d.color.b * 0.3f, 1f));
-                UiKit.DrawIcon(new Rect(x2 + 60f, yy + 6f, 32f, 32f), "ui_gun" + n, d.color);
+                UiKit.DrawIcon(new Rect(x2 + 60f, yy + 6f, 32f, 32f), GunIcon(d), d.color);
                 UiKit.Line(d.name, x2 + 112f, yy + 2f, 22, d.color, 0f, 2);
                 UiKit.Line(d.role, x2 + 112f, yy + 26f, 17, UiKit.Soft, 0f, 0);
             }
@@ -500,6 +505,7 @@ namespace DiceHero
         // Upgrade categories and their colours (style 7).
         static string Category(UpgradeDef u)
         {
+            if (u.Face > 0) return "FACE " + u.Face;
             switch (u.id)
             {
                 case "dmg": case "rate": case "over": case "barrel": return "GUNS";
@@ -509,7 +515,7 @@ namespace DiceHero
             }
         }
 
-        static Color CategoryColor(string cat) => cat == "GUNS" ? Palette.Hex("#FF6A3D") : cat == "ROLLS" ? Palette.Hex("#29B6F6")
+        static Color CategoryColor(string cat) => cat.StartsWith("FACE") ? WeaponDef.All[cat[5] - '0'].color : cat == "GUNS" ? Palette.Hex("#FF6A3D") : cat == "ROLLS" ? Palette.Hex("#29B6F6")
             : cat == "DEFENCE" ? Palette.Hex("#3BD16F") : Palette.Hex("#FFB020");
 
         static readonly Color Panel7 = Palette.Hex("#0B1A2A"), Border7 = Palette.Hex("#2F8FC0"), Text7 = Palette.Hex("#B9D2E2"), Muted7 = Palette.Hex("#8FB4CC");
@@ -562,7 +568,8 @@ namespace DiceHero
                 UiKit.Glow(new Rect(it.center.x - 140, it.center.y - 110, 280, 220), new Color(cc.r, cc.g, cc.b, 0.28f));
                 UiKit.Rect(new Rect(it.x, it.y, it.width, 1), new Color(Border7.r, Border7.g, Border7.b, 0.7f));
                 UiKit.Rect(new Rect(it.x, it.yMax - 1, it.width, 1), new Color(Border7.r, Border7.g, Border7.b, 0.7f));
-                UiKit.DrawIcon(new Rect(it.center.x - 70, it.center.y - 70, 140, 140), "up_" + u.id, Color.white);
+                if (u.Face > 0) UiKit.DrawIcon(new Rect(it.center.x - 56, it.center.y - 56, 112, 112), GunIcon(WeaponDef.All[u.Face]), cc);
+                else UiKit.DrawIcon(new Rect(it.center.x - 70, it.center.y - 70, 140, 140), "up_" + u.id, Color.white);
 
                 // Name and description.
                 int ns = UiKit.TextWidth(u.name, 34) > inner ? 28 : 34;
@@ -620,7 +627,11 @@ namespace DiceHero
                 UiKit.Line(stats[i].k, t.x + 20f, t.y + 16f, 16, UiKit.Mutedish, 0f, 2);
                 UiKit.Line(stats[i].v, t.x + 20f, t.y + 40f, 32, UiKit.Text, 0f, 2);
             }
-            Activate(Screen2.GameOver, gameOverMenu.Draw(w * 0.5f, 640f, 540f, 80f));
+            var cr = new Rect(w * 0.5f - 389f, 610f, 778f, 50f);
+            UiKit.ChamferPanel(cr, new Color(0.2f, 0.13f, 0.02f, 0.9f), Palette.Hex("#FFB020"));
+            UiKit.Line($"+{chipsEarned} CHIPS", cr.x + 24f, cr.y + 13f, 24, Palette.Hex("#FFB020"), 0f, 2);
+            UiKit.Line($"TOTAL {Num(Loadout.Chips)}  ·  spend them on new guns in BUILD YOUR DIE", cr.xMax - 24f, cr.y + 16f, 18, UiKit.Soft, 1f, 1);
+            Activate(Screen2.GameOver, gameOverMenu.Draw(w * 0.5f, 680f, 540f, 80f));
             float hy = UiKit.H - 66f;
             float kx = w * 0.5f - 110f;
             kx += UiKit.Keycap(kx, hy, "R") + 6f;

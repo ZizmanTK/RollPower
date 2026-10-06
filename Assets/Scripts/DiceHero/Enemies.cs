@@ -37,13 +37,21 @@ namespace DiceHero
         {
             switch (k)
             {
-                case EnemyKind.Drone: return "DRONES FLY: USE 3 TRI-SHOT OR 6 MISSILES";
-                case EnemyKind.Tank: return "TANKS ARE ARMOURED: USE 1 RAILGUN OR 4 PLASMA";
-                case EnemyKind.Mite: return "MITE SWARM: USE 5 SCATTER, 6 MISSILES OR 2 TWIN";
+                case EnemyKind.Drone: return "DRONES FLY: USE " + Faces(w => w.antiAir);
+                case EnemyKind.Tank: return "TANKS ARE ARMOURED: USE " + Faces(w => w.armorPiercing);
+                case EnemyKind.Mite: return "MITE SWARM: USE " + Faces(w => w.shots > 1 || w.aoe > 0f);
                 case EnemyKind.Bomber: return "BOMBERS PLANT BOMBS: SHOVE THEM OFF THE EDGE";
                 case EnemyKind.Boss: return "HIGH ROLLER: MATCH THE NUMBER ON ITS TOP FACE";
                 default: return "CRAWLERS: ANY GUN WORKS";
             }
+        }
+
+        /// <summary>"3 TRI-SHOT OR 6 MISSILE POD": the faces of this die whose gun matches.</summary>
+        static string Faces(System.Func<WeaponDef, bool> ok)
+        {
+            var list = new System.Collections.Generic.List<string>();
+            for (int n = 1; n <= 6; n++) if (ok(WeaponDef.All[n])) list.Add(n + " " + WeaponDef.All[n].name);
+            return list.Count == 0 ? "BOMBS AND SLAMS" : string.Join(" OR ", list);
         }
 
         public static string Plural(EnemyKind k)
@@ -63,7 +71,7 @@ namespace DiceHero
         {
             switch (kind)
             {
-                case EnemyKind.Drone: return w.number == 3 || w.number == 6;
+                case EnemyKind.Drone: return w.antiAir;
                 case EnemyKind.Tank: return w.armorPiercing;
                 case EnemyKind.Boss: return Weakness != 0 && w.number == Weakness;
                 default: return true;
@@ -78,10 +86,10 @@ namespace DiceHero
                 if (Game.I != null) Game.I.Deflect(this, kind == EnemyKind.Boss ? (boss.Rerolling ? "REROLLING" : $"NEED A {Weakness}") : Flying ? "OUT OF REACH" : "DEFLECTED");
                 return false;
             }
-            hp -= damage * RunStats.Current.damageMul;
+            hp -= damage * RunStats.Current.damageMul * RunStats.Current.FaceDamage(w.number);
             hitFlash = 0.1f;
             Sound.Play(Sfx.Hit, 0.5f, 0.15f);
-            if (Game.I != null) Game.I.DamageNumber(this, damage * RunStats.Current.damageMul, w.color);
+            if (Game.I != null) Game.I.DamageNumber(this, damage * RunStats.Current.damageMul * RunStats.Current.FaceDamage(w.number), w.color);
             Vector3 push = pos - from; push.y = 0f;
             if (kind != EnemyKind.Tank && kind != EnemyKind.Boss) vel += push.normalized * 4f;
             if (hp <= 0f && Game.I != null) Game.I.Killed(this);

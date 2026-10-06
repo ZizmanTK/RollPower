@@ -182,6 +182,8 @@ public static class DiceHeroSetup
     {
         string outDir = GetArg("-previewOut") ?? Path.GetFullPath("playtest");
         float seconds = float.TryParse(GetArg("-playSeconds"), out float ps) ? ps : 240f;
+        var lo = GetArg("-loadout"); // e.g. -loadout flak,lance,tri,mortar,needler,missile
+        if (lo != null) { var p = lo.Split(','); Loadout.OverrideForTest(new[] { null, p[0], p[1], p[2], p[3], p[4], p[5] }); }
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
         boot.BuildWorld();

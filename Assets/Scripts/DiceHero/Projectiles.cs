@@ -50,7 +50,7 @@ namespace DiceHero
 
         public static void Spawn(Palette pal, WeaponDef def, Vector3 pos, Vector3 dir, float delay)
         {
-            var mat = pal.Glow("Shot" + def.number, def.color, 1.6f, def.color);
+            var mat = pal.Glow("Shot" + def.id, def.color, 1.6f, def.color);
             var go = Prim.Make(PrimitiveType.Sphere, "Shot", null, pos, Vector3.one * def.radius * 2f, mat);
             if (!def.homing && def.aoe <= 0f) go.transform.localScale = new Vector3(def.radius * 1.6f, def.radius * 1.6f, def.radius * 5f);
             var s = new Shot { t = go.transform, def = def, pos = pos, life = def.range / def.speed + 0.6f, delay = delay };
