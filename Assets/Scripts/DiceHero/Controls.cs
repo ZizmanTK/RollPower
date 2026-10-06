@@ -4,7 +4,7 @@ namespace DiceHero
 {
     /// <summary>
     /// Keyboard + gamepad input in one place (legacy Input Manager, works on Windows and WebGL).
-    /// Gamepad: left stick / d-pad move, A dash + confirm, B back, Start pause.
+    /// Gamepad: left stick / d-pad move, A roll (or dash) + confirm, B back, Start pause.
     /// </summary>
     public static class Controls
     {
@@ -88,6 +88,8 @@ namespace DiceHero
         public static float Music { get => PlayerPrefs.GetFloat("rp.music", 0.6f); set { PlayerPrefs.SetFloat("rp.music", value); Sound.ApplyVolumes(); } }
         public static float Sfx { get => PlayerPrefs.GetFloat("rp.sfx", 0.8f); set { PlayerPrefs.SetFloat("rp.sfx", value); Sound.ApplyVolumes(); } }
         public static float ShakeAmount { get => PlayerPrefs.GetFloat("rp.shake", 1f); set => PlayerPrefs.SetFloat("rp.shake", value); }
+        /// <summary>Roll with the roll button (on) or by bumping into obstacles (off, the 2.0 controls).</summary>
+        public static bool RollButton { get => PlayerPrefs.GetInt("rp.rollbutton", 1) == 1; set { PlayerPrefs.SetInt("rp.rollbutton", value ? 1 : 0); DiceController.ButtonMode = value; } }
         public static bool ShowTutorial { get => PlayerPrefs.GetInt("rp.tutorial", 1) == 1; set => PlayerPrefs.SetInt("rp.tutorial", value ? 1 : 0); }
         public static int BestScore { get => PlayerPrefs.GetInt("rp.best", 0); set => PlayerPrefs.SetInt("rp.best", value); }
         public static int BestWave { get => PlayerPrefs.GetInt("rp.bestWave", 0); set => PlayerPrefs.SetInt("rp.bestWave", value); }

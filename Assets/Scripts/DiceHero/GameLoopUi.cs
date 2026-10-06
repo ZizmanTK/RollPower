@@ -27,6 +27,7 @@ namespace DiceHero
                 .AddChoice("SCREEN SHAKE", () => Settings.ShakeAmount <= 0f ? "OFF" : Settings.ShakeAmount < 0.9f ? "LOW" : "FULL",
                     d => { float[] o = { 0f, 0.5f, 1f }; int i = Settings.ShakeAmount <= 0f ? 0 : Settings.ShakeAmount < 0.9f ? 1 : 2; Settings.ShakeAmount = o[(i + d + 3) % 3]; if (cam != null) cam.Shake(0.4f); })
                 .AddChoice("FULLSCREEN", () => Screen.fullScreen ? "ON" : "OFF", d => Screen.fullScreen = !Screen.fullScreen)
+                .AddChoice("ROLL", () => Settings.RollButton ? "BUTTON" : "BUMP (2.0)", d => Settings.RollButton = !Settings.RollButton)
                 .AddChoice("HINTS", () => Settings.ShowTutorial ? "ON" : "OFF", d => Settings.ShowTutorial = !Settings.ShowTutorial)
                 .Add("BACK", "back");
         }
@@ -258,20 +259,23 @@ namespace DiceHero
         {
             var gun = plan.Gun;
             const float tile = 66f, gap = 16f;
-            float lw = UiKit.TextWidth("ROLL", 28), fw = UiKit.TextWidth("FOR", 28), nw = UiKit.TextWidth(gun.name, 30);
+            string rollWord = plan.steps == 2 ? "ROLL TWICE" : "ROLL";
+            float lw = UiKit.TextWidth(rollWord, 28), fw = UiKit.TextWidth("FOR", 28), nw = UiKit.TextWidth(gun.name, 30);
             float total = lw + gap + tile + gap + fw + gap + tile + gap + nw;
             float x = w * 0.5f - total * 0.5f, ty = UiKit.H - 150f;
             float pulse = 0.5f + 0.5f * Mathf.Sin(uiTime * 6f);
             UiKit.Glow(new Rect(x - 80f, ty - 50f, total + 160f, tile + 140f), new Color(gun.color.r, gun.color.g, gun.color.b, 0.08f + 0.08f * pulse));
 
-            UiKit.Line("ROLL", x, ty + 22, 28, UiKit.Text, 0f, 2, 2f);
+            UiKit.Line(rollWord, x, ty + 22, 28, UiKit.Text, 0f, 2, 2f);
             x += lw + gap;
             var at = new Rect(x, ty, tile, tile);
             UiKit.Rect(at, new Color(0.08f, 0.16f, 0.18f, 0.92f));
             UiKit.Rect(new Rect(at.x, at.y, at.width, 2), new Color(0.92f, 0.95f, 0.95f, 0.45f));
             UiKit.DrawIcon(new Rect(at.x + 13, at.y + 13, 40, 40), "ui_arrow", UiKit.Text, ArrowAngle(plan.dir));
-            float kw = UiKit.TextWidth(KeyFor(plan.dir), 18) + 12f;
-            UiKit.Keycap(at.center.x - Mathf.Max(30f, kw) * 0.5f, at.yMax + 8, KeyFor(plan.dir));
+            // Button mode: hold the direction and press roll.
+            string key = plan.obstacle == null ? KeyFor(plan.dir) + " + SPACE" : KeyFor(plan.dir);
+            float kw = UiKit.TextWidth(key, 18) + 12f;
+            UiKit.Keycap(at.center.x - Mathf.Max(30f, kw) * 0.5f, at.yMax + 8, key);
             x += tile + gap;
 
             UiKit.Line("FOR", x, ty + 22, 28, UiKit.Text, 0f, 2, 2f);
@@ -285,7 +289,7 @@ namespace DiceHero
 
             UiKit.Line(gun.name, x, ty + 21, 30, gun.color, 0f, 2, 2f);
 
-            if (ToCanvas(plan.obstacle.transform.position, out var p) && OffCanvas(p, w))
+            if (plan.obstacle != null && ToCanvas(plan.obstacle.transform.position, out var p) && OffCanvas(p, w))
                 EdgeArrow(w, p, gun.color, 1f);
         }
 
@@ -297,6 +301,15 @@ namespace DiceHero
         string TutorialHint()
         {
             if (!Settings.ShowTutorial || Game.Wave > 3 || Game.Lost) return null;
+            if (DiceController.ButtonMode)
+            {
+                if (Game.Rolls == 0 && Game.TimeAlive < 4f) return "MOVE WITH WASD, ARROWS OR THE LEFT STICK";
+                if (Game.Rolls == 0) return "SPACE ROLLS THE DIE THE WAY YOU MOVE: IT DODGES AND CHANGES YOUR GUN";
+                if (Game.Rolls < 4 && Game.TimeAlive < 30f) return "THE MARKERS AROUND THE DIE SHOW THE GUN EACH ROLL GIVES";
+                if (Game.Bombs.All.Count > 0 && Game.BombsDisposed == 0) return "SHOVE BOMBS OFF THE EDGE";
+                if (Game.Rolls < 12 && Game.TimeAlive < 70f) return "ROLL OVER A PIPE RACK TO VAULT IT AND LAND ON THE OPPOSITE FACE";
+                return null;
+            }
             if (Game.Rolls == 0 && Game.TimeAlive < 5f) return "GLIDE WITH WASD, ARROWS OR THE LEFT STICK";
             if (Game.Rolls == 0) return Art.Theme == 3 ? "SLAM INTO A VENT BOX OR PIPE RACK TO ROLL: THE TOP NUMBER PICKS YOUR GUN" : "SLAM INTO A RED BARRIER TO ROLL: THE TOP NUMBER PICKS YOUR GUN";
             if (Game.Bombs.All.Count > 0 && Game.BombsDisposed == 0) return "SHOVE BOMBS OFF THE EDGE";
@@ -458,7 +471,14 @@ namespace DiceHero
 
             float x = r.x + 50f, y = r.y + 120f, col = pw * 0.5f - 80f;
             var body = new GUIStyle(UiKit.TextStyle(21, 0)) { wordWrap = true, richText = true };
-            (string head, string icon, string text, Color c)[] rules =
+            (string head, string icon, string text, Color c)[] rules = DiceController.ButtonMode ? new[]
+            {
+                ("MOVE", "arrow", "WASD, arrows or left stick.", UiKit.Text),
+                ("ROLL", "restart", "SPACE, SHIFT or A tips the die one face the way you are moving. The face on top picks your gun, and the <b>markers around the die</b> show what each roll gives. When your gun can't hurt what's coming, the right marker lights up.", UiKit.Cyan),
+                ("DODGE", "play", "You can't be hurt during the first part of a roll, but you can on landing. Roll through danger, not into it.", Palette.Hex("#3BD16F")),
+                ("SHOOT", "gun3", "Guns aim and fire on their own. Rolling to a gun that hurts more of the field overcharges it: double fire rate for a few seconds.", Palette.Hex("#FF6A3D")),
+                ("OBSTACLES", "home", "Vent boxes stop a roll. Roll over a <b>pipe rack</b> to vault it: two tips, onto the opposite face. Shove bombs off the edge.", Palette.Hex("#FFB020")),
+            } : new[]
             {
                 ("GLIDE", "arrow", "WASD, arrows or left stick. You slide like on ice, so plan your turns.", UiKit.Text),
                 ("ROLL", "restart", "Slam into a <b>vent box</b> to roll once, or a <b>pipe rack</b> to roll twice. The number on top picks your gun. When your gun can't hurt what's on the field, the bottom bar says which way to roll.", UiKit.Cyan),
@@ -574,7 +594,7 @@ namespace DiceHero
                 // Name and description.
                 int ns = UiKit.TextWidth(u.name, 34) > inner ? 28 : 34;
                 UiKit.Line(u.name, px, r.y + 270f, ns, UiKit.Text, 0f, 2);
-                UiKit.Label(new Rect(px, r.y + 316f, inner, 130f), Sentence(u.desc), new GUIStyle(UiKit.TextStyle(23, 0)) { wordWrap = true }, Text7);
+                UiKit.Label(new Rect(px, r.y + 316f, inner, 130f), Sentence(u.Desc), new GUIStyle(UiKit.TextStyle(23, 0)) { wordWrap = true }, Text7);
 
                 // Level track: owned levels, then the one this card adds.
                 float ty = r.yMax - 118f;

@@ -48,6 +48,30 @@ namespace DiceHero
         class Bullet { public Transform t; public Vector3 pos, vel; public float life; public int dmg; }
         readonly List<Bullet> bullets = new List<Bullet>();
 
+        /// <summary>
+        /// The closest thing about to hit the die within 'within' seconds: an enemy bullet on course, or a ground enemy
+        /// (or the boss) closing in. Returns where it comes from, or null. Used by the autopilot to time dodge rolls.
+        /// </summary>
+        public Vector3? IncomingThreat(Vector3 p, float within = 0.35f)
+        {
+            Vector3? best = null; float bestT = within;
+            foreach (var b in bullets)
+            {
+                Vector3 rel = p + Vector3.up * 0.5f - b.pos, v = b.vel;
+                float t = Vector3.Dot(rel, v) / Mathf.Max(0.01f, v.sqrMagnitude);
+                if (t < 0f || t > bestT) continue;
+                if ((rel - v * t).magnitude < 0.75f) { bestT = t; best = b.pos; }
+            }
+            foreach (var e in Enemies)
+            {
+                if (!e.Alive || e.Flying) continue;
+                Vector3 d = e.pos - p; d.y = 0f;
+                float reach = e.radius + 0.5f + (e.kind == EnemyKind.Boss ? 1.4f : 0.6f);
+                if (d.magnitude < reach) return e.pos;
+            }
+            return best;
+        }
+
         // Each wave leans on one "problem" enemy type so the right gun matters.
         static readonly EnemyKind[] FocusOrder = { EnemyKind.Crawler, EnemyKind.Drone, EnemyKind.Tank, EnemyKind.Mite, EnemyKind.Bomber };
         readonly Queue<EnemyKind> spawnQueue = new Queue<EnemyKind>();
@@ -76,7 +100,7 @@ namespace DiceHero
         {
             Rolls++;
             Slam(steps);
-            int every = RunStats.Current.repairEvery;
+            int every = RunStats.Current.RepairEvery;
             if (every > 0 && Rolls % every == 0 && Hp < MaxHp)
             {
                 Hp++;
@@ -89,7 +113,8 @@ namespace DiceHero
         void Slam(int steps)
         {
             var s = RunStats.Current;
-            float radius = (steps == 2 ? 3f : 2.2f) * s.slamRadiusMul;
+            // A button roll is cheap, so its landing stomp is smaller; a vault keeps the big one.
+            float radius = (steps == 2 ? 3f : DiceController.ButtonMode ? 1.7f : 2.2f) * s.slamRadiusMul;
             Vector3 c = dice.transform.position;
             Fx.Shockwave(pal, c, WeaponDef.All[dice.TopNumber].color, radius);
             Fx.Debris(pal, c + Vector3.up * 0.1f, Palette.Hex("#6A707C"), steps == 2 ? 10 : 6, steps == 2 ? 5f : 3.5f);

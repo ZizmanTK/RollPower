@@ -192,10 +192,17 @@ namespace DiceHero
                 guns[n].localScale = Vector3.one * 1.4f;
             }
             ShowGun(dice.TopNumber);
-            dice.TopChanged += (oldTop, newTop) => { ShowGun(newTop); cooldown = 0.15f; Overcharge = OverchargeMax; };
+            dice.TopChanged += (oldTop, newTop) =>
+            {
+                ShowGun(newTop); cooldown = 0.15f;
+                if (OverchargeIf == null || OverchargeIf(oldTop, newTop)) Overcharge = OverchargeMax;
+            };
         }
 
-        /// <summary>Seconds of double fire rate left (granted by every fresh roll).</summary>
+        /// <summary>Decides whether a roll from one face to another earns the overcharge (null: every roll does).</summary>
+        public System.Func<int, int, bool> OverchargeIf;
+
+        /// <summary>Seconds of double fire rate left (granted by a fresh roll).</summary>
         public float Overcharge { get; private set; }
         public float OverchargeMax => RunStats.Current.overchargeTime;
         public Enemy Target { get; private set; }

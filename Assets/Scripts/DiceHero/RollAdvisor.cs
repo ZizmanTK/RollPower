@@ -2,15 +2,19 @@ using UnityEngine;
 
 namespace DiceHero
 {
-    /// <summary>A suggested roll: slam 'obstacle' while travelling in 'dir' to get 'top' (and its gun).</summary>
+    /// <summary>
+    /// A suggested roll: slam 'obstacle' while travelling in 'dir' to get 'top' (and its gun).
+    /// Button mode has no obstacle: roll 'steps' times toward 'dir'.
+    /// </summary>
     public class RollPlan
     {
         public Obstacle obstacle;
+        public int steps = 1;
         public Vector3 dir;        // cardinal travel direction at the moment of impact
         public Vector3 approach;   // where to line up before the slam
         public int top;            // number that will land on top
         public WeaponDef Gun => WeaponDef.All[top];
-        public bool Conduit => obstacle.kind == ObstacleKind.Conduit;
+        public bool Conduit => obstacle != null && obstacle.kind == ObstacleKind.Conduit;
     }
 
     /// <summary>
@@ -64,6 +68,37 @@ namespace DiceHero
                     if (cost < bestCost) { bestCost = cost; best = new RollPlan { obstacle = ob, dir = d, approach = ap, top = top }; }
                 }
             }
+            return best;
+        }
+
+        /// <summary>
+        /// Button mode: the best gun one roll away (or two, for the opposite face). Among equal gains it prefers
+        /// the direction away from the closest ground enemy, and keeps 'previous' when it is still as good, so the
+        /// highlighted marker doesn't flicker.
+        /// </summary>
+        public static RollPlan BestButton(DiceController dice, Game game, RollPlan previous = null)
+        {
+            int baseValue = Value(WeaponDef.All[dice.TopNumber], game);
+            Vector3 p = dice.transform.position, threat = Vector3.zero;
+            float near = float.MaxValue;
+            foreach (var e in game.Enemies)
+            {
+                if (!e.Alive || e.Flying) continue;
+                float d = (e.pos - p).magnitude;
+                if (d < near) { near = d; threat = e.pos - p; }
+            }
+            RollPlan best = null;
+            float bestScore = 0f;
+            for (int steps = 1; steps <= 2; steps++)
+                foreach (var d in Directions)
+                {
+                    int top = dice.PreviewTop(d, steps);
+                    int gain = Value(WeaponDef.All[top], game) - baseValue;
+                    if (gain <= 0) continue;
+                    float score = gain * 10f - (steps - 1) * 12f - Vector3.Dot(threat.normalized, d) * (near < 4f ? 3f : 0.5f);
+                    if (previous != null && previous.obstacle == null && previous.dir == d && previous.steps == steps) score += 2f;
+                    if (best == null || score > bestScore) { bestScore = score; best = new RollPlan { dir = d, top = top, steps = steps }; }
+                }
             return best;
         }
 
@@ -142,6 +177,14 @@ namespace DiceHero
         public void Step(float dt, DiceController dice, Game game, bool active)
         {
             t += dt;
+            if (DiceController.ButtonMode)
+            {
+                // No arena arrows: the advice lives on the floor markers around the die (RollCompass).
+                root.gameObject.SetActive(false);
+                if (dice.IsRolling) return;
+                Plan = active && !game.Lost && RollAdvisor.Needed(dice, game) ? RollAdvisor.BestButton(dice, game, Plan) : null;
+                return;
+            }
             if (dice.IsRolling) { root.gameObject.SetActive(false); return; } // hidden mid-roll; re-checked on landing
             if (!active || game.Lost || !RollAdvisor.Needed(dice, game)) { Plan = null; root.gameObject.SetActive(false); return; }
             if (Plan != null && !RollAdvisor.StillValid(Plan, dice, game)) Plan = null;

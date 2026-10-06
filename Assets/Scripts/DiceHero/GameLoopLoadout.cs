@@ -102,7 +102,7 @@ namespace DiceHero
             }
             var note = new GUIStyle(UiKit.TextStyle(19, 0)) { wordWrap = true };
             UiKit.Label(new Rect(nx, ny + 4 * (cell + gap) + 6, netW, 90),
-                "Opposite faces add up to 7. One roll moves the die to a neighbouring face; only a pipe rack (double roll) reaches the opposite face. Put guns you switch between often next to each other.",
+                "Opposite faces add up to 7. One roll moves the die to a neighbouring face; the opposite face takes two rolls, or one vault over a pipe rack. Put guns you switch between often next to each other.",
                 note, UiKit.Soft);
 
             // Right: the gun collection.

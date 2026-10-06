@@ -187,11 +187,16 @@ public static class DiceHeroSetup
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
         boot.BuildWorld();
+        DiceController.ButtonMode = !HasArg("-classicRoll"); // -classicRoll: the 2.0 bump controls, for comparison
         var loop = boot.Loop;
         var game = loop.Game;
         loop.AutoPickUpgrades = true;
         game.Invincible = Array.IndexOf(Environment.GetCommandLineArgs(), "-godmode") >= 0;
         var bot = new Autopilot(boot.Controller, loop.Weapons, game);
+        // Wrong-gun share: of the time enemies are on the field, how long the gun was clearly the wrong one
+        // (the same test the roll advice uses), and how long each wrong spell lasted.
+        float fightTime = 0f, wrongTime = 0f, spell = 0f; int hits = 0, lastHp = game.Hp;
+        var spells = new System.Collections.Generic.List<float>();
         var cam = Camera.main.GetComponent<CameraFollow>();
         int rolls = 0, shots = 0, lastWave = 0, frame = 0, bombs = 0;
         boot.Controller.TopChanged += (a, b) => rolls++;
@@ -206,6 +211,14 @@ public static class DiceHeroSetup
             bot.Step(dt);
             loop.Step(dt, true);
             if (game.Bombs.All.Count > before) bombs += game.Bombs.All.Count - before;
+            if (game.Hp < lastHp) hits++;
+            lastHp = game.Hp;
+            if (game.EnemiesLeft > 0 && !game.Intermission)
+            {
+                fightTime += dt;
+                if (RollAdvisor.Needed(boot.Controller, game)) { wrongTime += dt; spell += dt; }
+                else if (spell > 0f) { spells.Add(spell); spell = 0f; }
+            }
             if (game.Wave != lastWave)
             {
                 lastWave = game.Wave;
@@ -214,6 +227,10 @@ public static class DiceHeroSetup
             if (frame % 60 == 0) Shot(cam, outDir, frame / 60);
         }
         foreach (var kv in perGun) Debug.Log($"[RollPower] shots {kv.Key}: {kv.Value}");
+        spells.Sort();
+        float median = spells.Count > 0 ? spells[spells.Count / 2] : 0f;
+        Debug.Log($"[RollPower] controls {(DiceController.ButtonMode ? "button" : "bump")}: wrong-gun share {(fightTime > 0f ? 100f * wrongTime / fightTime : 0f):0}% of {fightTime:0}s fighting, " +
+                  $"{spells.Count} wrong spells, median {median:0.0}s, rolls/min {rolls / Mathf.Max(1f, frame / 30f / 60f):0}, hits taken {hits}");
         Debug.Log($"[RollPower] PlayTest end after {frame / 30f:0}s: wave {game.Wave}, lost {game.Lost}, hp {game.Hp}, rolls {rolls}, shots {shots}, " +
                   $"kills {game.Kills}, bombs {bombs} (disposed {game.BombsDisposed}), best combo x{game.BestCombo}, score {game.Score}");
     }
@@ -421,6 +438,7 @@ public static class DiceHeroSetup
         {
             var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
             boot.BuildWorld();
+            DiceController.ButtonMode = false; // this test covers the bump controls; TestButtonRoll covers the button
             var loop = boot.Loop;
             var game = loop.Game;
             var dice = boot.Controller;
@@ -466,6 +484,98 @@ public static class DiceHeroSetup
             else { fail++; Debug.LogError($"[RollPower] FAIL {label}: {advice} -> landed {landed}, gun hurts enemies: {hurts}"); }
         }
         Debug.Log($"[RollPower] TestRollGuide: {pass} passed, {fail} failed, {skipped} cases where the gun already worked");
+        if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
+    }
+
+    /// <summary>
+    /// Batch mode: checks the roll button. (1) For each enemy type and starting face, the advice (marker) must name a
+    /// roll that lands a gun which hurts them. (2) A vent box right ahead cancels the roll. (3) Rolling into a pipe
+    /// rack vaults it: two tips, the opposite face. (4) The die is shielded early in a roll and not on landing.
+    /// </summary>
+    public static void TestButtonRoll()
+    {
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        int pass = 0, fail = 0, skipped = 0;
+        const float dt = 1f / 60f;
+        void Check(bool ok, string what) { if (ok) { pass++; Debug.Log("[RollPower] PASS " + what); } else { fail++; Debug.LogError("[RollPower] FAIL " + what); } }
+        Vector3 Open()
+        {
+            for (float x = -7f; x <= 7f; x += 0.5f)
+                for (float z = -7f; z <= 7f; z += 0.5f)
+                {
+                    var c = new Vector3(x, 0f, z);
+                    bool clear = true;
+                    foreach (var ob in World.Obstacles) if (ob != null && ob.Overlaps(c, 2.6f)) { clear = false; break; }
+                    if (clear) return c;
+                }
+            return Vector3.zero;
+        }
+        void Settle(GameLoop loop, DiceController dice) { for (int f = 0; f < 120 && (dice.IsRolling || dice.DashCooldownLeft > 0f); f++) loop.Step(dt, false); }
+
+        foreach (var kind in new[] { EnemyKind.Drone, EnemyKind.Tank, EnemyKind.Boss })
+        for (int start = 1; start <= 6; start++)
+        {
+            var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
+            boot.BuildWorld();
+            DiceController.ButtonMode = true;
+            var loop = boot.Loop; var game = loop.Game; var dice = boot.Controller;
+            game.ManualSpawning = true; game.Invincible = true;
+            dice.Teleport(Open()); dice.InputOverride = Vector2.zero; dice.ForceTop(start);
+            if (kind == EnemyKind.Boss) game.Spawn(EnemyKind.Boss, new Vector3(0f, 0f, 6f)).boss.rest = 999f;
+            else for (int i = 0; i < 3; i++) game.Spawn(kind, new Vector3(-6f + i * 6f, 0f, 8.5f));
+            loop.Step(dt, false);
+            var gun = WeaponDef.All[dice.TopNumber];
+            string label = $"{kind,-6} start {start} ({gun.name})";
+            var plan = loop.Guide.Plan;
+            if (game.Immune(gun) == null) { if (plan != null) Check(false, label + ": advice shown although the gun works"); else skipped++; continue; }
+            if (plan == null) { Check(false, label + ": wrong gun but no advice"); continue; }
+            for (int s = 0; s < plan.steps; s++)
+            {
+                dice.InputOverride = new Vector2(plan.dir.x, plan.dir.z);
+                dice.TryRoll();
+                Settle(loop, dice);
+            }
+            bool hurts = game.Immune(WeaponDef.All[dice.TopNumber]) == null;
+            Check(dice.TopNumber == plan.top && hurts, $"{label}: roll {RollAdvisor.Arrow(plan.dir)} x{plan.steps} for {plan.Gun.name} -> top {dice.TopNumber}, hurts {hurts}");
+        }
+
+        {
+            var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
+            boot.BuildWorld();
+            DiceController.ButtonMode = true;
+            var loop = boot.Loop; var dice = boot.Controller;
+            loop.Game.ManualSpawning = true; loop.Game.Invincible = true;
+            Obstacle box = null, pipe = null;
+            foreach (var ob in World.Obstacles) { if (ob.kind == ObstacleKind.Conduit) pipe ??= ob; else box ??= ob; }
+            // (2) vent box right ahead
+            dice.Teleport(box.transform.position - Vector3.forward * (box.halfExtents.y + 0.6f));
+            dice.InputOverride = new Vector2(0f, 1f);
+            int top = dice.TopNumber;
+            Check(!dice.TryRoll() && dice.TopNumber == top, "vent box right ahead cancels the roll");
+            // (3) pipe rack vault, across its short side
+            Settle(loop, dice);
+            bool alongX = pipe.halfExtents.x > pipe.halfExtents.y;
+            Vector3 dir = alongX ? Vector3.forward : Vector3.right;
+            float half = alongX ? pipe.halfExtents.y : pipe.halfExtents.x;
+            dice.Teleport(pipe.transform.position - dir * (half + 0.9f));
+            dice.InputOverride = new Vector2(dir.x, dir.z);
+            int expect = dice.PreviewTop(dir, 2);
+            dice.TryRoll();
+            Check(dice.LastRollSteps == 2, "rolling into a pipe rack is a vault (two tips)");
+            // (4) shield timing
+            loop.Step(dt, false);
+            Check(dice.Shielded, "shielded at the start of a roll");
+            Settle(loop, dice);
+            Check(dice.TopNumber == expect, $"vault lands on the opposite face ({expect}), got {dice.TopNumber}");
+            var p = dice.transform.position;
+            Check(Vector3.Dot(p - pipe.transform.position, dir) > half, "vault lands past the pipe rack");
+            Check(!dice.Shielded, "not shielded after landing");
+            dice.Teleport(Open()); dice.InputOverride = new Vector2(1f, 0f);
+            dice.TryRoll();
+            for (int f = 0; f < 17; f++) loop.Step(dt, false); // ~0.28 s: past the 0.22 s shield, still rolling
+            Check(dice.IsRolling && !dice.Shielded, "late in a single roll: still rolling, no longer shielded");
+        }
+        Debug.Log($"[RollPower] TestButtonRoll: {pass} passed, {fail} failed, {skipped} cases where the gun already worked");
         if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
     }
 

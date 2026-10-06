@@ -19,7 +19,9 @@ namespace DiceHero
         public float kickMul = 1f;
         public int blastResist;
         public float chainChance;
-        public int repairEvery;        // 0 = off; otherwise every Nth roll repairs 1 integrity
+        public int repairEvery;        // 0 = off; otherwise every Nth roll repairs 1 integrity (bump mode)
+        /// <summary>Rolls per repair. Button rolls are cheap, so they need more of them.</summary>
+        public int RepairEvery => repairEvery == 0 || !DiceController.ButtonMode ? repairEvery : repairEvery == 3 ? 8 : 5;
         public int extraShots;
         public float fuseBonus;
         public float bowlDamage = 1f;   // damage a moving bomb deals to the enemies it bowls over
@@ -34,6 +36,8 @@ namespace DiceHero
     public class UpgradeDef
     {
         public string id, name, desc;
+        public string buttonDesc; // text when rolling is on a button, if it differs
+        public string Desc => DiceController.ButtonMode && buttonDesc != null ? buttonDesc : desc;
         public int maxLevel;
         public Color color;
         public Action<RunStats, int> apply; // (stats, new level)
@@ -82,13 +86,13 @@ namespace DiceHero
                 apply = (s, l) => s.fireRateMul += 0.2f },
             new UpgradeDef { id = "slam", name = "HEAVY LANDING", desc = "Roll landings hit 25% wider and +1 harder", maxLevel = 3, color = Palette.Hex("#FF8A2A"),
                 apply = (s, l) => { s.slamRadiusMul += 0.25f; s.slamDamageBonus++; } },
-            new UpgradeDef { id = "dash", name = "AFTERBURNER", desc = "Dash recharges 25% faster", maxLevel = 3, color = Palette.Hex("#3DFFB0"),
+            new UpgradeDef { id = "dash", name = "AFTERBURNER", desc = "Dash recharges 25% faster", buttonDesc = "Roll recharges 25% faster", maxLevel = 3, color = Palette.Hex("#3DFFB0"),
                 apply = (s, l) => s.dashCooldownMul *= 0.75f },
-            new UpgradeDef { id = "over", name = "OVERCLOCK", desc = "Double fire rate lasts +2s after each roll", maxLevel = 3, color = Palette.Hex("#35E6FF"),
+            new UpgradeDef { id = "over", name = "OVERCLOCK", desc = "Double fire rate lasts +2s after each roll", buttonDesc = "Double fire rate lasts +2s after each roll to a better gun", maxLevel = 3, color = Palette.Hex("#35E6FF"),
                 apply = (s, l) => s.overchargeTime += 2f },
             new UpgradeDef { id = "hp", name = "REINFORCED SHELL", desc = "+1 max integrity and a full repair", maxLevel = 3, color = Palette.Hex("#8AF0FF"),
                 apply = (s, l) => s.maxHpBonus++ },
-            new UpgradeDef { id = "loaded", name = "LOADED DIE", desc = "Every 3rd roll repairs 1 integrity (then every 2nd)", maxLevel = 2, color = Palette.Hex("#FFC940"),
+            new UpgradeDef { id = "loaded", name = "LOADED DIE", desc = "Every 3rd roll repairs 1 integrity (then every 2nd)", buttonDesc = "Every 8th roll repairs 1 integrity (then every 5th)", maxLevel = 2, color = Palette.Hex("#FFC940"),
                 apply = (s, l) => s.repairEvery = l == 1 ? 3 : 2 },
             new UpgradeDef { id = "resist", name = "BLAST PLATING", desc = "Bomb blasts deal 1 less damage to you", maxLevel = 2, color = Palette.Hex("#B8C4D6"),
                 apply = (s, l) => s.blastResist++ },

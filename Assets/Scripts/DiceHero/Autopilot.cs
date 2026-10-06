@@ -35,6 +35,7 @@ namespace DiceHero
             sinceRoll += dt;
             Vector3 p = dice.transform.position;
             if (dice.IsRolling) return;
+            if (DiceController.ButtonMode) { StepButton(p, dt); return; }
 
             bool needRoll = game.Immune(weapons.Current) != null;
             if (mode == Mode.Kite && modeTime > 0.3f) PlanShove(p);
@@ -69,6 +70,75 @@ namespace DiceHero
         }
 
         void SetMode(Mode m) { mode = m; modeTime = 0f; }
+
+        /// <summary>Seconds the bot takes to notice its gun is wrong before rolling (a deliberate, human-ish delay).</summary>
+        public float ReactionTime = 0.45f;
+        float wrongFor;
+
+        /// <summary>
+        /// Button mode: kite and shove bombs as usual, roll toward the advised marker once the gun has been wrong for
+        /// ReactionTime, and roll away from crowding, preferring a direction whose gun is no worse than the current one.
+        /// </summary>
+        void StepButton(Vector3 p, float dt)
+        {
+            // Dodge first: roll across whatever is about to hit, preferring a direction whose gun is no worse.
+            var threat = game.IncomingThreat(p);
+            if (threat.HasValue && dice.DashCooldownLeft <= 0f)
+            {
+                Vector3 from = p - threat.Value; from.y = 0f;
+                int cur = RollAdvisor.Value(weapons.Current, game);
+                Vector3 bestDir = Vector3.zero; float bestS = float.MinValue;
+                foreach (var d in RollAdvisor.Directions)
+                {
+                    float s = -Mathf.Abs(Vector3.Dot(d, from.normalized)) * 1.5f + Vector3.Dot(d, from.normalized)
+                              + (RollAdvisor.Value(WeaponDef.All[dice.PreviewTop(d)], game) >= cur ? 1.5f : 0f) - (Blocked(p + d * 1.6f) ? 5f : 0f);
+                    if (s > bestS) { bestS = s; bestDir = d; }
+                }
+                dice.InputOverride = new Vector2(bestDir.x, bestDir.z);
+                if (dice.TryRoll()) return;
+            }
+            bool wrong = RollAdvisor.Needed(dice, game);
+            wrongFor = wrong ? wrongFor + dt : 0f;
+            if (wrong && wrongFor > ReactionTime && dice.DashCooldownLeft <= 0f)
+            {
+                var plan = RollAdvisor.BestButton(dice, game);
+                if (plan != null) { dice.InputOverride = new Vector2(plan.dir.x, plan.dir.z); dice.TryRoll(); return; }
+            }
+            if (mode == Mode.Kite && modeTime > 0.3f) PlanShove(p);
+            if (goalBomb != null && (!game.Bombs.All.Contains(goalBomb) || !goalBomb.Armed || goalBomb.fuse < 1.6f)) { goalBomb = null; SetMode(Mode.Kite); }
+            switch (mode)
+            {
+                case Mode.Approach:
+                {
+                    if (goalBomb != null) approachPoint = goalBomb.pos - goalDir * 1.5f;
+                    Vector3 to = approachPoint - p; to.y = 0f;
+                    if (to.magnitude < 0.45f || modeTime > 4f) { SetMode(to.magnitude < 0.8f ? Mode.Charge : Mode.Kite); break; }
+                    Steer(to.normalized * Mathf.Min(6f, to.magnitude * 3f) - dice.Velocity);
+                    break;
+                }
+                case Mode.Charge: // push the bomb by gliding into it; a roll would pass over it
+                    dice.InputOverride = new Vector2(goalDir.x, goalDir.z);
+                    if (modeTime > 1.2f) { SetMode(Mode.Kite); goalBomb = null; }
+                    break;
+                default:
+                {
+                    Vector3 away = Kite(p, dt, false);
+                    if (away.magnitude > 2.5f && dice.DashCooldownLeft <= 0f)
+                    {
+                        int cur = RollAdvisor.Value(weapons.Current, game);
+                        Vector3 bestDir = Vector3.zero; float best = float.MinValue;
+                        foreach (var d in RollAdvisor.Directions)
+                        {
+                            float s = Vector3.Dot(d, away.normalized) * 3f + (RollAdvisor.Value(WeaponDef.All[dice.PreviewTop(d)], game) >= cur ? 2f : 0f);
+                            if (s > best) { best = s; bestDir = d; }
+                        }
+                        dice.InputOverride = new Vector2(bestDir.x, bestDir.z);
+                        dice.TryRoll();
+                    }
+                    break;
+                }
+            }
+        }
 
         Bomb goalBomb;
 
@@ -124,7 +194,7 @@ namespace DiceHero
             return false;
         }
 
-        void Kite(Vector3 p, float dt)
+        Vector3 Kite(Vector3 p, float dt, bool dash = true)
         {
             // Keep a comfortable distance from ground enemies, drift around the arena otherwise.
             Vector3 away = Vector3.zero;
@@ -147,7 +217,8 @@ namespace DiceHero
             Vector3 orbit = new Vector3(Mathf.Cos(wanderAngle), 0f, Mathf.Sin(wanderAngle)) * 4f - p;
             Vector3 want = away * 2f + orbit * 0.35f;
             Steer(want * 3f - dice.Velocity);
-            if (away.magnitude > 2.5f) dice.Dash();
+            if (dash && away.magnitude > 2.5f) dice.Dash();
+            return away;
         }
     }
 }

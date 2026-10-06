@@ -4,12 +4,24 @@ using UnityEngine;
 namespace DiceHero
 {
     /// <summary>
-    /// Gliding dice. Steer with WASD / arrows; the dice keeps its momentum like on ice.
-    /// Hitting a rock fast enough trips it into a 90° roll in the travel direction (a log: 180°),
-    /// which changes the number on top.
+    /// The player's die. Steer with WASD / arrows.
+    /// Button mode (default): the roll button tips the die one face in the held direction; that roll is both the
+    /// dodge (invulnerable for its first part, vulnerable on landing) and the weapon change. Rolling into a pipe
+    /// rack vaults it (two tips, the opposite face); rolling into a vent box is cancelled. Moving never rolls.
+    /// Bump mode (2.0): the die glides like on ice and hitting an obstacle fast enough trips it into a roll.
     /// </summary>
     public class DiceController : MonoBehaviour
     {
+        /// <summary>Roll on a button (true) or by bumping into obstacles (false, the 2.0 behaviour).</summary>
+        public static bool ButtonMode = true;
+
+        [Header("Roll button")]
+        public float buttonRollTime = 0.32f;
+        public float vaultRollTime = 0.5f;
+        public float rollDistance = 1.6f;
+        public float rollInvulnerable = 0.22f; // seconds from the start of a single roll
+        public float rollCooldown = 0.45f;     // after landing
+        Vector3 facing = Vector3.forward;
         [Header("Glide")]
         public float acceleration = 16f;
         public float maxSpeed = 7f;
@@ -29,8 +41,13 @@ namespace DiceHero
         public DiceModel Model { get; private set; }
         public Vector3 Velocity => velocity;
         public bool IsRolling => rolling;
-        /// <summary>Can not be hurt: while rolling, during the first part of a dash, and just after landing.</summary>
-        public bool Shielded => rolling || dashTime > 0.1f || landGrace > 0f;
+        /// <summary>
+        /// Can not be hurt. Button mode: only the first part of a roll (longer for a vault), so landing is a risk
+        /// and the roll can't be chained into permanent safety. Bump mode: while rolling, early dash, just after landing.
+        /// </summary>
+        public bool Shielded => ButtonMode
+            ? rolling && rollT * rollTime < (rollSteps == 2 ? rollInvulnerable * 1.6f : rollInvulnerable)
+            : rolling || dashTime > 0.1f || landGrace > 0f;
         float landGrace;
         public int TopNumber { get; private set; } = 1;
         public Quaternion Orientation => orientation;
@@ -60,14 +77,20 @@ namespace DiceHero
         public float dashSpeed = 10f;
         public float dashCooldown = 0.9f;
         public float DashCooldownLeft { get; private set; }
-        public float DashCooldownTotal => dashCooldown * RunStats.Current.dashCooldownMul;
+        public float DashCooldownTotal => (ButtonMode ? rollCooldown : dashCooldown) * RunStats.Current.dashCooldownMul;
         public int LastRollSteps => rollSteps;
         public event Action Dashed;
+        /// <summary>Button mode: a roll was refused because a vent box is right in the way.</summary>
+        public event Action RollBlocked;
         float dashTime;
 
-        /// <summary>Burst of speed in the steering direction (or current travel direction). Makes deliberate trips easy.</summary>
+        /// <summary>
+        /// The roll/dash button. Button mode: tips the die toward the held direction (see <see cref="TryRoll"/>).
+        /// Bump mode: burst of speed in the steering direction (or current travel direction).
+        /// </summary>
         public void Dash()
         {
+            if (ButtonMode) { TryRoll(); return; }
             if (rolling || DashCooldownLeft > 0f) return;
             Vector2 input = ReadInput();
             Vector3 dir = input.sqrMagnitude > 0.01f ? new Vector3(input.x, 0f, input.y).normalized
@@ -77,6 +100,50 @@ namespace DiceHero
             DashCooldownLeft = DashCooldownTotal;
             squashVel += 3f;
             Dashed?.Invoke();
+        }
+
+        /// <summary>Direction the next roll would take: the held direction, else the travel direction, else the last one.</summary>
+        public Vector3 RollDirection()
+        {
+            Vector2 input = ReadInput();
+            if (input.sqrMagnitude > 0.09f) return CardinalOf(new Vector3(input.x, 0f, input.y));
+            if (velocity.sqrMagnitude > 0.25f) return CardinalOf(velocity);
+            return facing;
+        }
+
+        /// <summary>
+        /// Button mode roll: one tip toward <see cref="RollDirection"/>, moving one die-and-a-half.
+        /// A pipe rack in the way is vaulted (two tips, landing on the far side); a vent box right in front
+        /// cancels the roll, and one a little further shortens it.
+        /// </summary>
+        public bool TryRoll()
+        {
+            if (rolling || DashCooldownLeft > 0f) return false;
+            Vector3 dir = RollDirection();
+            Vector3 from = transform.position;
+            float distance = rollDistance;
+            Obstacle vault = null;
+            for (float d = 0.2f; d <= rollDistance + 0.01f; d += 0.1f)
+            {
+                Obstacle hit = null;
+                foreach (var ob in World.Obstacles)
+                    if (ob != null && ob.Overlaps(from + dir * d, 0.45f)) { hit = ob; break; }
+                if (hit == null) continue;
+                float across = Mathf.Abs(dir.x) > 0f ? hit.halfExtents.x : hit.halfExtents.y;
+                if (hit.kind == ObstacleKind.Conduit && across <= 1f) { vault = hit; break; }
+                if (d < 0.75f) { Bump(); DashCooldownLeft = 0.15f; RollBlocked?.Invoke(); return false; }
+                distance = d - 0.3f;
+                break;
+            }
+            facing = dir;
+            if (vault != null) { velocity = dir * rollDistance; StartRoll(vault); return true; }
+            Vector3 to = from + dir * distance;
+            float limit = World.HalfSize - 0.5f;
+            to.x = Mathf.Clamp(to.x, -limit, limit);
+            to.z = Mathf.Clamp(to.z, -limit, limit);
+            BeginRoll(dir, 1, to, buttonRollTime, hopHeight * 0.6f);
+            Tripped?.Invoke(null);
+            return true;
         }
 
         public void Knock(Vector3 impulse)
@@ -134,8 +201,10 @@ namespace DiceHero
         void UpdateGlide(float dt)
         {
             Vector2 input = ReadInput();
-            velocity += new Vector3(input.x, 0f, input.y) * acceleration * dt;
-            velocity *= Mathf.Exp(-glideDrag * dt);
+            // Button mode steers tightly (ice is saved for an environment that wants it); bump mode glides.
+            float accel = ButtonMode ? 38f : acceleration, drag = ButtonMode ? 6f : glideDrag;
+            velocity += new Vector3(input.x, 0f, input.y) * accel * dt;
+            velocity *= Mathf.Exp(-drag * dt);
             velocity = Vector3.ClampMagnitude(velocity, dashTime > 0f ? dashSpeed : maxSpeed);
 
             Vector3 pos = transform.position + velocity * dt;
@@ -149,7 +218,7 @@ namespace DiceHero
             foreach (var ob in World.Obstacles)
             {
                 if (ob == null || !ob.Overlaps(pos, 0.5f)) continue;
-                if (tripCooldown <= 0f && velocity.magnitude >= tripSpeed)
+                if (!ButtonMode && tripCooldown <= 0f && velocity.magnitude >= tripSpeed)
                 {
                     transform.position = pos;
                     StartRoll(ob);
@@ -178,27 +247,36 @@ namespace DiceHero
         void StartRoll(Obstacle ob)
         {
             Vector3 dir = CardinalOf(velocity);
-            rollSteps = ob.RollSteps;
-            rollAxis = Vector3.Cross(Vector3.up, dir);
-            rollStartRot = orientation;
-            rollFrom = transform.position;
+            int steps = ob.RollSteps;
+            Vector3 from = transform.position;
 
             // Land just past the far side of the obstacle (at least one dice width per roll step).
             Vector3 op = ob.transform.position;
             float half = Mathf.Abs(dir.x) > 0f ? ob.halfExtents.x : ob.halfExtents.y;
-            float along = Vector3.Dot(op - rollFrom, dir) + half + 0.6f;
-            along = Mathf.Max(along, rollSteps * 1f);
-            rollTo = rollFrom + dir * along;
+            float along = Vector3.Dot(op - from, dir) + half + 0.6f;
+            along = Mathf.Max(along, steps * 1f);
+            Vector3 to = from + dir * along;
             float limit = World.HalfSize - 0.5f;
-            rollTo.x = Mathf.Clamp(rollTo.x, -limit, limit);
-            rollTo.z = Mathf.Clamp(rollTo.z, -limit, limit);
+            to.x = Mathf.Clamp(to.x, -limit, limit);
+            to.z = Mathf.Clamp(to.z, -limit, limit);
 
-            rollTime = rollSteps == 2 ? doubleRollDuration : rollDuration;
-            rollHop = rollSteps == 2 ? doubleHopHeight : hopHeight;
+            float time = steps == 2 ? (ButtonMode ? vaultRollTime : doubleRollDuration) : rollDuration;
+            BeginRoll(dir, steps, to, time, steps == 2 ? doubleHopHeight : hopHeight);
+            Tripped?.Invoke(ob);
+        }
+
+        void BeginRoll(Vector3 dir, int steps, Vector3 to, float time, float hop)
+        {
+            rollSteps = steps;
+            rollAxis = Vector3.Cross(Vector3.up, dir);
+            rollStartRot = orientation;
+            rollFrom = transform.position;
+            rollTo = to;
+            rollTime = time;
+            rollHop = hop;
             rollT = 0f;
             rolling = true;
             velocity = dir * velocity.magnitude * 0.55f;
-            Tripped?.Invoke(ob);
         }
 
         void UpdateRoll(float dt)
@@ -224,7 +302,12 @@ namespace DiceHero
         {
             rolling = false;
             tripCooldown = 0.25f;
-            landGrace = 0.4f;
+            landGrace = ButtonMode ? 0f : 0.4f;
+            if (ButtonMode)
+            {
+                DashCooldownLeft = DashCooldownTotal;
+                velocity = Vector3.ClampMagnitude(velocity, 2.5f); // keep a little of the roll's momentum
+            }
             orientation = SnapToAxes(orientation);
             Model.Body.localPosition = new Vector3(0f, 0.5f, 0f);
             squashVel -= 7f;
