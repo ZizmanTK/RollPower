@@ -32,7 +32,7 @@ PAL = {
     'Ore': ('#3A4F63', 0.4, 0.6, None), 'Ingot': ('#7A828C', 0.9, 0.35, None), 'Hot': ('#FF6A1A', 0.6, 0.4, 2.5),
     'Iron': ('#2A2624', 0.7, 0.5, None), 'Slag': ('#FF7A1A', 0.0, 0.4, 2.5), 'Rack': ('#141B24', 0.4, 0.45, None),
     'Led': ('#29E0FF', 0.0, 0.3, 6.0), 'Tray': ('#3A4554', 0.6, 0.45, None),
-    'Core': ('#FFFFFF', 0.0, 0.2, 8.0), 'Fire': ('#FF5A1A', 0.0, 0.4, 7.0),
+    'Smoke': ('#4A4F58', 0.0, 0.9, None), 'Core': ('#FFFFFF', 0.0, 0.2, 8.0), 'Fire': ('#FF5A1A', 0.0, 0.4, 7.0),
     'CableA': ('#C8323C', 0.0, 0.5, None), 'CableB': ('#2F5FBF', 0.0, 0.5, None), 'CableY': ('#E0B030', 0.0, 0.5, None),
 }
 GUNCOL = {'twin': '#5CFF8A', 'tri': '#5CFF8A', 'scatter': '#5CFF8A', 'missile': '#FF4B3A', 'needler': '#FF4B3A', 'flak': '#FF4B3A',
@@ -622,6 +622,80 @@ def ammo_slug():
     m.cyl('Emit', 'Trail', 0.018, 0.5, (0, -0.34, 0), rot=(R(90), 0, 0), r2=0.001, seg=8)
     return m
 
+# ======================= ENEMY SHOTS (danger red, so they always read as the House's) =======================
+
+def eshot_dart():
+    m = model('EnemyDart', 'Ammo')  # drones: a red energy dart with fins
+    m.cyl('Eye', 'Body', 0.035, 0.22, (0, 0, 0), rot=FWD, r2=0.004, seg=10)
+    m.sphere('Core', 'Core', 0.025, (0, -0.06, 0), scale=(1, 2, 1), seg=10)
+    for k in range(3):
+        a = k * 2 * math.pi / 3
+        m.box('Metal', 'Fin', (0.004, 0.06, 0.04), (math.cos(a) * 0.03, -0.09, math.sin(a) * 0.03), rot=(0, a, 0))
+    return m
+
+def eshot_shell():
+    m = model('EnemyShell', 'Ammo')  # tanks: a steel shell with a glowing red band
+    m.cyl('Steel', 'Case', 0.05, 0.16, (0, -0.02, 0), rot=FWD, seg=14)
+    m.cyl('Eye', 'Band', 0.052, 0.03, (0, 0.03, 0), rot=FWD, seg=14)
+    m.cyl('Metal', 'Nose', 0.05, 0.1, (0, 0.11, 0), rot=FWD, r2=0.01, seg=14)
+    m.cyl('Glow', 'Tracer', 0.035, 0.14, (0, -0.17, 0), rot=(R(90), 0, 0), r2=0.002, seg=10)
+    return m
+
+def eshot_spore():
+    m = model('Spore', 'Ammo')  # Gardener: a spiky spore pod
+    m.ico('Water', 'Pod', 0.12, (0, 0, 0), sub=2)
+    for d in [Vector(v) for v in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1), (0.6, 0.6, 0.5), (-0.6, -0.6, -0.5), (0.6, -0.6, 0.5), (-0.6, 0.6, -0.5))]:
+        d = d.normalized()
+        m.limb('Leaf', 'Spike', d * 0.1, d * 0.18, 0.015)
+    return m
+
+def eshot_slag():
+    m = model('Slag', 'Ammo')  # Smelter: a glob of molten metal with a cooling crust
+    import random
+    rnd = random.Random(5)
+    m.ico('Slag', 'Glob', 0.14, (0, 0, 0), scale=(1, 1.3, 0.9), sub=2)
+    for i in range(5):
+        p = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))).normalized() * 0.12
+        m.ico('Iron', 'Crust', 0.05, p, scale=(1.2, 1, 0.5), rot=(rnd.random(), rnd.random(), rnd.random()), sub=0)
+    m.cyl('Hot', 'Drip', 0.05, 0.14, (0, -0.16, 0), rot=(R(90), 0, 0), r2=0.004, seg=10)
+    return m
+
+def eshot_die():
+    m = model('DieShot', 'Ammo')  # the High Roller throws dice
+    m.box('Panel', 'Cube', (0.2, 0.2, 0.2), (0, 0, 0), bevel=0.03)
+    for n in (Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0)), Vector((0, 0, 1)), Vector((0, 0, -1))):
+        m.sphere('Eye', 'Pip', 0.025, n * 0.1, scale=(1, 1, 1), seg=8)
+    return m
+
+# ======================= EFFECTS =======================
+
+def lumpy(m, key, part, r, seed, loc=(0, 0, 0), sub=2, rough=0.35):
+    import random
+    rnd = random.Random(seed)
+    bm = bmesh.new(); bmesh.ops.create_icosphere(bm, subdivisions=sub, radius=r)
+    for v in bm.verts:
+        n = v.co.normalized()
+        v.co = n * r * (1 + rough * (math.sin(n.x * 5 + seed) * math.cos(n.y * 4 - seed) + rnd.uniform(-0.5, 0.5)) * 0.8)
+    me = bpy.data.meshes.new(part); bm.to_mesh(me); bm.free()
+    return m._obj(key, part, me, loc)
+
+def fx_models():
+    a = model('FireballA', 'Fx'); lumpy(a, 'Emit', 'Fire', 0.5, 1)
+    b = model('FireballB', 'Fx'); lumpy(b, 'Emit', 'Fire', 0.5, 7, rough=0.5)
+    for k in range(5): lumpy(b, 'Emit', 'Lobe', 0.18, 20 + k, loc=tuple(Vector((math.cos(k * 1.3), math.sin(k * 1.3), (k % 3 - 1) * 0.5)).normalized() * 0.42), sub=1)
+    s = model('Smoke', 'Fx'); lumpy(s, 'Smoke', 'Smoke', 0.5, 3, rough=0.55)
+    for k in range(3): lumpy(s, 'Smoke', 'Puff', 0.28, 30 + k, loc=(math.cos(k * 2.1) * 0.35, math.sin(k * 2.1) * 0.35, 0.15), sub=1)
+    f = model('FlameLick', 'Fx')  # a single tongue of fire
+    f.cyl('Emit', 'Tongue', 0.3, 1.0, (0, 0, 0.35), r2=0.01, seg=10)
+    f.sphere('Emit', 'Base', 0.3, (0, 0, -0.1), scale=(1, 1, 0.8), seg=10)
+    h = model('HoverField', 'Fx')  # Pip's anti-grav field on the floor
+    h.torus('Emit', 'Ring', 0.62, 0.025, (0, 0, 0.01), seg=40)
+    h.torus('Emit', 'Inner', 0.42, 0.012, (0, 0, 0.01), seg=32)
+    for k in range(8):
+        a2 = k * math.pi / 4
+        h.box('Emit', 'Chevron', (0.09, 0.025, 0.006), (math.cos(a2) * 0.52, math.sin(a2) * 0.52, 0.012), rot=(0, 0, a2 + math.pi / 2))
+    return [a, b, s, f, h]
+
 # ======================= FOREMEN =======================
 # Moving pieces sit under named empties ("Pivot_..."); Unity rebuilds a clean pivot at each and animates it.
 
@@ -735,6 +809,8 @@ def smelter():
 
 for f in (crawler, drone, tank, mite, bomber, coat_vines, coat_ice, coat_shield): f()
 for g in ('twin', 'tri', 'scatter', 'missile', 'needler', 'flak', 'rail', 'plasma', 'mortar', 'flamer', 'lance'): gun(g)
+ESHOTS = [f() for f in (eshot_dart, eshot_shell, eshot_spore, eshot_slag, eshot_die)]
+FXM = fx_models()
 AMMO = [f() for f in (ammo_bolt, ammo_missile, ammo_needle, ammo_flak, ammo_plasma, ammo_mortar, ammo_flame, ammo_slug)]
 BOSSES = [('COMPACTOR', 'steel: ram it into a wall', compactor()), ('GARDENER', 'a plant: fire', gardener()), ('DRILLER', 'underground: explosive · iced: fire', driller()), ('SMELTER', 'steel shutters, then a shield', smelter())]
 OBST = [('SCRAP BAY', scrap_obstacles()), ('HYDROPONICS', hydro_obstacles()), ('CRYO MINES', cryo_obstacles()), ('FOUNDRY', foundry_obstacles()), ('THE CORE', core_obstacles())]

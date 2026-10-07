@@ -200,6 +200,7 @@ namespace DiceHero
         {
             if (Dice == null) return;
             float udt = Time.unscaledDeltaTime;
+            Sound.PlayTrack(WantedTrack());
             var before = State;
             MenuInput(udt);
             if (State != before) { UpdatePostFx(udt); return; } // don't let one key press act twice
@@ -256,6 +257,17 @@ namespace DiceHero
             UpdatePostFx(udt);
             screenFlash = Mathf.Max(0f, screenFlash - udt * 2.5f);
             bannerTime -= udt;
+        }
+
+        /// <summary>Menus play the menu theme; a stage its deck's theme (the boss theme while a boss is up); the gauntlet its loop.</summary>
+        Track WantedTrack()
+        {
+            bool inRun = State == Screen2.Playing || State == Screen2.Paused || State == Screen2.Upgrade || State == Screen2.GameOver || State == Screen2.StageFailed
+                         || ((State == Screen2.Settings || State == Screen2.HowTo) && (settingsReturn == Screen2.Paused || howToReturn == Screen2.Paused));
+            if (!inRun || Game == null) return Track.Menu;
+            if (Game.Boss != null || Game.Foreman != null) return Track.Boss;
+            if (!InStage) return Track.Gauntlet;
+            switch (Art.Theme) { case 4: return Track.Scrap; case 5: return Track.Hydro; case 6: return Track.Cryo; case 7: return Track.Foundry; default: return Track.Core; }
         }
 
         void Heartbeat(float udt)

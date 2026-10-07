@@ -46,13 +46,13 @@ namespace DiceHero
                 {
                     var ice = pal.Get("CoatIce", Palette.Hex("#DDF4FF"), 0.95f, 0.1f);
                     var rim = pal.Glow("CoatIceGlow", Palette.Hex("#9FE3FF"), 0.7f);
-                    int n = big ? 16 : 8;
+                    int n = big ? 14 : 8;
                     for (int i = 0; i < n; i++)
                     {
                         float a = i * 360f / n + R() * 20f;
-                        float h = (R() - 0.4f) * r * (big ? 1.6f : 0.8f);
+                        float h = (R() - 0.5f) * r * (big ? 1.1f : 0.8f);
                         var p = Quaternion.Euler(0f, a, 0f) * Vector3.forward * r + Vector3.up * h;
-                        float s = (big ? 0.42f : 0.17f) + R() * (big ? 0.3f : 0.12f);
+                        float s = (big ? 0.2f : 0.17f) + R() * (big ? 0.14f : 0.12f);
                         Prim.Make(PrimitiveType.Cube, "Shard", root, p, new Vector3(s * 0.7f, s * 1.5f, s * 0.7f), i % 4 == 0 ? rim : ice, Quaternion.Euler(R() * 50f - 25f, a, R() * 50f - 25f));
                     }
                     if (!big) Prim.Make(PrimitiveType.Sphere, "Cap", root, Vector3.up * r * 0.35f, new Vector3(r * 1.5f, r * 0.5f, r * 1.5f), ice);

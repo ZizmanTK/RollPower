@@ -45,7 +45,7 @@ namespace DiceHero
                         for (int i = 0; i < n; i++)
                         {
                             var d = Quaternion.Euler(0f, spiral + i * 360f / n, 0f) * Vector3.forward;
-                            FireBullet(e.pos + Vector3.up * 1.1f + d * 1.2f, d * 4.2f, 1, 0.3f);
+                            FireBullet(e.pos + Vector3.up * 1.1f + d * 1.2f, d * 4.2f, 1, 0.3f, "Spore");
                         }
                         Sound.Play(Sfx.EnemyShot, 0.6f);
                     }
@@ -117,7 +117,7 @@ namespace DiceHero
                         for (int i = 0; i < n; i++)
                         {
                             var d = Quaternion.Euler(0f, (i - (n - 1) * 0.5f) * 16f, 0f) * dir;
-                            FireBullet(e.pos + Vector3.up * 1.2f + d * 1.3f, d * 6f, 1, 0.42f);
+                            FireBullet(e.pos + Vector3.up * 1.2f + d * 1.3f, d * 6f, 1, 0.42f, "Slag");
                         }
                         Sound.Play(Sfx.EnemyShot, 0.7f);
                     }

@@ -55,6 +55,11 @@ namespace DiceHero
         /// <summary>Raised when a roll lands: (old top, new top).</summary>
         public event Action<int, int> TopChanged;
         public event Action<Obstacle> Tripped;
+        /// <summary>Button mode: Pip glided into a low pipe and tripped over it (a roll it didn't ask for).</summary>
+        public event Action ForcedTrip;
+        /// <summary>Hover: 1 while the anti-grav field holds Pip up, 0 while it is cut for a roll.</summary>
+        float hoverK = 1f;
+        public const float HoverLift = 0.13f;
 
         Vector3 velocity;
         Quaternion orientation = Quaternion.identity;
@@ -222,6 +227,17 @@ namespace DiceHero
             foreach (var ob in World.Obstacles)
             {
                 if (ob == null || !ob.Overlaps(pos, 0.5f)) continue;
+                // Low pipes are trip traps: hovering low, Pip catches its edge and tips over them, two faces,
+                // whether or not you wanted that gun. Stoppers just block.
+                if (ButtonMode && ob.kind == ObstacleKind.Conduit && tripCooldown <= 0f && velocity.magnitude > 0.5f)
+                {
+                    transform.position = pos;
+                    Vector3 d = pos - ob.transform.position;
+                    bool alongX = ob.halfExtents.x > ob.halfExtents.y;
+                    StartRoll(ob, alongX ? new Vector3(0f, 0f, -Mathf.Sign(d.z)) : new Vector3(-Mathf.Sign(d.x), 0f, 0f));
+                    ForcedTrip?.Invoke();
+                    return;
+                }
                 if (!ButtonMode && tripCooldown <= 0f && velocity.magnitude >= tripSpeed)
                 {
                     transform.position = pos;
@@ -248,9 +264,10 @@ namespace DiceHero
             return Mathf.Abs(v.x) >= Mathf.Abs(v.z) ? new Vector3(Mathf.Sign(v.x), 0f, 0f) : new Vector3(0f, 0f, Mathf.Sign(v.z));
         }
 
-        void StartRoll(Obstacle ob)
+        void StartRoll(Obstacle ob, Vector3? across = null)
         {
-            Vector3 dir = CardinalOf(velocity);
+            Vector3 dir = across ?? CardinalOf(velocity);
+            facing = dir;
             int steps = ob.RollSteps;
             Vector3 from = transform.position;
 
@@ -271,6 +288,7 @@ namespace DiceHero
 
         void BeginRoll(Vector3 dir, int steps, Vector3 to, float time, float hop)
         {
+            hoverK = 0f; // the field cuts out: Pip tips over with its full weight
             rollSteps = steps;
             rollAxis = Vector3.Cross(Vector3.up, dir);
             rollStartRot = orientation;
@@ -330,6 +348,24 @@ namespace DiceHero
             float sy = 1f + squash, sxz = 1f - squash * 0.5f;
             Model.Visual.localScale = new Vector3(sxz, sy, sxz);
             Model.Body.localRotation = orientation;
+            if (Model.IsPip)
+            {
+                // Hovering: the body floats a hand above the deck, bobs, and banks into its glide; after a roll the
+                // field comes back on and lifts it again.
+                if (!rolling)
+                {
+                    hoverK = Mathf.MoveTowards(hoverK, 1f, dt * 3.5f);
+                    Model.Body.localPosition = new Vector3(0f, 0.5f + HoverLift * hoverK + Mathf.Sin(Time.time * 3.1f) * 0.012f * hoverK, 0f);
+                }
+                Vector3 bank = rolling ? Vector3.zero : new Vector3(Mathf.Clamp(velocity.z * 1.4f, -7f, 7f), 0f, Mathf.Clamp(-velocity.x * 1.4f, -7f, 7f));
+                Model.Visual.localRotation = Quaternion.Slerp(Model.Visual.localRotation, Quaternion.Euler(bank), 1f - Mathf.Exp(-8f * dt));
+                if (Model.Hover != null)
+                {
+                    Model.Hover.localScale = Vector3.one * Mathf.Lerp(0.35f, 1f, hoverK) * (1f + 0.04f * Mathf.Sin(Time.time * 9f));
+                    Model.Hover.Rotate(0f, dt * 40f, 0f, Space.Self);
+                    Model.Hover.gameObject.SetActive(hoverK > 0.05f);
+                }
+            }
 
             // The gun turret retracts while tumbling and deploys again after landing.
             mountScale = Mathf.MoveTowards(mountScale, rolling ? 0f : 1f, dt * (rolling ? 14f : 5f));

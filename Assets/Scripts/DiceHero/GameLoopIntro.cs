@@ -18,7 +18,7 @@ namespace DiceHero
             ["Crawler"] = new IntroDef { title = "CRAWLER", d = Defence.Bare, why = "Bare circuits: nothing protects it. Any gun works, and landing a roll on it crushes it." },
             ["Drone"] = new IntroDef { title = "DRONE · FLYING", d = Defence.Flying, why = "It hovers above your barrels, so flat shots pass under it. Seekers climb to it, and a shock arc jumps up to it." },
             ["Tank"] = new IntroDef { title = "TANK · STEEL PLATE", d = Defence.Steel, why = "Bolts, fire and missiles bounce off steel. A piercing slug punches through it; an explosion cracks it." },
-            ["Mite"] = new IntroDef { title = "MITE · TOO LOW", d = Defence.Low, why = "It hugs the floor under your barrels: no gun can hit it. Roll onto it, Pip weighs a tonne. It chews for a moment before it bites." },
+            ["Mite"] = new IntroDef { title = "MITE · TOO LOW", d = Defence.Low, why = "It hugs the floor under your barrels: no gun can hit it. It clamps onto Pip and chews; roll before it bites, and Pip's landing crushes it." },
             ["Bomber"] = new IntroDef { title = "BOMBER", d = Defence.Bare, why = "Bare, so any gun hurts it, but it plants bombs. Shove the bombs off the edge before they blow." },
             ["Vines"] = new IntroDef { title = "OVERGROWN · VINES", d = Defence.Vines, why = "Shots pass straight through the leaves. Fire burns the vines off; then the robot inside is bare." },
             ["Ice"] = new IntroDef { title = "FROZEN · ICE SHELL", d = Defence.Ice, why = "Shots skid off the ice. Fire melts it; then the robot inside is bare." },

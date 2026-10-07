@@ -105,6 +105,7 @@ namespace DiceHero
                 case "Slug": return pal.Glow("BMSlug", WeaponDef.PierceColor, 1.2f);
                 case "Flame": return pal.Glow("BMFlame", Palette.Hex("#FFB04A"), 3f);
                 case "Core": return pal.Glow("BMCore", Color.white, 3f);
+                case "Smoke": return pal.Get("BMSmoke", Palette.Hex("#8C9199"), 0.05f);
                 case "Fire": return pal.Glow("BMFire", Palette.Hex("#FF5A1A"), 2.6f);
                 case "Emit": return pal.Glow("BMEmit" + emitId, emit ?? Color.white, 1.6f);
                 // Obstacles

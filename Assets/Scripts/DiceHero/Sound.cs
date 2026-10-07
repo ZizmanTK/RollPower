@@ -17,7 +17,7 @@ namespace DiceHero
     /// loop is generated. The audio host survives scene reloads so music doesn't restart.
     /// Play() is a no-op until Init() has run, so batch tests stay silent.
     /// </summary>
-    public static class Sound
+    public static partial class Sound
     {
         const int Rate = 44100;
         static readonly Dictionary<Sfx, AudioClip> clips = new Dictionary<Sfx, AudioClip>();
@@ -47,12 +47,9 @@ namespace DiceHero
                 pool[i].playOnAwake = false;
             }
             music = host.AddComponent<AudioSource>();
-            var custom = Resources.Load<AudioClip>("Music/RollPower");
-            UsingCustomMusic = custom != null;
-            music.clip = custom != null ? custom : BuildMusic();
             music.loop = true;
-            music.volume = MusicVolume;
-            music.Play();
+            UsingCustomMusic = Resources.Load<AudioClip>("Music/RollPower") != null;
+            PlayTrack(Track.Menu); // the game picks each place's theme from here on (GameLoop)
             host.AddComponent<SoundDriver>();
         }
 
@@ -61,13 +58,13 @@ namespace DiceHero
 
         public static void ApplyVolumes()
         {
-            if (music != null) music.volume = MusicVolume * duck;
+            if (music != null) music.volume = MusicVolume * duck * fade;
         }
 
         internal static void Tick(float dt)
         {
             duck = Mathf.MoveTowards(duck, duckTarget, dt * 2f);
-            ApplyVolumes();
+            TickMusic(dt);
         }
 
         public static void Play(Sfx s, float volume = 1f, float pitchJitter = 0.06f) => PlayPitch(s, volume, 1f + ((float)rng.NextDouble() * 2f - 1f) * pitchJitter);

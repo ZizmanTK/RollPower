@@ -56,7 +56,7 @@ namespace DiceHero
         int bombsLeft;
         readonly System.Random rng;
 
-        class Bullet { public Transform t; public Vector3 pos, vel; public float life; public int dmg; }
+        class Bullet { public Transform t; public Vector3 pos, vel; public float life, age; public int dmg; public bool tumble; }
         readonly List<Bullet> bullets = new List<Bullet>();
 
         /// <summary>
@@ -95,6 +95,7 @@ namespace DiceHero
         readonly Queue<EnemyKind> spawnQueue = new Queue<EnemyKind>();
         float spawnTimer;
         int coatTurn;
+        static bool tripTold;
         public EnemyKind Focus { get; private set; }
         public bool BossWave => Wave > 0 && Wave % 5 == 0;
         /// <summary>Enemies on the field plus those still queued for this wave.</summary>
@@ -111,6 +112,11 @@ namespace DiceHero
             Targets.All.Clear();
             Bombs = new Bombs(dice, pal, this);
             dice.TopChanged += (o, n) => OnRolled(dice.LastRollSteps);
+            dice.ForcedTrip += () =>
+            {
+                Fx.Text(dice.transform.position + Vector3.up * 1.6f, "TRIPPED!", Palette.Hex("#FFB020"), 0.9f, 1f);
+                if (!tripTold) { tripTold = true; loop.ShowBanner(null, "LOW PIPES TRIP YOU: YOU TIP OVER, ONTO THE OPPOSITE FACE", 3f, Palette.Hex("#FFB020")); }
+            };
         }
 
         // ---------------- Player actions ----------------
@@ -433,6 +439,7 @@ namespace DiceHero
             if (ComboTimer <= 0f) { Combo = 1; Chain = 0; }
             Vector3 dp = dice.transform.position;
 
+            MitesOnPip = 0;
             for (int i = Enemies.Count - 1; i >= 0; i--)
             {
                 var e = Enemies[i];
@@ -616,7 +623,12 @@ namespace DiceHero
                     // A mite latches on and chews for a moment (it shakes): roll now and the landing crushes it.
                     // If it gets to bite, it bursts: a swarm you didn't crush costs a hit each, not your whole hull.
                     e.abilityTimer += dt;
-                    e.t.position += Random.insideUnitSphere * 0.04f;
+                    MitesOnPip++;
+                    // Clamped to Pip's side, jaws working: roll now and the landing crushes it.
+                    Vector3 clamp = dist > 0.01f ? -dir : Vector3.back;
+                    e.pos = dp + clamp * 0.62f;
+                    e.t.position = e.pos + Random.insideUnitSphere * 0.04f;
+                    e.t.rotation = Quaternion.LookRotation(dir);
                     if (e.abilityTimer >= MiteBite)
                     {
                         HurtPlayer(1, e.pos, "contact:" + e.kind);
@@ -631,6 +643,10 @@ namespace DiceHero
             }
             else if (e.Low) e.abilityTimer = 0f;
         }
+
+        /// <summary>Mites clamped on Pip this frame (the HUD warns: roll!).</summary>
+        public int MitesOnPip { get; private set; }
+
 
         /// <summary>Seconds a mite chews on Pip before it bites.</summary>
         public const float MiteBite = 0.55f;
@@ -773,7 +789,7 @@ namespace DiceHero
                     e.fireTimer = 0f;
                     Vector3 from = e.pos + Vector3.up * 1f;
                     for (int i = -1; i <= 1; i++)
-                        FireBullet(from, Quaternion.Euler(0f, i * 14f, 0f) * (dp + Vector3.up * 0.5f - from).normalized * 5.5f, 1, 0.34f);
+                        FireBullet(from, Quaternion.Euler(0f, i * 14f, 0f) * (dp + Vector3.up * 0.5f - from).normalized * 5.5f, 1, 0.34f, "DieShot");
                     Sound.Play(Sfx.EnemyShot, 0.6f);
                 }
                 if (b.rest <= 0f) StartHop(e, to);
@@ -861,7 +877,7 @@ namespace DiceHero
             for (int i = 0; i < count; i++)
             {
                 Vector3 d = Quaternion.Euler(0f, offset + i * 360f / count, 0f) * Vector3.forward;
-                FireBullet(e.pos + Vector3.up * 0.5f + d * 1.2f, d * 4.2f, 1, 0.3f);
+                FireBullet(e.pos + Vector3.up * 0.5f + d * 1.2f, d * 4.2f, 1, 0.3f, "DieShot");
             }
             if (b.hops > 0 && b.hops % 4 == 0)
                 for (int i = 0; i < b.tier; i++) Spawn(EnemyKind.Mite, e.pos + Quaternion.Euler(0f, i * 120f, 0f) * Vector3.forward * 1.6f);
@@ -884,15 +900,27 @@ namespace DiceHero
             e.fireTimer = Random.value * 0.5f;
             Vector3 from = e.Position + Vector3.up * (e.Flying ? -0.2f : 0.3f);
             Vector3 target = dice.transform.position + Vector3.up * 0.5f + dice.Velocity * 0.3f;
-            FireBullet(from, (target - from).normalized * (e.kind == EnemyKind.Tank ? 6f : 7.5f), dmg, dmg > 1 ? 0.36f : 0.24f);
+            FireBullet(from, (target - from).normalized * (e.kind == EnemyKind.Tank ? 6f : 7.5f), dmg, dmg > 1 ? 0.36f : 0.24f, e.kind == EnemyKind.Tank ? "EnemyShell" : "EnemyDart");
             Sound.Play(Sfx.EnemyShot, 0.35f);
         }
 
-        void FireBullet(Vector3 from, Vector3 vel, int dmg, float size)
+        /// <summary>
+        /// An enemy shot. Each shooter throws its own (Blender) projectile, all in the House's danger red: drones
+        /// fire darts, tanks shells, the Gardener spore pods, the Smelter globs of slag, the High Roller dice.
+        /// </summary>
+        void FireBullet(Vector3 from, Vector3 vel, int dmg, float size, string look = "EnemyDart")
         {
             var red = Palette.Hex("#FF2A3D");
-            var b = new Bullet { pos = from, life = 4f, dmg = dmg, vel = vel };
-            b.t = Prim.Make(PrimitiveType.Sphere, "EnemyShot", null, from, Vector3.one * size, pal.Glow("EnemyShot", red, 2.4f, red)).transform;
+            var b = new Bullet { pos = from, life = 4f, dmg = dmg, vel = vel, tumble = look == "DieShot" || look == "Spore" };
+            var model = BlenderModels.Spawn("Ammo/" + look, null, pal, red, "enemy");
+            if (model != null)
+            {
+                b.t = model;
+                b.t.position = from;
+                b.t.rotation = Quaternion.LookRotation(vel.sqrMagnitude > 0.01f ? vel : Vector3.forward);
+                b.t.localScale = Vector3.one * Mathf.Clamp(size / 0.26f, 0.8f, 1.8f);
+            }
+            else b.t = Prim.Make(PrimitiveType.Sphere, "EnemyShot", null, from, Vector3.one * size, pal.Glow("EnemyShot", red, 2.4f, red)).transform;
             bullets.Add(b);
             Fx.Flash(pal, from, red, 0.35f, 0.08f);
         }
@@ -904,8 +932,11 @@ namespace DiceHero
             {
                 var b = bullets[i];
                 b.life -= dt;
+                b.age += dt;
                 b.pos += b.vel * dt;
                 b.t.position = b.pos;
+                if (b.vel.sqrMagnitude > 0.01f)
+                    b.t.rotation = Quaternion.LookRotation(b.vel) * (b.tumble ? Quaternion.Euler(b.age * 420f, b.age * 300f, 0f) : Quaternion.identity);
                 bool done = b.life <= 0f || b.pos.y < 0f || Mathf.Abs(b.pos.x) > World.HalfSize || Mathf.Abs(b.pos.z) > World.HalfSize;
                 if (!done && (b.pos - center).sqrMagnitude < 0.6f * 0.6f)
                 {

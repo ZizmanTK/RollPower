@@ -259,6 +259,15 @@ namespace DiceHero
             }
 
             DrawEnemyBars(def);
+            if (Game.MitesOnPip > 0 && ToCanvas(Dice.transform.position + Vector3.up * 1.9f, out var mp))
+            {
+                // A mite is chewing on Pip: roll to crush it before it bites.
+                bool on = Mathf.Repeat(uiTime * 6f, 1f) > 0.35f;
+                UiKit.Line(Game.MitesOnPip > 1 ? $"{Game.MitesOnPip} MITES ON YOU" : "MITE ON YOU", mp.x, mp.y - 30f, 18, on ? UiKit.Red : UiKit.Text, 0.5f, 2);
+                float kx = mp.x - 62f;
+                kx += UiKit.Keycap(kx, mp.y - 6f, "SPACE") + 8f;
+                UiKit.Line("ROLL!", kx, mp.y, 22, UiKit.Mint, 0f, 2);
+            }
             DrawBombAlerts(w);
             if (!playing) return;
 
@@ -554,7 +563,7 @@ namespace DiceHero
                 ("ROLL", "restart", "SPACE, SHIFT or A tips the die one face the way you are moving. The face on top picks your gun, and the <b>markers around the die</b> show what each roll gives. When your gun can't hurt what's coming, the right marker lights up.", UiKit.Cyan),
                 ("DODGE", "play", "You can't be hurt during the first part of a roll, but you can on landing. Roll through danger, not into it. Landing on a bare robot or a mite <b>crushes</b> it.", Palette.Hex("#3BD16F")),
                 ("SHOOT", "gun3", "Guns aim and fire on their own. Look at what protects an enemy: <b>steel</b> needs piercing or explosive, <b>fliers</b> seekers or shock, <b>vines</b> and <b>ice</b> fire, <b>shields</b> shock. A grey health bar shows the icon of a gun that gets through.", Palette.Hex("#FF6A3D")),
-                ("OBSTACLES", "home", "Vent boxes stop a roll. Roll over a <b>pipe rack</b> to vault it: two tips, onto the opposite face. Shove bombs off the edge.", Palette.Hex("#FFB020")),
+                ("OBSTACLES", "home", "Tall <b>stoppers</b> block you and cancel a roll. Low <b>pipes</b> trip you: touch one and you tip over it, two faces, onto the opposite gun, wanted or not. Shove bombs off the edge.", Palette.Hex("#FFB020")),
             } : new[]
             {
                 ("GLIDE", "arrow", "WASD, arrows or left stick. You slide like on ice, so plan your turns.", UiKit.Text),

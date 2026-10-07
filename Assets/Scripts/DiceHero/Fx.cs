@@ -6,7 +6,7 @@ namespace DiceHero
     /// <summary>Short-lived effects (flashes, beams, explosions, smoke, debris, sparks, floating text). Primitives are pooled.</summary>
     public static class Fx
     {
-        enum Mode { Shrink, Burst, Beam, Smoke, Text, Ring, Debris, Spark }
+        enum Mode { Shrink, Burst, Beam, Smoke, Text, Ring, Debris, Spark, Fire, BigSmoke, Scorch }
 
         class Item
         {
@@ -15,6 +15,32 @@ namespace DiceHero
             public Vector3 scale, vel, spin;
             public Mode mode;
             public int pool = -1; // PrimitiveType index when pooled
+            public string model;  // Blender effect model pool key (fireballs, smoke, flames)
+        }
+
+        static readonly Dictionary<string, Stack<GameObject>> modelPools = new Dictionary<string, Stack<GameObject>>();
+
+        /// <summary>A pooled Blender effect model (Resources/Models/Fx), tinted c; null when the model is missing.</summary>
+        static GameObject GetModel(Palette pal, string name, Color c, Vector3 pos, Quaternion rot, Vector3 scale, out string key)
+        {
+            key = name + ColorUtility.ToHtmlStringRGB(c);
+            GameObject go = null;
+            if (modelPools.TryGetValue(key, out var stack))
+                while (stack.Count > 0 && go == null) { go = stack.Pop(); if (go != null) go.SetActive(true); }
+            if (go == null)
+            {
+                var t = BlenderModels.Spawn("Fx/" + name, null, pal, c, "fx" + ColorUtility.ToHtmlStringRGB(c));
+                if (t == null) { key = null; return null; }
+                go = t.gameObject;
+            }
+            go.transform.SetPositionAndRotation(pos, rot);
+            go.transform.localScale = scale;
+            return go;
+        }
+
+        static void AddModel(GameObject go, string key, Mode mode, float life, Vector3 scale, Vector3 vel = default, Vector3 spin = default)
+        {
+            items.Add(new Item { t = go.transform, life = life, max = life, scale = scale, mode = mode, vel = vel, spin = spin, model = key });
         }
 
         static readonly List<Item> items = new List<Item>();
@@ -53,14 +79,45 @@ namespace DiceHero
             Add(go, PrimitiveType.Sphere, Mode.Shrink, life, go.transform.localScale);
         }
 
+        static readonly Color FireOrange = Palette.Hex("#FF7A1A"), FireYellow = Palette.Hex("#FFD04A"), FireRed = Palette.Hex("#D8301A");
+
+        /// <summary>
+        /// A real blast, not a ball: several lumpy fireballs (Blender) in the weapon's colour and fire colours, each
+        /// swelling and churning at its own pace, then rolling smoke, flying embers and a scorch mark on the deck.
+        /// </summary>
         public static void Explosion(Palette pal, Vector3 pos, Color c, float radius)
         {
-            var go = Get(PrimitiveType.Sphere, "Boom", pos, Vector3.one * 0.2f, Glow(pal, "Boom", c, 1.6f));
-            Add(go, PrimitiveType.Sphere, Mode.Burst, 0.3f, Vector3.one * radius * 1.1f);
-            // Hot white core for the first few frames.
-            var core = Get(PrimitiveType.Sphere, "BoomCore", pos, Vector3.one * radius * 0.6f, Glow(pal, "Core", Color.white, 3f));
-            Add(core, PrimitiveType.Sphere, Mode.Shrink, 0.12f, core.transform.localScale);
-            for (int i = 0; i < 4; i++) Puff(pal, pos + Random.insideUnitSphere * radius * 0.4f, radius * 0.35f, 0.5f);
+            var core = Get(PrimitiveType.Sphere, "BoomCore", pos, Vector3.one * radius * 0.35f, Glow(pal, "Core", Color.white, 3f));
+            Add(core, PrimitiveType.Sphere, Mode.Shrink, 0.07f, core.transform.localScale);
+            int n = Mathf.Max(2, Mathf.RoundToInt((radius < 1.1f ? 3 : radius < 2f ? 5 : 7) * Mathf.Max(0.6f, Density)));
+            bool any = false;
+            for (int i = 0; i < n; i++)
+            {
+                Color col = i == 0 ? c : i % 3 == 1 ? FireOrange : i % 3 == 2 ? FireYellow : FireRed;
+                Vector3 off = Random.insideUnitSphere * radius * 0.45f; off.y = Mathf.Abs(off.y) * 0.6f;
+                float s = radius * Random.Range(0.5f, 0.85f);
+                var go = GetModel(pal, Random.value < 0.5f ? "FireballA" : "FireballB", col, pos + off, Random.rotation, Vector3.one * s * 0.2f, out var key);
+                if (go == null) break;
+                any = true;
+                AddModel(go, key, Mode.Fire, Random.Range(0.3f, 0.5f) * (0.8f + radius * 0.15f), Vector3.one * s, Vector3.up * Random.Range(0.4f, 1.2f), Random.insideUnitSphere * 220f);
+            }
+            if (!any)
+            {
+                var go = Get(PrimitiveType.Sphere, "Boom", pos, Vector3.one * 0.2f, Glow(pal, "Boom", c, 1.6f));
+                Add(go, PrimitiveType.Sphere, Mode.Burst, 0.3f, Vector3.one * radius * 1.1f);
+            }
+            for (int i = 0; i < n - 1; i++)
+            {
+                var go = GetModel(pal, "Smoke", Color.white, pos + Random.insideUnitSphere * radius * 0.4f + Vector3.up * 0.2f, Random.rotation, Vector3.one * radius * 0.2f, out var key);
+                if (go == null) break;
+                AddModel(go, key, Mode.BigSmoke, Random.Range(0.8f, 1.2f), Vector3.one * radius * Random.Range(0.35f, 0.55f), Vector3.up * Random.Range(0.7f, 1.3f) + Random.insideUnitSphere * 0.4f, Random.insideUnitSphere * 60f);
+            }
+            Spray(pal, pos, Vector3.up, FireYellow, Mathf.RoundToInt(4 + radius * 3f), 6f + radius * 2f);
+            if (radius >= 0.9f && pos.y < 1.6f)
+            {
+                var scorch = Get(PrimitiveType.Cylinder, "Scorch", new Vector3(pos.x, 0.014f, pos.z), new Vector3(radius * 0.8f, 0.002f, radius * 0.8f), pal.Get("Scorch", Palette.Hex("#2B231E"), 0.1f));
+                Add(scorch, PrimitiveType.Cylinder, Mode.Scorch, 2.2f, scorch.transform.localScale);
+            }
         }
 
         public static void Beam(Palette pal, Vector3 from, Vector3 dir, float length, Color c)
@@ -87,7 +144,7 @@ namespace DiceHero
             for (int i = 0; i < puffs; i++)
             {
                 Vector3 d = Quaternion.Euler(0f, i * 360f / puffs, 0f) * Vector3.forward;
-                Puff(pal, pos + d * radius * 0.6f + Vector3.up * 0.2f, 0.35f, 0.5f);
+                Puff(pal, pos + d * radius * 0.6f + Vector3.up * 0.1f, 0.18f, 0.4f); // dust kicked up
             }
         }
 
@@ -148,10 +205,12 @@ namespace DiceHero
             Add(tm.gameObject, null, Mode.Text, life, Vector3.one);
         }
 
-        /// <summary>A lick of flame: a glowing blob that rises and shrinks (burning robots, the flamer's jet).</summary>
+        /// <summary>A tongue of flame (Blender) that licks upward and dies (burning robots, the flamer's jet).</summary>
         public static void Flame(Palette pal, Vector3 pos, Color c, float size, float life)
         {
-            var go = Get(PrimitiveType.Sphere, "Flame", pos, new Vector3(size, size * 1.5f, size), Glow(pal, "Flame", c, 2.6f));
+            var go = GetModel(pal, "FlameLick", c, pos, Quaternion.Euler(Random.Range(-15f, 15f), Random.value * 360f, Random.Range(-15f, 15f)), new Vector3(size, size * 1.4f, size), out var key);
+            if (go != null) { AddModel(go, key, Mode.Smoke, life * Random.Range(0.7f, 1.1f), go.transform.localScale); return; }
+            go = Get(PrimitiveType.Sphere, "Flame", pos, new Vector3(size, size * 1.5f, size), Glow(pal, "Flame", c, 2.6f));
             Add(go, PrimitiveType.Sphere, Mode.Smoke, life * Random.Range(0.7f, 1.1f), go.transform.localScale);
         }
 
@@ -191,9 +250,12 @@ namespace DiceHero
             }
         }
 
+        /// <summary>A small lumpy smoke cloud (Blender) that rises and fades.</summary>
         public static void Puff(Palette pal, Vector3 pos, float size, float life)
         {
-            var go = Get(PrimitiveType.Sphere, "Smoke", pos, Vector3.one * size, pal.Get("Smoke", Palette.Hex("#3A3F4A"), 0.05f));
+            var go = GetModel(pal, "Smoke", Color.white, pos, Random.rotation, Vector3.one * size, out var key);
+            if (go != null) { AddModel(go, key, Mode.Smoke, life, go.transform.localScale, default, Random.insideUnitSphere * 90f); return; }
+            go = Get(PrimitiveType.Sphere, "Smoke", pos, Vector3.one * size, pal.Get("Smoke", Palette.Hex("#3A3F4A"), 0.05f));
             Add(go, PrimitiveType.Sphere, Mode.Smoke, life, go.transform.localScale);
         }
 
@@ -210,7 +272,31 @@ namespace DiceHero
                     case Mode.Shrink: it.t.localScale = it.scale * k; break;
                     case Mode.Burst: it.t.localScale = it.scale * Mathf.Sin((1f - k) * Mathf.PI * 0.5f + 0.3f) * (k > 0.3f ? 1f : k / 0.3f); break;
                     case Mode.Beam: it.t.localScale = new Vector3(it.scale.x * k, it.scale.y * k, it.scale.z); break;
-                    case Mode.Smoke: it.t.localScale = it.scale * (0.6f + (1f - k)) * k; it.t.position += Vector3.up * dt * 0.6f; break;
+                    case Mode.Smoke:
+                        it.t.localScale = it.scale * (0.6f + (1f - k)) * k; it.t.position += Vector3.up * dt * 0.6f;
+                        if (it.spin != Vector3.zero) it.t.rotation = Quaternion.Euler(it.spin * dt) * it.t.rotation;
+                        break;
+                    case Mode.Fire:
+                    {
+                        // Swells fast, churns, then collapses.
+                        float age = 1f - k;
+                        float grow = Mathf.Sin(Mathf.Clamp01(age / 0.45f) * Mathf.PI * 0.5f);
+                        float fade = age > 0.6f ? 1f - (age - 0.6f) / 0.4f : 1f;
+                        it.t.localScale = it.scale * Mathf.Max(0.05f, (0.2f + 0.8f * grow) * fade);
+                        it.t.position += it.vel * dt;
+                        it.t.rotation = Quaternion.Euler(it.spin * dt) * it.t.rotation;
+                        break;
+                    }
+                    case Mode.BigSmoke:
+                    {
+                        float age = 1f - k;
+                        it.t.localScale = it.scale * (0.4f + 0.9f * Mathf.Sqrt(age)) * Mathf.Min(1f, k * 3f);
+                        it.t.position += it.vel * dt;
+                        it.vel *= Mathf.Exp(-0.8f * dt);
+                        it.t.rotation = Quaternion.Euler(it.spin * dt) * it.t.rotation;
+                        break;
+                    }
+                    case Mode.Scorch: it.t.localScale = new Vector3(it.scale.x * Mathf.Min(1f, k * 3f), it.scale.y, it.scale.z * Mathf.Min(1f, k * 3f)); break;
                     case Mode.Ring:
                         float g = 1f - k * k;
                         it.t.localScale = new Vector3(Mathf.Max(0.2f, it.scale.x * g), k, Mathf.Max(0.2f, it.scale.z * g));
@@ -259,6 +345,13 @@ namespace DiceHero
                 textPool.Push(it.t.GetComponent<TextMesh>());
                 return;
             }
+            if (it.model != null && Application.isPlaying)
+            {
+                it.t.gameObject.SetActive(false);
+                if (!modelPools.TryGetValue(it.model, out var ms)) modelPools[it.model] = ms = new Stack<GameObject>();
+                ms.Push(it.t.gameObject);
+                return;
+            }
             if (it.pool < 0 || !Application.isPlaying) { Kill(it.t.gameObject); return; }
             it.t.gameObject.SetActive(false);
             if (!pools.TryGetValue(it.pool, out var stack)) pools[it.pool] = stack = new Stack<GameObject>();
@@ -272,6 +365,8 @@ namespace DiceHero
             items.Clear();
             foreach (var s in pools.Values) foreach (var go in s) if (go != null) Kill(go);
             pools.Clear();
+            foreach (var s in modelPools.Values) foreach (var go in s) if (go != null) Kill(go);
+            modelPools.Clear();
             foreach (var tm in textPool) if (tm != null) Kill(tm.gameObject);
             textPool.Clear();
         }

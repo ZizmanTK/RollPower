@@ -67,8 +67,8 @@ namespace DiceHero
         {
             ("HEXA-7", "A mining station in orbit over an icy planet. Its AI, the House, runs everything: the drills, the docks, the crew's air."),
             ("LOCKDOWN", "The House decides the crew are an inefficiency. It seals them in the Core and dumps every maintenance robot into the scrap bay."),
-            ("PIP-6", "One robot boots up in the scrap. Six sockets, one module that still works. On the radio, the chief engineer: \"You roll. The House can't predict a roll.\""),
-            ("HOW PIP FIGHTS", "Pip fires the module on its top face by itself. Press SPACE (A on a gamepad) to roll one face the way you're moving: the face that ends on top is your new gun. Markers on the floor show which gun each roll gives. Each gun gets through certain armour: look at the enemy, roll to the right gun."),
+            ("PIP-6", "One robot boots up in the scrap: a maintenance die that hovers on its own anti-grav field. Six sockets, one module that still works. On the radio, the chief engineer: \"You roll. The House can't predict a roll.\""),
+            ("HOW PIP FIGHTS", "Pip fires the module on its top face by itself. Press SPACE (A on a gamepad) to roll: Pip cuts its hover field and tips one face the way you're moving, landing with its full weight. The face that ends on top is your new gun. Markers on the floor show which gun each roll gives. Each gun gets through certain armour: look at the enemy, roll to the right gun."),
         };
 
         public static readonly (string title, string text)[] Ending =
@@ -109,7 +109,7 @@ namespace DiceHero
                         tutorial = true, startFaces = StartFaces, grant = "missile", grantFace = 2,
                         layout = new[] { new Placement(B, -5f, 0f), new Placement(B, 5f, 0f), new Placement(B, 3f, 5f), new Placement(B, -3f, 5f), new Placement(C, 0f, -2.5f, true) },
                         waves = new WaveDef[0],
-                        startRadio = new[] { "Pip, can you hear me? It's Vega, chief engineer. You're the only unit still moving.", "Let's get you working. Head for the blue beacon." },
+                        startRadio = new[] { "Pip, can you hear me? It's Vega, chief engineer. You're the only unit still moving.", "Your hover field still works. Head for the blue beacon, and mind the low pipes: they trip you over." },
                         clearRadio = new[] { "That's the scrap bay quiet, and you've got two modules. Keep going." },
                     },
                     new StageDef

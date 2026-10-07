@@ -27,6 +27,8 @@ namespace DiceHero
         class Live { public HazardDef def; public Transform t; public Renderer[] glow; public float phase; }
         static readonly List<Live> all = new List<Live>();
         static Material ventIdle, ventWarn, ventHot;
+        static Palette fxPal;
+        static float flameT;
         static float clock;
 
         public static bool Any => all.Count > 0;
@@ -36,6 +38,7 @@ namespace DiceHero
             all.Clear();
             clock = 0f;
             if (defs == null) return;
+            fxPal = pal;
             ventIdle = pal.Glow("HzVentIdle", Palette.Hex("#5A2410"), 0.6f);
             ventWarn = pal.Glow("HzVentWarn", Palette.Hex("#FF7A1A"), 2.2f);
             ventHot = pal.Glow("HzVentHot", Palette.Hex("#FF8A2A"), 2.4f);
@@ -123,8 +126,14 @@ namespace DiceHero
                 var m = s == 0 ? ventIdle : s == 1 ? ventWarn : ventHot;
                 for (int i = 0; i < l.glow.Length - 1; i++) if (l.glow[i].sharedMaterial != m) l.glow[i].sharedMaterial = m;
                 var plume = l.glow[l.glow.Length - 1].gameObject;
-                if (plume.activeSelf != (s == 2)) plume.SetActive(s == 2);
-                if (s == 2) plume.transform.localScale = new Vector3(l.def.size * 1.6f, 1f + 0.15f * Mathf.Sin(clock * 30f), l.def.size * 1.6f);
+                // Erupting: a jet of fire and smoke out of the grate (no glowing column).
+                if (plume.activeSelf) plume.SetActive(false);
+                if (s == 2 && fxPal != null && Random.value < dt * 30f)
+                {
+                    Vector3 at = l.t.position + new Vector3(Random.Range(-1f, 1f) * l.def.size * 0.7f, 0.1f, Random.Range(-1f, 1f) * l.def.size * 0.7f);
+                    Fx.Flame(fxPal, at, Random.value < 0.4f ? Palette.Hex("#FFD04A") : Palette.Hex("#FF6A1A"), 0.28f + Random.value * 0.2f, 0.55f);
+                    if (Random.value < 0.2f) Fx.Puff(fxPal, at + Vector3.up * 0.8f, 0.22f, 0.7f);
+                }
                 if (s == 2 && Inside(l, p)) burn = true;
             }
             return burn;

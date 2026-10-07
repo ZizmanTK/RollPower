@@ -504,6 +504,28 @@ public static class DiceHeroSetup
         if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
     }
 
+    /// <summary>Batch: writes every music theme to Builds/music-preview/*.wav for listening.</summary>
+    public static void ExportMusic()
+    {
+        string dir = Path.GetFullPath("Builds/music-preview");
+        Directory.CreateDirectory(dir);
+        foreach (Track t in System.Enum.GetValues(typeof(Track)))
+        {
+            if (t == Track.None) continue;
+            var data = Sound.Samples(t, out int rate);
+            using (var f = new BinaryWriter(File.Create(Path.Combine(dir, t + ".wav"))))
+            {
+                int bytes = data.Length * 2;
+                f.Write(System.Text.Encoding.ASCII.GetBytes("RIFF")); f.Write(36 + bytes); f.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt "));
+                f.Write(16); f.Write((short)1); f.Write((short)1); f.Write(rate); f.Write(rate * 2); f.Write((short)2); f.Write((short)16);
+                f.Write(System.Text.Encoding.ASCII.GetBytes("data")); f.Write(bytes);
+                foreach (var s in data) f.Write((short)Mathf.Clamp(s * 32767f, -32768f, 32767f));
+            }
+            Debug.Log($"[RollPower] music preview {t}: {data.Length / (float)rate:0.0}s");
+        }
+        if (Application.isBatchMode) EditorApplication.Exit(0);
+    }
+
     /// <summary>
     /// Batch mode: campaign bookkeeping. Pip's modules follow the cleared stages, decks open in order, the Workshop
     /// arrangement and caches behave, and boosts reach the stats a deck starts with. Uses (then clears) editor prefs.

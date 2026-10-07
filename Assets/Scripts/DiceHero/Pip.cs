@@ -6,6 +6,8 @@ namespace DiceHero
     {
         /// <summary>Built as Pip-6 (the campaign character) rather than the plain die.</summary>
         public bool IsPip;
+        /// <summary>Pip's anti-grav field on the floor (stays level; fades while Pip cuts it to roll).</summary>
+        public Transform Hover;
         /// <summary>Pip: where the active gun sits (on top of the eye-pod). Null for the plain die.</summary>
         public Transform GunMount;
         public Transform Head;
@@ -37,6 +39,10 @@ namespace DiceHero
             m.Root.position = position;
             m.Visual = new GameObject("Visual").transform;
             m.Visual.SetParent(m.Root, false);
+            // Pip glides because it hovers: a maintenance robot on an anti-grav field. To roll it cuts the field and
+            // tips over with its full weight, which is why a landing crushes what's under it.
+            m.Hover = BlenderModels.Spawn("Fx/HoverField", m.Root, pal, Palette.Hex("#29B6F6"), "hover");
+            if (m.Hover != null) m.Hover.localPosition = new Vector3(0f, 0.012f, 0f);
 
             var body = Prim.MeshObject("Body", m.Visual, MeshFactory.RoundedCube(0.1f, 3), pal.Get("PipBody", Palette.Hex("#13304A"), 0.72f, 0.5f));
             m.Body = body.transform;
