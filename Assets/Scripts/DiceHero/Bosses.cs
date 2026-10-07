@@ -5,10 +5,10 @@ namespace DiceHero
 {
     /// <summary>
     /// The foremen of decks 2-4 (the Compactor, deck 1, lives in Game.cs). Each tests the deck's new idea:
-    ///   Gardener (Hydroponics): armoured: only a piercing gun hurts it, and Pip's railgun sits on the bottom face.
-    ///   Driller (Cryo Mines): burrows toward Pip (a dust mound), surfaces with a shockwave and mites, and is only
-    ///   hittable while surfaced.
-    ///   Smelter (Foundry): three armour plates, each in one of Pip's gun colours; only that gun breaks it, then the core.
+    ///   Gardener (Hydroponics): a plant: shots pass through its leaves, fire burns it.
+    ///   Driller (Cryo Mines): burrows toward Pip (a dust mound); underground only an explosion's shockwave reaches it.
+    ///   It surfaces with a shockwave and mites, its drill iced over from the mine: fire melts through.
+    ///   Smelter (Foundry): three steel plates (piercing or explosive), then a shielded core (shock), then the core.
     /// Mode fields on Enemy: Gardener 0 rooted, 1 sinking, 2 rising · Driller 0 burrowed, 1 surfacing, 2 surfaced ·
     /// Smelter mode = current plate (3 = core exposed).
     /// </summary>
@@ -83,7 +83,7 @@ namespace DiceHero
                                 Fx.Debris(pal, e.pos + Vector3.up * 0.2f, Palette.Hex("#BFE6F5"), 12, 5f);
                                 Sound.Play(Sfx.MegaSlam, 1f, 0f);
                                 if (dist < 2.2f) { HurtPlayer(1, e.pos, "driller"); dice.Knock(dir * 8f); }
-                                for (int i = 0; i < (angry ? 6 : 4); i++) Spawn(EnemyKind.Mite, e.pos + Quaternion.Euler(0f, i * 60f, 0f) * Vector3.forward * 1.6f);
+                                for (int i = 0; i < (angry ? 4 : 3); i++) Spawn(EnemyKind.Mite, e.pos + Quaternion.Euler(0f, i * 90f + 45f, 0f) * Vector3.forward * 2.6f);
                             }
                             break;
                         default: // surfaced: vulnerable
@@ -142,25 +142,17 @@ namespace DiceHero
         public void SmelterPlateBroken(Enemy e)
         {
             var p = e.plates[e.mode];
-            Fx.Explosion(pal, p.position, WeaponDef.Find(e.plateGuns[e.mode]).color, 1.6f);
+            Fx.Explosion(pal, p.position, Palette.Hex("#FF7A1A"), 1.6f);
             Fx.Debris(pal, p.position, Palette.Hex("#2A2624"), 10, 5f);
             p.gameObject.SetActive(false);
             Juice(0.5f, 0.05f);
             Sound.Play(Sfx.BigExplosion, 0.8f, 0f);
             e.mode++;
             e.plateHp = Enemy.SmelterPlateHp;
-            loop.ShowBanner(null, e.mode < 3 ? $"PLATE DOWN · NEXT: {WeaponDef.Find(e.plateGuns[e.mode]).name}" : "CORE EXPOSED · ANY GUN", 2f, UiKit.Gold);
+            if (e.mode >= 3) GiveCoat(e, Defence.Shield, Enemy.SmelterShieldHp);
+            loop.ShowBanner(null, e.mode < 3 ? $"PLATE DOWN · {3 - e.mode} LEFT" : "CORE SHIELD: " + Enemy.Beaters(Defence.Shield), 2f, UiKit.Gold);
         }
 
-        /// <summary>Smelter: its three plates take three different guns Pip actually carries (not the twin blasters).</summary>
-        public static string[] PlatesFor()
-        {
-            var ids = new List<string>();
-            foreach (var pref in new[] { "tri", "plasma", "scatter", "rail", "flak", "lance", "mortar", "needler", "missile" })
-                for (int f = 1; f <= 6; f++) if (WeaponDef.All[f].id == pref && !ids.Contains(pref)) ids.Add(pref);
-            while (ids.Count < 3) ids.Add(ids.Count > 0 ? ids[0] : "twin");
-            return ids.GetRange(0, 3).ToArray();
-        }
     }
 
     public static class BossModels
@@ -175,7 +167,8 @@ namespace DiceHero
             {
                 case EnemyKind.Gardener:
                 {
-                    e.hp = 290f; e.speed = 0f; e.radius = 1.2f; e.fireTimer = 2f; e.abilityTimer = 5f; e.modeT = 10f;
+                    e.hp = 200f; e.speed = 0f; e.radius = 1.2f; e.fireTimer = 2f; e.abilityTimer = 5f; e.modeT = 10f;
+                    if (BlenderModels.Spawn("Enemies/Gardener", root, pal) != null) break;
                     var pot = pal.Get("GardPot", Palette.Hex("#3A4B52"), 0.5f, 0.6f);
                     var band = pal.Get("GardBand", Palette.Hex("#C8913E"), 0.7f, 0.9f);
                     var leaf = pal.Get("GardLeaf", Palette.Hex("#4FA34A"), 0.35f, 0f);
@@ -200,6 +193,14 @@ namespace DiceHero
                 case EnemyKind.Driller:
                 {
                     e.hp = 150f; e.speed = 0f; e.radius = 1.0f; e.mode = 0; e.modeT = 2f;
+                    var dbm = BlenderModels.Spawn("Enemies/Driller", root, pal);
+                    if (dbm != null)
+                    {
+                        e.plates = new[] { BlenderModels.Pivot(dbm, "Pivot_Machine", root), BlenderModels.Pivot(dbm, "Pivot_Mound", root) };
+                        e.lane = Prim.Make(PrimitiveType.Cylinder, "SurfaceRing", null, root.position, new Vector3(4.4f, 0.01f, 4.4f), pal.Glow("DrillWarn", Red, 1.1f, Red * 0.4f)).transform;
+                        e.lane.gameObject.SetActive(false);
+                        break;
+                    }
                     var steel = pal.Get("DrillSteel", Palette.Hex("#5D6B78"), 0.6f, 0.8f);
                     var bit = pal.Get("DrillBit", Palette.Hex("#E8A33A"), 0.6f, 0.8f);
                     var machine = new GameObject("Machine").transform; machine.SetParent(root, false);
@@ -212,6 +213,7 @@ namespace DiceHero
                     var mound = new GameObject("Mound").transform; mound.SetParent(root, false);
                     var dirt = pal.Get("DrillDirt", Palette.Hex("#9FB4BF"), 0.2f, 0f);
                     for (int i = 0; i < 6; i++) Prim.Make(PrimitiveType.Sphere, "Dirt", mound, Quaternion.Euler(0f, i * 60f, 0f) * Vector3.forward * 0.45f + Vector3.up * 0.1f, new Vector3(0.7f, 0.3f, 0.7f), dirt);
+                    CoatModels.Build(pal, machine, Defence.Ice, 0.95f, 0.75f, false);
                     e.plates = new[] { machine, mound };
                     e.lane = Prim.Make(PrimitiveType.Cylinder, "SurfaceRing", null, root.position, new Vector3(4.4f, 0.01f, 4.4f), pal.Glow("DrillWarn", Red, 1.1f, Red * 0.4f)).transform;
                     e.lane.gameObject.SetActive(false);
@@ -221,7 +223,13 @@ namespace DiceHero
                 {
                     e.speed = 1.1f; e.radius = 1.25f; e.fireTimer = 2f; e.mode = 0;
                     e.hp = 90f; e.plateHp = Enemy.SmelterPlateHp;
-                    e.plateGuns = Game.PlatesFor();
+                    var sbm = BlenderModels.Spawn("Enemies/Smelter", root, pal);
+                    if (sbm != null)
+                    {
+                        e.plates = new Transform[3];
+                        for (int i = 0; i < 3; i++) e.plates[i] = BlenderModels.Pivot(sbm, "Pivot_Plate" + i, root);
+                        break;
+                    }
                     var iron = pal.Get("SmeltIron", Palette.Hex("#2A2624"), 0.4f, 0.8f);
                     var mouth = pal.Glow("SmeltMouth", Palette.Hex("#FF7A1A"), 3f);
                     Prim.Make(PrimitiveType.Cube, "Furnace", root, new Vector3(0f, 0.85f, 0f), new Vector3(1.9f, 1.7f, 1.7f), iron);
@@ -234,14 +242,13 @@ namespace DiceHero
                     var spots = new[] { (new Vector3(0f, 0.95f, 0.98f), Quaternion.identity), (new Vector3(-1.02f, 0.95f, 0f), Quaternion.Euler(0f, 90f, 0f)), (new Vector3(1.02f, 0.95f, 0f), Quaternion.Euler(0f, -90f, 0f)) };
                     for (int i = 0; i < 3; i++)
                     {
-                        var g = WeaponDef.Find(e.plateGuns[i]);
                         var p = new GameObject("Plate" + i).transform; p.SetParent(root, false);
                         p.localPosition = spots[i].Item1; p.localRotation = spots[i].Item2;
-                        Prim.Make(PrimitiveType.Cube, "Slab", p, Vector3.zero, new Vector3(1.5f, 1.3f, 0.14f), pal.Get("SmeltPlate" + g.id, g.color * 0.55f + Color.black * 0.45f, 0.5f, 0.6f));
-                        Prim.Make(PrimitiveType.Cube, "Rim", p, new Vector3(0f, 0f, 0.07f), new Vector3(1.56f, 0.08f, 0.04f), pal.Glow("SmeltRim" + g.id, g.color, 2.2f));
-                        var gl = new GameObject("Glyph").transform; gl.SetParent(p, false);
-                        gl.localPosition = new Vector3(0f, 0f, 0.09f); gl.localRotation = Quaternion.Euler(-90f, 0f, 0f); gl.localScale = Vector3.one * 1.2f;
-                        Glyphs.Build(g.model, gl, pal.Glow("SmeltRim" + g.id, g.color, 2.2f));
+                        // Steel shutter, red-hot at the rim: piercing or explosive guns crack it.
+                        Prim.Make(PrimitiveType.Cube, "Slab", p, Vector3.zero, new Vector3(1.5f, 1.3f, 0.14f), pal.Get("SmeltPlate", Palette.Hex("#6E7680"), 0.5f, 0.85f));
+                        Prim.Make(PrimitiveType.Cube, "Rim", p, new Vector3(0f, -0.62f, 0.07f), new Vector3(1.56f, 0.08f, 0.04f), pal.Glow("SmeltRim", Palette.Hex("#FF7A1A"), 2.2f));
+                        foreach (float x in new[] { -0.6f, 0.6f }) foreach (float y in new[] { -0.5f, 0.5f })
+                            Prim.Make(PrimitiveType.Sphere, "Rivet", p, new Vector3(x, y, 0.08f), Vector3.one * 0.12f, pal.Get("CoatRivet", Palette.Hex("#D0D6DC"), 0.6f, 0.9f));
                         e.plates[i] = p;
                     }
                     break;

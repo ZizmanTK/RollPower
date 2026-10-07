@@ -85,7 +85,8 @@ namespace DiceHero
         }
 
 
-        public static Sfx GunSound(int number) => (Sfx)(number - 1);
+        /// <summary>Sound family of a gun model; the flamer borrows the scatter gun's hiss, the arc lance the railgun's zap.</summary>
+        public static Sfx GunSound(int model) => model == 7 ? Sfx.Gun5 : model == 8 ? Sfx.Gun1 : (Sfx)(model - 1);
 
         // ------------------------------------------------------------------ synthesis helpers
 

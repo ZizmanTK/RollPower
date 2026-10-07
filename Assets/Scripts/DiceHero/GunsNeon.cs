@@ -13,6 +13,8 @@ namespace DiceHero
     ///   4 plasma The Riftbreaker cannon turret: armoured drum, gold rings, glowing core in the muzzle
     ///   5 scatter The Ascent ABR Commander / SYNTHETIK drum launcher: drum magazine, wide short muzzle
     ///   6 missile SYNTHETIK pipe stacks: bundle of tubes with yellow bands in a white frame
+    ///   7 flamer  fuel tank on its back, a flared nozzle with a pilot flame
+    ///   8 arc     two coil prongs with a spark gap between them
     /// Only the emitter glows, in the gun's colour. Local +Z is forward.
     /// </summary>
     public static class GunsNeon
@@ -20,6 +22,10 @@ namespace DiceHero
         public static void Build(int number, Palette pal, Transform root, List<Transform> muzzles)
         {
             var def = WeaponDef.All[number];
+            // Blender model first: its shape says what it beats (radar dish on seekers, a slug in the railgun's
+            // breech, hazard stripes on explosives, a fuel tank on the flamer, a Tesla coil on the arc lance).
+            var bm = BlenderModels.Spawn("Guns/" + def.id, root, pal, def.color, def.id);
+            if (bm != null) { BlenderModels.Muzzles(bm, muzzles); return; }
             var white = pal.Get("NGPanel", Palette.Hex("#E4EAF0"), 0.6f, 0.05f);
             var dark = pal.Get("NGInset", Palette.Hex("#2A3442"), 0.5f, 0.2f);
             var steel = pal.Get("NGSteel", Palette.Hex("#6A7686"), 0.55f, 0.4f);
@@ -105,6 +111,31 @@ namespace DiceHero
                     for (int i = -2; i <= 2; i++)
                         P(PrimitiveType.Cube, root, new Vector3(i * 0.075f, 0f, 0.357f), new Vector3(0.035f, 0.035f, 0.006f), emit);
                     muzzles.Add(Muzzle(root, new Vector3(0f, 0f, 0.38f)));
+                    break;
+
+                case 7: // Flamer: fuel tank, hose, flared nozzle, pilot light
+                    P(PrimitiveType.Cylinder, root, new Vector3(0f, 0.06f, -0.12f), new Vector3(0.22f, 0.13f, 0.22f), white);
+                    P(PrimitiveType.Cylinder, root, new Vector3(0f, 0.06f, -0.12f), new Vector3(0.225f, 0.02f, 0.225f), orange);
+                    P(PrimitiveType.Cylinder, root, new Vector3(0f, 0.2f, -0.12f), new Vector3(0.08f, 0.02f, 0.08f), dark);
+                    P(PrimitiveType.Cylinder, root, new Vector3(0f, 0.02f, 0.14f), new Vector3(0.09f, 0.16f, 0.09f), dark, fwd);
+                    P(PrimitiveType.Cylinder, root, new Vector3(0f, 0.02f, 0.32f), new Vector3(0.16f, 0.04f, 0.16f), steel, fwd);
+                    P(PrimitiveType.Cylinder, root, new Vector3(0f, 0.02f, 0.36f), new Vector3(0.19f, 0.01f, 0.19f), dark, fwd);
+                    P(PrimitiveType.Sphere, root, new Vector3(0f, 0.02f, 0.39f), new Vector3(0.07f, 0.07f, 0.09f), emit);
+                    muzzles.Add(Muzzle(root, new Vector3(0f, 0.02f, 0.4f)));
+                    break;
+
+                case 8: // Arc lance: two coil prongs, a spark between their tips
+                    P(PrimitiveType.Cube, root, new Vector3(0f, 0.02f, -0.1f), new Vector3(0.26f, 0.14f, 0.24f), dark);
+                    P(PrimitiveType.Cube, root, new Vector3(0f, 0.1f, -0.1f), new Vector3(0.18f, 0.006f, 0.16f), white);
+                    foreach (float x in new[] { -0.08f, 0.08f })
+                    {
+                        P(PrimitiveType.Cube, root, new Vector3(x, 0.02f, 0.2f), new Vector3(0.05f, 0.05f, 0.42f), white);
+                        for (int i = 0; i < 3; i++)
+                            P(PrimitiveType.Cylinder, root, new Vector3(x, 0.02f, 0.08f + i * 0.1f), new Vector3(0.08f, 0.015f, 0.08f), steel, fwd);
+                    }
+                    P(PrimitiveType.Cube, root, new Vector3(0f, 0.02f, 0.4f), new Vector3(0.16f, 0.02f, 0.02f), emit);
+                    P(PrimitiveType.Sphere, root, new Vector3(0f, 0.02f, 0.42f), Vector3.one * 0.06f, emit);
+                    muzzles.Add(Muzzle(root, new Vector3(0f, 0.02f, 0.43f)));
                     break;
 
                 default: // SYNTHETIK pipe stack as a missile pod

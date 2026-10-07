@@ -221,21 +221,25 @@ namespace DiceHero
                 // Phase marks at two thirds and one third.
                 foreach (float f in new[] { 1f / 3f, 2f / 3f }) UiKit.Rect(new Rect(bossX + bw * f - 1.5f, 58, 3, 18), UiKit.Text);
                 var bs = boss.boss;
-                int weak = boss.PlannedWeakness;
-                var wd = WeaponDef.All[weak];
-                bool match = def.number == weak;
+                // What it wears this phase (or next, while it rerolls) and the gun that gets through.
+                var bd = boss.PlannedDefence;
+                int cf = Enemy.CounterFace(bd);
+                var wd = cf > 0 ? WeaponDef.All[cf] : def;
+                bool match = !bs.Rerolling && boss.CanBeHitBy(def);
                 var dr = new Rect(bossX + bw + 18, 34, 52, 52);
-                if (bs.Rerolling) UiKit.Glow(new Rect(dr.x - 30, dr.y - 30, 112, 112), new Color(wd.color.r, wd.color.g, wd.color.b, 0.3f + 0.2f * Mathf.Sin(uiTime * 12f)));
-                UiKit.DieFace(dr, weak, wd.color, UiKit.Ink);
+                Color tint = CoatModels.Tint(bd);
+                if (bs.Rerolling) UiKit.Glow(new Rect(dr.x - 30, dr.y - 30, 112, 112), new Color(tint.r, tint.g, tint.b, 0.3f + 0.2f * Mathf.Sin(uiTime * 12f)));
+                UiKit.ChamferPanel(dr, new Color(UiKit.Ink.r, UiKit.Ink.g, UiKit.Ink.b, 0.9f), tint);
+                if (cf > 0) UiKit.DrawIcon(new Rect(dr.x + 10, dr.y + 10, 32, 32), GunIcon(wd), wd.color);
                 if (bs.Rerolling)
                 {
-                    UiKit.Line("NEXT", dr.xMax + 12, 38, 15, HudMuted, 0f, 2);
+                    UiKit.Line("NEXT: " + Enemy.DefenceName(bd), dr.xMax + 12, 38, 15, HudMuted, 0f, 2);
                     UiKit.Line($"{bs.reroll:0.0}s", dr.xMax + 12, 56, 22, UiKit.Text, 0f, 2);
                 }
                 else
                 {
-                    UiKit.Line(match ? "HITTING" : "WEAK TO", dr.xMax + 12, 38, 15, match ? HudMint : HudMuted, 0f, 2);
-                    UiKit.Line(wd.name, dr.xMax + 12, 56, 20, wd.color, 0f, 2);
+                    UiKit.Line(match ? "HITTING" : Enemy.DefenceName(bd), dr.xMax + 12, 38, 15, match ? HudMint : tint, 0f, 2);
+                    UiKit.Line(bd == Defence.Bare ? "ANY GUN" : wd.name, dr.xMax + 12, 56, 20, wd.color, 0f, 2);
                 }
                 UiKit.Line($"PHASE {bs.phase + 1}/3", bossX, 82, 15, HudMuted, 0f, 2);
             }
@@ -254,6 +258,7 @@ namespace DiceHero
                 UiKit.Line(fm.ForemanState(), w * 0.5f, 82, 17, open ? HudMint : fm.kind == EnemyKind.Compactor && fm.mode >= 1 ? UiKit.Red : HudMuted, 0.5f, 2, 1.5f);
             }
 
+            DrawEnemyBars(def);
             DrawBombAlerts(w);
             if (!playing) return;
 
@@ -349,6 +354,44 @@ namespace DiceHero
             if (Game.Bombs.All.Count > 0 && Game.BombsDisposed == 0) return "SHOVE BOMBS OFF THE EDGE";
             if (Game.Rolls < 3 && Game.TimeAlive < 40f) return "SPACE OR A TO DASH";
             return null;
+        }
+
+        /// <summary>
+        /// A small health bar over every enemy. It greys out while the gun on top can't hurt that enemy, and the icon of
+        /// a gun that can (in its colour) appears beside it. A coat (vines, ice, shield) shows as a second bar in its colour.
+        /// Mites close to Pip get a ROLL tag: only a landing crushes them.
+        /// </summary>
+        void DrawEnemyBars(WeaponDef def)
+        {
+            if (Game.I == null) return;
+            foreach (var e in Game.I.Enemies)
+            {
+                if (!e.Alive || e.IsBig) continue;
+                if (e.Low)
+                {
+                    Vector3 dd = e.pos - Dice.transform.position; dd.y = 0f;
+                    if (dd.magnitude < 5f && ToCanvas(e.t.position + Vector3.up * 0.7f, out var mp)) UiKit.Line("ROLL", mp.x, mp.y - 8f, 13, UiKit.Mint, 0.5f, 2);
+                    continue;
+                }
+                if (!ToCanvas(e.t.position + Vector3.up * (e.radius * 2f + 0.55f), out var p)) continue;
+                float bw = Mathf.Clamp(e.radius * 70f, 34f, 64f);
+                bool open = e.CanBeHitBy(def);
+                var r = new Rect(p.x - bw * 0.5f, p.y, bw, 6f);
+                UiKit.Rect(new Rect(r.x - 2f, r.y - 2f, r.width + 4f, r.height + 4f), new Color(0f, 0f, 0f, 0.55f));
+                UiKit.Bar(r, e.hp / e.maxHp, open ? HudHull : new Color(0.55f, 0.6f, 0.62f, 0.9f), new Color(1f, 1f, 1f, 0.12f));
+                if (e.Coated) UiKit.Bar(new Rect(r.x, r.y - 6f, r.width, 4f), e.coatHp / e.coatMax, CoatModels.Tint(e.coat), new Color(0f, 0f, 0f, 0.4f));
+                if (!open)
+                {
+                    int cf = Enemy.CounterFace(e.CurrentDefence);
+                    if (cf > 0)
+                    {
+                        var g = WeaponDef.All[cf];
+                        var ir = new Rect(r.x - 24f, r.y - 9f, 20f, 20f);
+                        UiKit.Rect(new Rect(ir.x - 2f, ir.y - 2f, ir.width + 4f, ir.height + 4f), new Color(0f, 0f, 0f, 0.55f));
+                        UiKit.DrawIcon(ir, GunIcon(g), g.color);
+                    }
+                }
+            }
         }
 
         /// <summary>A countdown over bombs about to blow, and an edge arrow for bombs off screen.</summary>
@@ -509,8 +552,8 @@ namespace DiceHero
             {
                 ("MOVE", "arrow", "WASD, arrows or left stick.", UiKit.Text),
                 ("ROLL", "restart", "SPACE, SHIFT or A tips the die one face the way you are moving. The face on top picks your gun, and the <b>markers around the die</b> show what each roll gives. When your gun can't hurt what's coming, the right marker lights up.", UiKit.Cyan),
-                ("DODGE", "play", "You can't be hurt during the first part of a roll, but you can on landing. Roll through danger, not into it.", Palette.Hex("#3BD16F")),
-                ("SHOOT", "gun3", "Guns aim and fire on their own. Rolling to a gun that hurts more of the field overcharges it: double fire rate for a few seconds.", Palette.Hex("#FF6A3D")),
+                ("DODGE", "play", "You can't be hurt during the first part of a roll, but you can on landing. Roll through danger, not into it. Landing on a bare robot or a mite <b>crushes</b> it.", Palette.Hex("#3BD16F")),
+                ("SHOOT", "gun3", "Guns aim and fire on their own. Look at what protects an enemy: <b>steel</b> needs piercing or explosive, <b>fliers</b> seekers or shock, <b>vines</b> and <b>ice</b> fire, <b>shields</b> shock. A grey health bar shows the icon of a gun that gets through.", Palette.Hex("#FF6A3D")),
                 ("OBSTACLES", "home", "Vent boxes stop a roll. Roll over a <b>pipe rack</b> to vault it: two tips, onto the opposite face. Shove bombs off the edge.", Palette.Hex("#FFB020")),
             } : new[]
             {
@@ -545,7 +588,7 @@ namespace DiceHero
             float y3 = y2 + 34f + 6f * 62f + 16f;
             UiKit.Line("KNOW YOUR ENEMY", x2, y3, 18, UiKit.Mutedish, 0f, 2);
             UiKit.Label(new Rect(x2, y3 + 28f, col, 150f),
-                "<b>Drones</b> fly: only 3 or 6 reach them.   <b>Tanks</b> are armoured: use 1 or 4.   <b>Bombers</b> plant bombs.\nEvery 5th wave the <b>High Roller</b> tumbles in: only the gun that matches its top number hurts it. Slams and bombs hurt everything.",
+                "<b>Drones</b> fly over flat shots: seekers and shock reach them.   <b>Tanks</b> are steel: piercing or explosive.   <b>Mites</b> are too low: roll onto them.\nEvery 5th wave the <b>High Roller</b> tumbles in, wearing a new defence each phase. Bombs hurt everything; a landing crushes bare robots.",
                 body, UiKit.Soft);
 
             float hy = r.yMax - 56f;

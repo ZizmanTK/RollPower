@@ -62,8 +62,9 @@ namespace DiceHero
         static string Traits(WeaponDef w)
         {
             var t = new System.Collections.Generic.List<string>();
-            if (w.antiAir) t.Add("HITS FLIERS");
-            if (w.armorPiercing) t.Add("PIERCES ARMOUR");
+            t.Add(WeaponDef.TypeName(w.type));
+            foreach (Defence d in new[] { Defence.Flying, Defence.Steel, Defence.Vines, Defence.Ice, Defence.Shield, Defence.Burrowed })
+                if (Enemy.Counters(w.type, d)) t.Add("BEATS " + Enemy.DefenceName(d));
             if (w.aoe > 0f) t.Add("AREA");
             if (w.homing) t.Add("HOMING");
             if (w.beam) t.Add("BEAM");

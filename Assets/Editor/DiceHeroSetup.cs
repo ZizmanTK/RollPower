@@ -516,6 +516,7 @@ public static class DiceHeroSetup
         {
             foreach (var d in Campaign.Decks) foreach (var s in d.stages) { PlayerPrefs.DeleteKey("rp.c.clear." + s.id); PlayerPrefs.DeleteKey("rp.c.stars." + s.id); }
             foreach (var id in new[] { "flak", "lance", "mortar", "needler" }) PlayerPrefs.DeleteKey("rp.c.cache." + id);
+            PlayerPrefs.DeleteKey("rp.own.flak");
             foreach (var k in new[] { "rp.c.arr", "rp.c.boost.hull", "rp.c.boost.roll", "rp.c.done" }) PlayerPrefs.DeleteKey(k);
         }
         Campaign.AssumeClearedBefore = null;
@@ -523,11 +524,13 @@ public static class DiceHeroSetup
         var f = Campaign.Faces;
         Check(f[1] == "twin" && f[2] == "empty" && f[6] == "empty", "a new campaign starts with only the twin blasters");
         Campaign.Record(Campaign.Find("scrap1"), 1);
-        Check(Campaign.Faces[2] == "tri", "clearing 1-1 mounts the tri-shot on face 2");
+        Check(Campaign.Faces[2] == "missile", "clearing 1-1 mounts the missile pod on face 2");
         Check(!Campaign.Unlocked(Campaign.Find("hydro1")), "deck 2 is locked until deck 1's foreman falls");
         foreach (var id in new[] { "scrap2", "scrap3", "scrap4" }) Campaign.Record(Campaign.Find(id), 1);
-        Check(Campaign.Faces[6] == "rail", "the Compactor's railgun goes on face 6");
+        Check(Campaign.Faces[6] == "rail" && Campaign.Faces[3] == "scatter" && Campaign.Faces[5] == "tri", "deck 1 fills faces 3, 5 and 6 (scatter, tri, rail)");
         Check(Campaign.Unlocked(Campaign.Find("hydro1")) && !Campaign.Unlocked(Campaign.Find("hydro2")) && !Campaign.Unlocked(Campaign.Find("cryo1")), "deck 2 opens, one stage at a time");
+        Campaign.Record(Campaign.Find("hydro1"), 1);
+        Check(Campaign.Faces[3] == "flamer" && Campaign.OwnedModules().Contains("scatter"), "the flamer takes face 3 and the scatter gun stays in the Workshop");
         Campaign.Arrange(1, "rail");
         f = Campaign.Faces;
         Check(f[1] == "rail" && f[6] == "twin", "the Workshop swaps two modules");
@@ -535,7 +538,7 @@ public static class DiceHeroSetup
         Check(Campaign.OwnedModules().Contains("flak"), "a cache module joins the Workshop");
         Campaign.Arrange(2, "flak");
         f = Campaign.Faces;
-        Check(f[2] == "flak" && System.Array.IndexOf(f, "tri") > 0 && System.Array.IndexOf(f, "tri") != 2, "a displaced module moves to an empty face, never lost: tri on face " + System.Array.IndexOf(f, "tri"));
+        Check(f[2] == "flak" && System.Array.IndexOf(f, "missile") > 0 && System.Array.IndexOf(f, "missile") != 2, "a displaced module moves to an empty face, never lost: missile on face " + System.Array.IndexOf(f, "missile"));
         Campaign.SetBoost("hull", 2); Campaign.SetBoost("roll", 1);
         var st = Campaign.StartStats();
         Check(st.maxHpBonus == 2 && Mathf.Abs(st.dashCooldownMul - 0.9f) < 0.001f, "Workshop boosts reach a deck's starting stats");
@@ -544,6 +547,39 @@ public static class DiceHeroSetup
         Check(PlayerPrefs.GetInt("rp.own.flak", 0) == 1, "a cache also unlocks the gun in the gauntlet");
         Reset();
         PlayerPrefs.DeleteKey("rp.own.flak");
+
+        // The rule table: every defence has a counter that makes sense, and the obvious wrong answers fail.
+        Check(Enemy.Counters(DamageType.Pierce, Defence.Steel) && Enemy.Counters(DamageType.Blast, Defence.Steel)
+              && !Enemy.Counters(DamageType.Bolt, Defence.Steel) && !Enemy.Counters(DamageType.Fire, Defence.Steel) && !Enemy.Counters(DamageType.Seeker, Defence.Steel), "steel: piercing or explosive only");
+        Check(Enemy.Counters(DamageType.Seeker, Defence.Flying) && Enemy.Counters(DamageType.Shock, Defence.Flying) && !Enemy.Counters(DamageType.Pierce, Defence.Flying), "fliers: seekers or shock");
+        Check(Enemy.Counters(DamageType.Fire, Defence.Vines) && Enemy.Counters(DamageType.Fire, Defence.Ice) && !Enemy.Counters(DamageType.Blast, Defence.Ice), "vines and ice: fire");
+        Check(Enemy.Counters(DamageType.Shock, Defence.Shield) && !Enemy.Counters(DamageType.Blast, Defence.Shield), "shields: shock");
+        Check(Enemy.Counters(DamageType.Blast, Defence.Burrowed) && !Enemy.Counters(DamageType.Pierce, Defence.Burrowed), "underground: explosive");
+        bool lowSafe = true; foreach (DamageType t in System.Enum.GetValues(typeof(DamageType))) lowSafe &= !Enemy.Counters(t, Defence.Low);
+        Check(lowSafe, "mites (low): no gun, only a landing roll");
+        // Every defence the campaign uses is beaten by a gun the campaign hands over before that deck.
+        var given = new System.Collections.Generic.List<string> { "twin" };
+        foreach (var d in Campaign.Decks)
+        {
+            var need = new System.Collections.Generic.HashSet<Defence>();
+            foreach (var s in d.stages) foreach (var w in s.waves)
+            {
+                if (w.coats != null) foreach (var c in w.coats) need.Add(c);
+                if (w.enemies != null) foreach (var (k, _) in w.enemies) { if (k == EnemyKind.Tank) need.Add(Defence.Steel); if (k == EnemyKind.Drone) need.Add(Defence.Flying); }
+            }
+            foreach (var s in d.stages) { if (s.grant != null && System.Array.IndexOf(d.stages, s) == 0) given.Add(s.grant); }
+            var missing = new System.Collections.Generic.List<string>();
+            foreach (var n in need)
+            {
+                if (n == Defence.Bare) continue;
+                bool ok = false;
+                // Guns owned once the deck's first stage is cleared (counters can arrive on 1-1 or x-1 clear).
+                foreach (var g in given) ok |= Enemy.Counters(WeaponDef.Find(g).type, n);
+                if (!ok) missing.Add(n.ToString());
+            }
+            Check(missing.Count == 0, $"deck {d.id}: every defence has a counter by its second stage (missing: {string.Join(",", missing)})");
+            foreach (var s in d.stages) if (s.grant != null && !given.Contains(s.grant)) given.Add(s.grant);
+        }
         Debug.Log($"[RollPower] TestCampaign: {pass} passed, {fail} failed");
         if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
     }

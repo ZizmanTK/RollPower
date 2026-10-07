@@ -117,6 +117,19 @@ namespace DiceHero
                 dice.InputOverride = new Vector2(bestDir.x, bestDir.z);
                 if (dice.TryRoll()) return;
             }
+            // Mites close by: only a landing crushes them, so roll onto the bunch.
+            if (dice.DashCooldownLeft <= 0f)
+            {
+                Vector3 crush = Vector3.zero; int bestN = 0;
+                foreach (var d in RollAdvisor.Directions)
+                {
+                    if (Blocked(p + d * 1.2f)) continue;
+                    int n = 0;
+                    foreach (var e in game.Enemies) { if (!e.Alive || !e.Low) continue; Vector3 o = e.pos - (p + d); o.y = 0f; if (o.magnitude < 1.6f) n++; }
+                    if (n > bestN) { bestN = n; crush = d; }
+                }
+                if (bestN > 0) { dice.InputOverride = new Vector2(crush.x, crush.z); if (dice.TryRoll()) return; }
+            }
             bool wrong = RollAdvisor.Needed(dice, game);
             if (wrong && (wrongFor == 0f || wrongFor > 3f && ignoring)) { ignoring = Random.value < IgnoreAdvice; if (wrongFor > 3f) wrongFor = 0.01f; } // a missed hint is noticed again after a few seconds
             wrongFor = wrong ? wrongFor + dt : 0f;
@@ -221,7 +234,7 @@ namespace DiceHero
             Vector3 away = Vector3.zero;
             foreach (var e in game.Enemies)
             {
-                if (!e.Alive || e.Flying) continue;
+                if (!e.Alive || e.Flying || e.Low) continue; // mites are welcome: they get crushed
                 Vector3 d = p - e.pos; d.y = 0f;
                 float m = d.magnitude;
                 if (m < 4f && m > 0.01f) away += d / m * (4f - m);

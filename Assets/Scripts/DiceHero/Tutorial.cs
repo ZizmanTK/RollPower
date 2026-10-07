@@ -7,7 +7,8 @@ namespace DiceHero
     /// when the player has done it; after 20 s stuck, a stronger hint and a line from Vega. The waves are scripted
     /// here instead of by the wave director (Game.ManualSpawning).
     ///   1 move to the beacon · 2 automatic fire · 3 roll to dodge a turret's shots · 4 the roll changed the top face
-    ///   (empty socket: roll back) · 5 pick up the tri-shot · 6 drones need it · 7 mixed wave · 8 the card (stage clear).
+    ///   (empty socket: roll back) · 5 pick up the missile pod · 6 drones need it · 7 mixed wave, with mites to crush ·
+    ///   8 the card (stage clear). The turret is a rusty one with no plating left, so the blasters can hurt it.
     /// </summary>
     public class Tutorial
     {
@@ -59,23 +60,25 @@ namespace DiceHero
                     break;
                 case 1:
                     Object.Destroy(beacon.gameObject);
-                    Instruction = "GET CLOSE TO THE CRAWLERS";
+                    Instruction = "PIP FIRES THE GUN ON ITS TOP FACE BY ITSELF. GET CLOSE";
                     StuckHint = "Pip aims and fires on its own. Just get within range.";
                     foreach (var x in new[] { -4f, 0f, 4f }) Slow(game.Spawn(EnemyKind.Crawler, new Vector3(x, 0f, 6f)), 0.45f);
-                    loop.RadioNow("Crawlers. You don't aim, Pip does. Just get close.");
+                    loop.RadioNow("Crawlers. You don't aim: Pip fires whatever module is on its top face. Just get close.");
                     break;
                 case 2:
-                    Instruction = "A TURRET. ROLL AS A SHOT ARRIVES";
-                    StuckHint = "Press SPACE just before a red shot reaches Pip: you can't be hurt at the start of a roll.";
+                    Instruction = "PRESS SPACE TO ROLL THROUGH THE TURRET'S SHOTS";
+                    StuckHint = "SPACE (A on a gamepad) rolls Pip one face the way you're moving. Press it just before a red shot arrives: Pip can't be hurt at the start of a roll.";
                     sentry = game.Spawn(EnemyKind.Tank, new Vector3(6.5f, 0f, 3f));
                     sentry.speed = 0f;
+                    sentry.defenceOverride = Defence.Bare;
+                    sentry.hp = sentry.maxHp = 30f;
                     dodged = false;
-                    loop.RadioNow("That's a turret, and your blasters won't scratch it. Roll through its shots.");
+                    loop.RadioNow("A rusty old turret. Press SPACE as a shot arrives and roll right through it.");
                     break;
                 case 3:
-                    Instruction = "NO MODULE ON TOP. ROLL BACK TO THE TWIN BLASTERS";
-                    StuckHint = "Rolling changes the face on top. Roll toward the lit marker.";
-                    loop.RadioNow("See? Your eye went dark. That face has no module. Roll back to the blasters.");
+                    Instruction = "THE FACE ON TOP IS YOUR GUN. THIS ONE IS EMPTY: ROLL TO THE GREEN MARKER";
+                    StuckHint = "Each floor marker shows the gun that roll puts on top. Move toward the green one and press SPACE.";
+                    loop.RadioNow("See? The roll turned an empty face up, so Pip can't shoot. Roll to the green marker to get the blasters back on top.");
                     break;
                 case 4:
                     Instruction = "A WORKING MODULE. PICK IT UP";
@@ -84,16 +87,17 @@ namespace DiceHero
                     break;
                 case 5:
                     Object.Destroy(pickup.gameObject);
-                    loop.MountModule(2, "tri");
-                    Instruction = "DRONES. ROLL TO THE TRI-SHOT";
-                    StuckHint = "Drones fly over your blasters. Roll toward the lit yellow marker.";
-                    loop.RadioNow("Tri-shot, on face 2. It hits fliers. Here they come.");
+                    loop.MountModule(2, "missile");
+                    Instruction = "DRONES. ROLL TO THE RED MARKER: MISSILES ON TOP";
+                    StuckHint = "Drones fly over flat shots. Move toward the red marker and press SPACE.";
+                    loop.RadioNow("A missile pod, on face 2. Missiles climb to fliers. Here they come.");
                     foreach (var x in new[] { -5f, 0f, 5f }) game.Spawn(EnemyKind.Drone, new Vector3(x, 0f, 7.5f));
                     break;
                 case 6:
                     Instruction = "CLEAR THEM ALL";
                     StuckHint = null;
-                    loop.RadioNow("Ground and air together. You know what to do.");
+                    loop.RadioNow("Ground and air together. And mites: too low to shoot, so roll onto them.");
+                    for (int i = 0; i < 3; i++) game.Spawn(EnemyKind.Mite, new Vector3(-3f + i * 3f, 0f, -6.5f));
                     for (int i = 0; i < 6; i++) game.Spawn(EnemyKind.Crawler, new Vector3(-7f + i * 2.8f, 0f, 7.5f));
                     foreach (var x in new[] { -6f, 6f, 0f }) game.Spawn(EnemyKind.Drone, new Vector3(x, 0f, 8.5f));
                     break;
@@ -121,7 +125,8 @@ namespace DiceHero
                 case 1: if (clear) Begin(2); break;
                 case 2:
                     if (rollNearShot > 0f) { rollNearShot -= dt; if (rollNearShot <= 0f) dodged = true; }
-                    if (dodged) Begin(WeaponDef.All[dice.TopNumber].IsEmpty ? 3 : 4); break;
+                    // Destroying the turret first also ends the step (it is bare: the blasters hurt it).
+                    if (dodged || sentry == null || !sentry.Alive) { sentry = null; Begin(WeaponDef.All[dice.TopNumber].IsEmpty ? 3 : 4); } break;
                 case 3:
                     if (!WeaponDef.All[dice.TopNumber].IsEmpty) { Begin(4); break; }
                     PlanOverride = RollAdvisor.ToFace(dice, System.Array.FindIndex(WeaponDef.All, w => w != null && w.id == "twin"));
@@ -153,7 +158,7 @@ namespace DiceHero
             return root;
         }
 
-        Transform Pickup(Vector3 at) => ModulePickup(pal, at, "tri");
+        Transform Pickup(Vector3 at) => ModulePickup(pal, at, "missile");
 
         /// <summary>A module lying on the floor: its socket plate, its outline in light and a ring (tutorial pickup, caches).</summary>
         public static Transform ModulePickup(Palette pal, Vector3 at, string gunId)

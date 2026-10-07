@@ -4,6 +4,17 @@ using UnityEngine;
 namespace DiceHero
 {
     /// <summary>
+    /// The six damage types. Each gun deals one; its colour is the type's colour.
+    ///   Bolt   plain energy bolts: fastest fire, no use against any protection
+    ///   Seeker locks on and climbs: catches fliers that flat shots pass under
+    ///   Pierce hypersonic slug: punches through steel plate
+    ///   Blast  explosion: cracks steel, and the shockwave travels through the ground
+    ///   Fire   burns vines, melts ice
+    ///   Shock  EMP arc: overloads energy shields, jumps up to fliers
+    /// </summary>
+    public enum DamageType { Bolt, Seeker, Pierce, Blast, Fire, Shock }
+
+    /// <summary>
     /// A gun. The catalogue holds every gun in the game; a run copies the player's loadout into All[1..6], so
     /// All[n] is the gun on face n and its 'number' is that face.
     /// </summary>
@@ -24,35 +35,47 @@ namespace DiceHero
         public float range;
         public float radius = 0.12f; // projectile size
         public float aoe;            // explosion radius (0 = none)
-        public bool armorPiercing;
-        public bool antiAir;         // can hit flying drones
+        public DamageType type;      // what it does to an enemy's defence (see Defences)
         public bool homing;
         public bool beam;            // instant hitscan beam (railgun)
 
+        // Declared before the catalogue: static fields initialise in order.
+        public static readonly Color BoltColor = Palette.Hex("#5CFF8A"), SeekerColor = Palette.Hex("#FF4B3A"), PierceColor = Palette.Hex("#B98CFF"),
+            BlastColor = Palette.Hex("#FF3FA4"), FireColor = Palette.Hex("#FF8A2A"), ShockColor = Palette.Hex("#FFE14D");
+
         public static readonly WeaponDef[] Catalog =
         {
-            new WeaponDef { id = "rail", model = 1, name = "RAILGUN", role = "Piercing beam, pierces armour", color = Palette.Hex("#35E6FF"),
-                cooldown = 0.9f, shots = 1, speed = 0f, damage = 4f, range = 18f, beam = true, armorPiercing = true },
-            new WeaponDef { id = "twin", model = 2, name = "TWIN BLASTERS", role = "Fast twin bolts", color = Palette.Hex("#5CFF8A"),
+            new WeaponDef { id = "rail", model = 1, name = "RAILGUN", role = "Slug that punches through steel", color = PierceColor, type = DamageType.Pierce,
+                cooldown = 0.9f, shots = 1, speed = 0f, damage = 4f, range = 18f, beam = true },
+            new WeaponDef { id = "twin", model = 2, name = "TWIN BLASTERS", role = "Fastest fire, bare robots only", color = BoltColor, type = DamageType.Bolt,
                 cooldown = 0.28f, shots = 2, spread = 0f, speed = 22f, damage = 1f, range = 16f },
-            new WeaponDef { id = "tri", model = 3, name = "TRI-SHOT", role = "3-way spread, hits fliers", color = Palette.Hex("#FFE14D"),
-                cooldown = 0.42f, shots = 3, spread = 24f, speed = 20f, damage = 1f, range = 16f, antiAir = true },
-            new WeaponDef { id = "plasma", model = 4, name = "PLASMA CANNON", role = "Explosive orb, breaks armour", color = Palette.Hex("#FF3FA4"),
-                cooldown = 1.0f, shots = 1, speed = 12f, damage = 4f, range = 14f, radius = 0.3f, aoe = 1.6f, armorPiercing = true },
-            new WeaponDef { id = "scatter", model = 5, name = "SCATTER GUN", role = "5 pellets, close range", color = Palette.Hex("#FF8A2A"),
+            new WeaponDef { id = "tri", model = 3, name = "TRI-SHOT", role = "3-way bolts, bare robots only", color = BoltColor, type = DamageType.Bolt,
+                cooldown = 0.42f, shots = 3, spread = 24f, speed = 20f, damage = 1f, range = 16f },
+            new WeaponDef { id = "plasma", model = 4, name = "PLASMA CANNON", role = "Explosive orb: cracks steel, shakes the ground", color = BlastColor, type = DamageType.Blast,
+                cooldown = 1.0f, shots = 1, speed = 12f, damage = 4f, range = 14f, radius = 0.3f, aoe = 1.6f },
+            new WeaponDef { id = "scatter", model = 5, name = "SCATTER GUN", role = "5 bolts up close, bare robots only", color = BoltColor, type = DamageType.Bolt,
                 cooldown = 0.65f, shots = 5, spread = 50f, speed = 19f, damage = 1f, range = 7f, radius = 0.1f },
-            new WeaponDef { id = "missile", model = 6, name = "MISSILE POD", role = "6 homing missiles, hits fliers", color = Palette.Hex("#FF4B3A"),
-                cooldown = 2.0f, shots = 6, spread = 70f, speed = 12f, damage = 1.3f, range = 20f, radius = 0.14f, aoe = 1.0f, homing = true, antiAir = true },
-            // Unlockable with chips.
-            new WeaponDef { id = "flak", model = 3, cost = 120, name = "FLAK CANNON", role = "Bursting shells, shreds fliers", color = Palette.Hex("#B98CFF"),
-                cooldown = 0.75f, shots = 4, spread = 34f, speed = 18f, damage = 1f, range = 12f, radius = 0.13f, aoe = 0.9f, antiAir = true },
-            new WeaponDef { id = "lance", model = 1, cost = 160, name = "ARC LANCE", role = "Short rapid beam, pierces armour", color = Palette.Hex("#E8F1FF"),
-                cooldown = 0.35f, shots = 1, speed = 0f, damage = 1.6f, range = 9f, beam = true, armorPiercing = true },
-            new WeaponDef { id = "mortar", model = 4, cost = 200, name = "MORTAR", role = "Slow shell, huge blast, breaks armour", color = Palette.Hex("#2FE6C8"),
-                cooldown = 1.2f, shots = 1, speed = 10f, damage = 4f, range = 15f, radius = 0.28f, aoe = 2.4f, armorPiercing = true },
-            new WeaponDef { id = "needler", model = 6, cost = 250, name = "NEEDLER", role = "8 homing needles, hits fliers", color = Palette.Hex("#C6FF3D"),
-                cooldown = 1.1f, shots = 8, spread = 40f, speed = 16f, damage = 0.6f, range = 16f, radius = 0.08f, homing = true, antiAir = true },
+            new WeaponDef { id = "missile", model = 6, name = "MISSILE POD", role = "6 seekers that climb to hit fliers", color = SeekerColor, type = DamageType.Seeker,
+                cooldown = 2.0f, shots = 6, spread = 70f, speed = 12f, damage = 1.3f, range = 20f, radius = 0.14f, aoe = 1.0f, homing = true },
+            // Unlockable with chips (gauntlet) or found in the campaign.
+            new WeaponDef { id = "flamer", model = 7, cost = 140, name = "FLAMER", role = "Short jet of fire: burns vines, melts ice", color = FireColor, type = DamageType.Fire,
+                cooldown = 0.22f, shots = 4, spread = 22f, speed = 11f, damage = 0.45f, range = 5.5f, radius = 0.2f },
+            new WeaponDef { id = "lance", model = 8, cost = 160, name = "ARC LANCE", role = "EMP arc: pops shields, reaches fliers", color = ShockColor, type = DamageType.Shock,
+                cooldown = 0.35f, shots = 1, speed = 0f, damage = 1.6f, range = 9f, beam = true },
+            new WeaponDef { id = "flak", model = 3, cost = 120, name = "FLAK CANNON", role = "Proximity shells that burst beside fliers", color = SeekerColor, type = DamageType.Seeker,
+                cooldown = 0.75f, shots = 4, spread = 34f, speed = 18f, damage = 1f, range = 12f, radius = 0.13f, aoe = 0.9f, homing = true },
+            new WeaponDef { id = "mortar", model = 4, cost = 200, name = "MORTAR", role = "Slow shell, huge blast: cracks steel", color = BlastColor, type = DamageType.Blast,
+                cooldown = 1.2f, shots = 1, speed = 10f, damage = 4f, range = 15f, radius = 0.28f, aoe = 2.4f },
+            new WeaponDef { id = "needler", model = 6, cost = 250, name = "NEEDLER", role = "8 seeker needles that hit fliers", color = SeekerColor, type = DamageType.Seeker,
+                cooldown = 1.1f, shots = 8, spread = 40f, speed = 16f, damage = 0.6f, range = 16f, radius = 0.08f, homing = true },
         };
+
+
+        public static Color TypeColor(DamageType t) => t == DamageType.Bolt ? BoltColor : t == DamageType.Seeker ? SeekerColor : t == DamageType.Pierce ? PierceColor
+            : t == DamageType.Blast ? BlastColor : t == DamageType.Fire ? FireColor : ShockColor;
+
+        public static string TypeName(DamageType t) => t == DamageType.Bolt ? "BOLT" : t == DamageType.Seeker ? "SEEKER" : t == DamageType.Pierce ? "PIERCING"
+            : t == DamageType.Blast ? "EXPLOSIVE" : t == DamageType.Fire ? "FIRE" : "SHOCK";
 
         /// <summary>Campaign: a socket with no module yet. Fires nothing; Pip's eye goes dim on it.</summary>
         public static readonly WeaponDef Empty = new WeaponDef { id = "empty", model = 0, name = "EMPTY SOCKET", role = "No module yet", color = Palette.Hex("#5E7387"),

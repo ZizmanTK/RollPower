@@ -26,6 +26,19 @@ namespace DiceHero
             eye = pal.Glow("NEEye", Palette.Hex("#FF2A3D"), 2.6f, Palette.Hex("#FF2A3D"));
             glow = pal.Glow("NEGlow", Palette.Hex("#FF3B4E"), 1.3f, Palette.Hex("#5A0D16"));
             rust = pal.Get("NERust", Palette.Hex("#C7642E"), 0.35f, 0.15f);
+            // Blender models (Tools/Blender/roster.py) show each robot's defence: bare circuit board, ducted rotors,
+            // riveted steel, a floor-hugging tick. The primitive builds below are the fallback.
+            var bm = BlenderModels.Spawn("Enemies/" + kind, root, pal);
+            if (bm != null)
+            {
+                if (kind == EnemyKind.Drone)
+                {
+                    bm.localPosition = new Vector3(0f, 2.1f, 0f);
+                    BlenderModels.Spin(bm, "Glow_Blade", 1100f);
+                    P(PrimitiveType.Cylinder, root, new Vector3(0f, 0.02f, 0f), new Vector3(0.8f, 0.005f, 0.8f), pal.Glow("DroneMarker", Palette.Hex("#FF2A3D"), 0.8f, Palette.Hex("#FF2A3D")));
+                }
+                return;
+            }
             switch (kind)
             {
                 case EnemyKind.Crawler: Crawler(root); break;

@@ -11,7 +11,7 @@ namespace DiceHero
         public int bombs;
         public string radio;                       // optional line from Vega when the wave starts
         public EnemyKind? boss;                    // a foreman wave: just the boss (it calls in its own help)
-        public string[] shields;                   // Foundry: ground enemies get a shield only this gun breaks (cycled)
+        public Defence[] coats;                    // crawlers and bombers get these coats in turn (Bare leaves one bare)
         public int bossTier = 1; public float bossHealth = 1f; // the High Roller as the final boss: tougher and longer
     }
 
@@ -68,6 +68,7 @@ namespace DiceHero
             ("HEXA-7", "A mining station in orbit over an icy planet. Its AI, the House, runs everything: the drills, the docks, the crew's air."),
             ("LOCKDOWN", "The House decides the crew are an inefficiency. It seals them in the Core and dumps every maintenance robot into the scrap bay."),
             ("PIP-6", "One robot boots up in the scrap. Six sockets, one module that still works. On the radio, the chief engineer: \"You roll. The House can't predict a roll.\""),
+            ("HOW PIP FIGHTS", "Pip fires the module on its top face by itself. Press SPACE (A on a gamepad) to roll one face the way you're moving: the face that ends on top is your new gun. Markers on the floor show which gun each roll gives. Each gun gets through certain armour: look at the enemy, roll to the right gun."),
         };
 
         public static readonly (string title, string text)[] Ending =
@@ -98,14 +99,14 @@ namespace DiceHero
             var B = ObstacleKind.Barrier; var C = ObstacleKind.Conduit;
             var test = new DeckDef
             {
-                id = "scrap", name = "SCRAP BAY", look = "Rust orange and concrete grey, piles of scrap", mechanic = "Roll to dodge and to change guns", theme = 4,
+                id = "scrap", name = "SCRAP BAY", look = "Rust orange and concrete grey, piles of scrap", mechanic = "Roll to dodge, to change guns, and to crush", theme = 4,
                 playable = true,
                 stages = new[]
                 {
                     new StageDef
                     {
                         id = "scrap1", name = "BOOT-UP", objective = "Tutorial: 8 steps", teaches = "Move, fire, roll, modules, fliers", parTime = 120f,
-                        tutorial = true, startFaces = StartFaces, grant = "tri", grantFace = 2,
+                        tutorial = true, startFaces = StartFaces, grant = "missile", grantFace = 2,
                         layout = new[] { new Placement(B, -5f, 0f), new Placement(B, 5f, 0f), new Placement(B, 3f, 5f), new Placement(B, -3f, 5f), new Placement(C, 0f, -2.5f, true) },
                         waves = new WaveDef[0],
                         startRadio = new[] { "Pip, can you hear me? It's Vega, chief engineer. You're the only unit still moving.", "Let's get you working. Head for the blue beacon." },
@@ -113,40 +114,42 @@ namespace DiceHero
                     },
                     new StageDef
                     {
-                        id = "scrap2", name = "FLIERS", objective = "Clear 4 waves", teaches = "Some enemies need a certain gun", parTime = 80f,
+                        id = "scrap2", name = "FLIERS", objective = "Clear 4 waves", teaches = "Fliers: only seekers climb to them", parTime = 80f,
+                        grant = "scatter", grantFace = 3,
                         layout = new[] { new Placement(B, -5f, 3f), new Placement(B, 5f, 3f), new Placement(B, -3f, -3f), new Placement(B, 3f, -3f), new Placement(C, 0f, 2f, false) },
                         waves = new[]
                         {
-                            new WaveDef { title = "DRONES INCOMING", enemies = new[] { (EnemyKind.Drone, 4), (EnemyKind.Crawler, 2) }, radio = "Drones fly over most shots. Look at the markers around you: roll to the one that lights up." },
+                            new WaveDef { title = "DRONES INCOMING", enemies = new[] { (EnemyKind.Drone, 4), (EnemyKind.Crawler, 2) }, radio = "Drones fly over flat shots. Missiles climb to them: roll to the red marker." },
                             new WaveDef { title = "MIXED SWARM", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 4) } },
                             new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 2), (EnemyKind.Crawler, 8) }, bombs = 2, radio = "Bombs! Shove them off the edge before they blow." },
-                            new WaveDef { title = "AIR RAID", enemies = new[] { (EnemyKind.Drone, 7), (EnemyKind.Crawler, 4) }, radio = "A big flight coming in. Stay on the tri-shot, and only roll when you have to." },
+                            new WaveDef { title = "AIR RAID", enemies = new[] { (EnemyKind.Drone, 7), (EnemyKind.Crawler, 4) }, radio = "A big flight coming in. Stay on the missiles, and only roll when you have to." },
                         },
-                        startRadio = new[] { "Something's flying in from the vents. Your twin blasters won't reach it." },
-                        clearRadio = new[] { "You're learning faster than the House can adapt." },
+                        startRadio = new[] { "Something's flying in from the vents. Your blasters' bolts will pass right under it." },
+                        clearRadio = new[] { "You're learning faster than the House can adapt.", "I dug a scatter gun out of the scrap: face 3. Brutal up close, but only on bare robots." },
                     },
                     new StageDef
                     {
-                        id = "scrap3", name = "UNDER PRESSURE", objective = "Clear 4 waves", teaches = "Switching guns while you dodge", parTime = 100f,
+                        id = "scrap3", name = "UNDER PRESSURE", objective = "Clear 4 waves", teaches = "Mites: too low to shoot, roll onto them", parTime = 100f,
+                        grant = "tri", grantFace = 5,
                         layout = new[] { new Placement(C, -4f, 0f, false), new Placement(C, 4f, 0f, false), new Placement(B, 0f, 4.5f), new Placement(B, 0f, -3f) },
                         waves = new[]
                         {
                             new WaveDef { title = "CRAWLERS AND DRONES", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 5) }, radio = "Ground and air at once. Dodge with the roll, and land on the gun you need." },
                             new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Drone, 5) }, bombs = 2 },
-                            new WaveDef { title = "MITES", enemies = new[] { (EnemyKind.Mite, 12), (EnemyKind.Crawler, 6) }, radio = "Mites. Small and fast. The tri-shot's spread is your friend." },
+                            new WaveDef { title = "MITES", enemies = new[] { (EnemyKind.Mite, 12), (EnemyKind.Crawler, 6) }, radio = "Mites. Too low for your barrels: roll right onto them. You weigh a tonne." },
                             new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Crawler, 12), (EnemyKind.Drone, 7), (EnemyKind.Bomber, 2) }, bombs = 2, radio = "Roll over a pipe rack to vault it: you land on the opposite face." },
                         },
                         startRadio = new[] { "The House is throwing everything at you. Good. That means it's worried." },
-                        clearRadio = new[] { "That's the bay cleared. The foreman is guarding the exit." },
+                        clearRadio = new[] { "That's the bay cleared. Here's a tri-shot for face 5.", "The foreman is guarding the exit." },
                     },
                     new StageDef
                     {
                         id = "scrap4", name = "THE COMPACTOR", objective = "Beat the foreman", teaches = "Bosses: lure it, stun it, fire", parTime = 90f,
                         grant = "rail", grantFace = 6,
                         layout = new[] { new Placement(B, -4.5f, -1f), new Placement(B, 4.5f, -1f), new Placement(B, 0f, 3.5f), new Placement(B, -6f, 6f), new Placement(B, 6f, 6f) },
-                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Compactor, radio = "That's the bay's compactor. Your guns bounce off it. Make it ram something." } },
+                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Compactor, radio = "That's the bay's compactor. Solid steel: your bolts bounce off. Make it ram something hard." } },
                         startRadio = new[] { "Something big is moving in the bay." },
-                        clearRadio = new[] { "It dropped its railgun. I've mounted it on your bottom face: face 6.", "The bottom face takes two rolls, or one vault over a pipe rack. Next deck: Hydroponics." },
+                        clearRadio = new[] { "It dropped its railgun: a slug that punches through steel. I've mounted it on your bottom face, face 6.", "The bottom face takes two rolls, or one vault over a pipe rack. Next deck: Hydroponics." },
                     },
                 },
             };
@@ -154,32 +157,33 @@ namespace DiceHero
             WaveDef W(string title, string radio, params (EnemyKind, int)[] e) => new WaveDef { title = title, radio = radio, enemies = e };
             var hydro = new DeckDef
             {
-                id = "hydro", name = "HYDROPONICS", look = "Deep green, mist, grow-lamps", mechanic = "Armour and the opposite face", theme = 5, playable = true,
+                id = "hydro", name = "HYDROPONICS", look = "Deep green, mist, grow-lamps", mechanic = "Steel plate, and vines only fire burns", theme = 5, playable = true,
                 stages = new[]
                 {
                     new StageDef
                     {
-                        id = "hydro1", name = "ARMOUR", objective = "Clear 3 waves", teaches = "Tanks: the railgun on the bottom face", parTime = 90f,
+                        id = "hydro1", name = "ARMOUR", objective = "Clear 3 waves", teaches = "Steel: the railgun on the bottom face", parTime = 90f,
+                        grant = "flamer", grantFace = 3,
                         layout = new[] { new Placement(C, -4f, -2.5f, true), new Placement(C, 4f, -2.5f, true), new Placement(B, -6f, 4f), new Placement(B, 6f, 4f), new Placement(B, 0f, 6f) },
                         waves = new[]
                         {
-                            W("TANKS INCOMING", "Tanks. Only the railgun cracks them, and it's on your bottom face. Two rolls, or vault a pipe rack.", (EnemyKind.Tank, 2), (EnemyKind.Crawler, 6)),
+                            W("TANKS INCOMING", "Tanks. Steel plate: bolts bounce off. The railgun punches through, and it's on your bottom face. Two rolls, or vault a pipe rack.", (EnemyKind.Tank, 2), (EnemyKind.Crawler, 6)),
                             W("TANKS AND DRONES", null, (EnemyKind.Tank, 3), (EnemyKind.Drone, 4)),
-                            W("THE HERD", "Railgun for the tanks, tri-shot for the fliers. Plan the rolls.", (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 3)),
+                            W("THE HERD", "Railgun for the tanks, missiles for the fliers. Plan the rolls.", (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 3)),
                         },
                         startRadio = new[] { "Hydroponics. The crew grew food here. Now the House grows tanks." },
-                        clearRadio = new[] { "Good. Two rolls to the opposite face: you'll do that a lot from now on." },
+                        clearRadio = new[] { "Good. Two rolls to the opposite face: you'll do that a lot from now on.", "I rigged a flamer from the grow-lamp fuel: face 3. You'll need it. The House grew vines over its bots in here." },
                     },
                     new StageDef
                     {
-                        id = "hydro2", name = "SPORES", objective = "Clear 3 waves", teaches = "Spore clouds slow you down", parTime = 95f,
+                        id = "hydro2", name = "SPORES", objective = "Clear 3 waves", teaches = "Vines: shots pass through, fire burns", parTime = 95f,
                         layout = new[] { new Placement(B, -5f, 0f), new Placement(B, 5f, 0f), new Placement(C, 0f, 3.5f, true), new Placement(B, 0f, -3f) },
                         hazards = new[] { new HazardDef(S, -4.5f, 4.5f, 2f), new HazardDef(S, 4.5f, 4.5f, 2f), new HazardDef(S, 0f, -0.5f, 1.5f) },
                         waves = new[]
                         {
                             W("DRONES", "Spore clouds. They won't hurt you, but you'll crawl. Don't fight inside one.", (EnemyKind.Drone, 6), (EnemyKind.Crawler, 4)),
-                            W("TANKS IN THE MIST", null, (EnemyKind.Tank, 3), (EnemyKind.Crawler, 6)),
-                            W("BLOOM", null, (EnemyKind.Tank, 2), (EnemyKind.Drone, 5), (EnemyKind.Mite, 9)),
+                            new WaveDef { title = "OVERGROWN CRAWLERS", enemies = new[] { (EnemyKind.Crawler, 8) }, coats = new[] { Defence.Vines }, radio = "Vines. Your shots go straight through the leaves. Burn them: the flamer, face 3. Get close." },
+                            new WaveDef { title = "BLOOM", enemies = new[] { (EnemyKind.Crawler, 6), (EnemyKind.Tank, 2), (EnemyKind.Drone, 3) }, coats = new[] { Defence.Vines, Defence.Bare } },
                         },
                         startRadio = new[] { "The vents are pumping spores. Keep to clean floor." },
                         clearRadio = new[] { "Air's clearing. One more room before the gardener." },
@@ -192,41 +196,41 @@ namespace DiceHero
                         hazards = new[] { new HazardDef(S, 5f, 6f, 2f), new HazardDef(S, -4f, -3f, 1.8f) },
                         waves = new[]
                         {
-                            W("BOMBERS", "Bombers in the planters. Shove the bombs off the edge.", (EnemyKind.Bomber, 3), (EnemyKind.Crawler, 6)),
+                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Crawler, 6) }, coats = new[] { Defence.Vines, Defence.Bare }, radio = "Bombers in the planters. Shove the bombs off the edge." },
                             W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Drone, 3)),
-                            W("SWARM", null, (EnemyKind.Mite, 12), (EnemyKind.Drone, 5)),
-                            W("EVERYTHING", "Something's hidden in the far corner, behind the planters. Worth a look.", (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4), (EnemyKind.Bomber, 2)),
+                            W("SWARM", "Mites in the soil. Roll onto them.", (EnemyKind.Mite, 9), (EnemyKind.Drone, 4)),
+                            new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 6), (EnemyKind.Drone, 3), (EnemyKind.Bomber, 2) }, coats = new[] { Defence.Vines, Defence.Bare }, radio = "Something's hidden in the far corner, behind the planters. Worth a look." },
                         },
                         startRadio = new[] { "This one's overgrown. Watch the corners." },
-                        clearRadio = new[] { "The gardener's next. It's armoured all over: only the railgun gets through." },
+                        clearRadio = new[] { "The gardener's next. It's a plant: bullets go right through it. Bring fire." },
                     },
                     new StageDef
                     {
-                        id = "hydro4", name = "THE GARDENER", objective = "Beat the foreman", teaches = "Bosses: reach the right face under fire", parTime = 120f,
-                        grant = "plasma", grantFace = 3,
+                        id = "hydro4", name = "THE GARDENER", objective = "Beat the foreman", teaches = "Bosses: get close with the flamer under fire", parTime = 120f,
+                        grant = "plasma", grantFace = 5,
                         layout = new[] { new Placement(C, -5f, -1f, true), new Placement(C, 5f, -1f, true), new Placement(B, -7f, 6f), new Placement(B, 7f, 6f) },
                         hazards = new[] { new HazardDef(S, -7.5f, -6.5f, 1.8f), new HazardDef(S, 7.5f, -6.5f, 1.8f) },
-                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Gardener, radio = "The gardener. Railgun only, bottom face. Dodge the spore rings and keep it on the rail." } },
+                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Gardener, radio = "The gardener. Shots pass through its leaves: burn it. Get close with the flamer and roll through the spore rings." } },
                         startRadio = new[] { "Something's rooted in the middle of the deck." },
-                        clearRadio = new[] { "It dropped a plasma cannon. Mounted on face 3: it breaks armour too, and it blasts crowds.", "Next deck: the Cryo Mines." },
+                        clearRadio = new[] { "It dropped a plasma cannon, face 5. Explosive: it cracks steel, and the blast travels through the ground.", "Your tri-shot is spare now: swap it back in the workshop if you like. Next deck: the Cryo Mines." },
                     },
                 },
             };
             var cryo = new DeckDef
             {
-                id = "cryo", name = "CRYO MINES", look = "White ice and deep blue", mechanic = "Ice floor, mite bombs, shoving", theme = 6, playable = true,
+                id = "cryo", name = "CRYO MINES", look = "White ice and deep blue", mechanic = "Ice: you slide, and ice shells only fire melts", theme = 6, playable = true,
                 stages = new[]
                 {
                     new StageDef
                     {
-                        id = "cryo1", name = "THIN ICE", objective = "Clear 3 waves", teaches = "Ice: you slide, and rolls go further", parTime = 90f,
+                        id = "cryo1", name = "THIN ICE", objective = "Clear 3 waves", teaches = "Ice shells: shots skid off, fire melts", parTime = 90f,
                         layout = new[] { new Placement(B, -6f, 0f), new Placement(B, 6f, 0f), new Placement(C, 0f, 5f, true) },
                         hazards = new[] { new HazardDef(I, -3.5f, 2f, 2.2f), new HazardDef(I, 3.5f, 2f, 2.2f), new HazardDef(I, 0f, -2.5f, 1.6f) },
                         waves = new[]
                         {
-                            W("CRAWLERS", "Ice. You'll slide, and a roll on ice skids further. Steer early.", (EnemyKind.Crawler, 10)),
-                            W("MITES", null, (EnemyKind.Mite, 12), (EnemyKind.Drone, 3)),
-                            W("TANKS ON ICE", null, (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8)),
+                            new WaveDef { title = "FROZEN CRAWLERS", enemies = new[] { (EnemyKind.Crawler, 8) }, coats = new[] { Defence.Ice }, radio = "The House froze its crawlers solid: shots skid off the ice. Melt it, flamer on face 3. And mind the floor, you'll slide." },
+                            W("MITES", "Mites on the ice. Roll onto them.", (EnemyKind.Mite, 9), (EnemyKind.Drone, 3)),
+                            new WaveDef { title = "TANKS ON ICE", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 6) }, coats = new[] { Defence.Ice, Defence.Bare } },
                         },
                         startRadio = new[] { "The cryo mines. Cold enough to freeze the drills. Mind your footing." },
                         clearRadio = new[] { "You're getting the hang of sliding." },
@@ -238,8 +242,8 @@ namespace DiceHero
                         hazards = new[] { new HazardDef(I, 0f, 4f, 2.5f), new HazardDef(I, -6f, -3f, 1.8f), new HazardDef(I, 6f, -3f, 1.8f) },
                         waves = new[]
                         {
-                            W("BOMBERS", "Bombers. A bomb you shove on ice keeps sliding. Aim it at a crowd.", (EnemyKind.Bomber, 3), (EnemyKind.Crawler, 6)),
-                            W("MITE BOMBS", null, (EnemyKind.Mite, 12), (EnemyKind.Bomber, 2)),
+                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Crawler, 6) }, coats = new[] { Defence.Bare, Defence.Ice }, radio = "Bombers. A bomb you shove on ice keeps sliding. Aim it at a crowd." },
+                            W("MITE BOMBS", null, (EnemyKind.Mite, 9), (EnemyKind.Bomber, 2)),
                             W("DEMOLITION", null, (EnemyKind.Bomber, 4), (EnemyKind.Tank, 2), (EnemyKind.Drone, 4)),
                         },
                         startRadio = new[] { "They're mining with explosives again. Turn that around." },
@@ -248,48 +252,48 @@ namespace DiceHero
                     new StageDef
                     {
                         id = "cryo3", name = "WHITEOUT", objective = "Clear 4 waves", teaches = "Everything, on ice", parTime = 115f,
-                        cache = "lance", cachePos = new Vector2(8.6f, -8.6f),
+                        cache = "mortar", cachePos = new Vector2(8.6f, -8.6f),
                         layout = new[] { new Placement(B, 7.2f, -7.4f), new Placement(B, 8.6f, -6.2f), new Placement(C, -3f, 3f, false), new Placement(B, 3f, 4f) },
                         hazards = new[] { new HazardDef(I, -5f, -2f, 2.2f), new HazardDef(I, 4f, 0.5f, 2f), new HazardDef(I, 0f, 7f, 2f) },
                         waves = new[]
                         {
                             W("DRONES", null, (EnemyKind.Drone, 7), (EnemyKind.Mite, 6)),
-                            W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Crawler, 6)),
+                            new WaveDef { title = "TANKS", enemies = new[] { (EnemyKind.Tank, 4), (EnemyKind.Crawler, 6) }, coats = new[] { Defence.Ice } },
                             W("BOMBERS", null, (EnemyKind.Bomber, 3), (EnemyKind.Drone, 4)),
-                            W("WHITEOUT", "I'm reading something odd near the bottom-right corner. A spare module?", (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Mite, 6)),
+                            new WaveDef { title = "WHITEOUT", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Mite, 6) }, coats = new[] { Defence.Ice, Defence.Bare }, radio = "I'm reading something odd near the bottom-right corner. A spare module?" },
                         },
                         startRadio = new[] { "Visibility's dropping. Trust the markers." },
-                        clearRadio = new[] { "The driller's tunnelling under the next chamber. Hit it when it comes up." },
+                        clearRadio = new[] { "The driller's tunnelling under the next chamber. Only an explosion reaches it down there." },
                     },
                     new StageDef
                     {
-                        id = "cryo4", name = "THE DRILLER", objective = "Beat the foreman", teaches = "Bosses: read the ground, hit it while it's up", parTime = 120f,
-                        grant = "scatter", grantFace = 5,
+                        id = "cryo4", name = "THE DRILLER", objective = "Beat the foreman", teaches = "Bosses: blast it underground, melt it when it's up", parTime = 120f,
+                        grant = "lance", grantFace = 4,
                         layout = new[] { new Placement(B, -6f, 5f), new Placement(B, 6f, 5f), new Placement(B, -6f, -4f), new Placement(B, 6f, -4f) },
                         hazards = new[] { new HazardDef(I, 0f, 1f, 2.6f) },
-                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Driller, radio = "The driller. It's under the ice. When the red ring shows, get clear, then hit it while it's up." } },
+                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Driller, radio = "The driller. Underground, only the plasma cannon's blast reaches it. When the red ring shows, get clear: it comes up iced over, so flame it." } },
                         startRadio = new[] { "Feel that rumble?" },
-                        clearRadio = new[] { "A scatter gun, on face 5. Brutal up close.", "Next: the foundry." },
+                        clearRadio = new[] { "An arc lance, on face 4: an EMP arc. It overloads energy shields, and it jumps up to fliers.", "Next: the foundry. That's every face armed." },
                     },
                 },
             };
             var foundry = new DeckDef
             {
-                id = "foundry", name = "FOUNDRY", look = "Molten red, black steel", mechanic = "Shield colours name the gun that breaks them", theme = 7, playable = true,
+                id = "foundry", name = "FOUNDRY", look = "Molten red, black steel", mechanic = "Energy shields: a shock overloads them", theme = 7, playable = true,
                 stages = new[]
                 {
                     new StageDef
                     {
-                        id = "foundry1", name = "SHIELDS", objective = "Clear 3 waves", teaches = "A shield breaks only to the gun of its colour", parTime = 90f,
+                        id = "foundry1", name = "SHIELDS", objective = "Clear 3 waves", teaches = "Shields soak every shot but a shock", parTime = 90f,
                         layout = new[] { new Placement(B, -5f, 2f), new Placement(B, 5f, 2f), new Placement(C, 0f, -2f, true) },
                         waves = new[]
                         {
-                            new WaveDef { title = "SHIELDED CRAWLERS", enemies = new[] { (EnemyKind.Crawler, 8) }, shields = new[] { "tri", "plasma" }, radio = "Shields, in your guns' colours. Only the matching gun cracks one. The ring tells you which." },
-                            new WaveDef { title = "MIXED SHIELDS", enemies = new[] { (EnemyKind.Crawler, 8), (EnemyKind.Drone, 3) }, shields = new[] { "tri", "plasma", "scatter" } },
-                            new WaveDef { title = "SHIELDED BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Crawler, 6), (EnemyKind.Tank, 2) }, shields = new[] { "scatter", "plasma", "twin" } },
+                            new WaveDef { title = "SHIELDED CRAWLERS", enemies = new[] { (EnemyKind.Crawler, 8) }, coats = new[] { Defence.Shield }, radio = "Energy shields. The field soaks every shot, but an EMP overloads it: the arc lance, face 4." },
+                            new WaveDef { title = "MIXED SHIELDS", enemies = new[] { (EnemyKind.Crawler, 8), (EnemyKind.Drone, 3) }, coats = new[] { Defence.Shield, Defence.Bare } },
+                            new WaveDef { title = "SHIELDED BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Crawler, 6), (EnemyKind.Tank, 2) }, coats = new[] { Defence.Shield } },
                         },
                         startRadio = new[] { "The foundry. The House fits its units with shields here." },
-                        clearRadio = new[] { "Every shield is a question: which face? You're answering faster." },
+                        clearRadio = new[] { "Shields, steel, fliers: you're reading them faster than the House can build them." },
                     },
                     new StageDef
                     {
@@ -303,8 +307,8 @@ namespace DiceHero
                         waves = new[]
                         {
                             W("CRAWLERS", "Heat vents. They glow, then they blow, always in the same rhythm. Learn it.", (EnemyKind.Crawler, 10)),
-                            new WaveDef { title = "SHIELDS IN THE HEAT", enemies = new[] { (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4) }, shields = new[] { "tri", "scatter" } },
-                            new WaveDef { title = "FURNACE", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Mite, 6) }, shields = new[] { "plasma" } },
+                            new WaveDef { title = "SHIELDS IN THE HEAT", enemies = new[] { (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4) }, coats = new[] { Defence.Shield, Defence.Bare } },
+                            new WaveDef { title = "FURNACE", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Mite, 6) }, coats = new[] { Defence.Shield } },
                         },
                         startRadio = new[] { "Hot floor ahead. Watch the vents." },
                         clearRadio = new[] { "One more hall, then the smelter." },
@@ -312,28 +316,27 @@ namespace DiceHero
                     new StageDef
                     {
                         id = "foundry3", name = "MELTDOWN", objective = "Clear 4 waves", teaches = "Shields, vents and everything else", parTime = 120f,
-                        cache = "mortar", cachePos = new Vector2(-8.6f, -8.6f),
+                        cache = "needler", cachePos = new Vector2(-8.6f, -8.6f),
                         layout = new[] { new Placement(B, -7.4f, -7.2f), new Placement(B, -6.2f, -8.6f), new Placement(C, 3f, 3f, true), new Placement(B, -3f, 3f) },
                         hazards = new[] { new HazardDef(V, -4f, 0f, 0.9f, 0f), new HazardDef(V, 0f, 0f, 0.9f, 0.33f), new HazardDef(V, 4f, 0f, 0.9f, 0.66f), new HazardDef(V, 0f, 6f, 0.9f, 0.5f) },
                         waves = new[]
                         {
-                            new WaveDef { title = "SHIELDS", enemies = new[] { (EnemyKind.Crawler, 10) }, shields = new[] { "tri", "plasma", "scatter", "rail" } },
+                            new WaveDef { title = "SHIELDS", enemies = new[] { (EnemyKind.Crawler, 8) }, coats = new[] { Defence.Shield, Defence.Vines, Defence.Ice } },
                             W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Drone, 4)),
-                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 4), (EnemyKind.Mite, 8) }, shields = new[] { "scatter" } },
-                            new WaveDef { title = "MELTDOWN", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4) }, shields = new[] { "plasma", "tri" }, radio = "There's a cold spot behind the crucibles, bottom-left. Something's stashed there." },
+                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 4), (EnemyKind.Mite, 8) }, coats = new[] { Defence.Shield } },
+                            new WaveDef { title = "MELTDOWN", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4) }, coats = new[] { Defence.Shield, Defence.Bare }, radio = "There's a cold spot behind the crucibles, bottom-left. Something's stashed there." },
                         },
                         startRadio = new[] { "The furnaces are running hot. The House knows you're coming." },
-                        clearRadio = new[] { "The smelter's plated in three colours. Break them in order." },
+                        clearRadio = new[] { "The smelter's next: three steel plates, and a shielded core under them." },
                     },
                     new StageDef
                     {
-                        id = "foundry4", name = "THE SMELTER", objective = "Beat the foreman", teaches = "Bosses: one gun per plate, in order", parTime = 130f,
-                        grant = "missile", grantFace = 4,
+                        id = "foundry4", name = "THE SMELTER", objective = "Beat the foreman", teaches = "Bosses: steel plates, then a shielded core", parTime = 130f,
                         layout = new[] { new Placement(B, -6f, 5f), new Placement(B, 6f, 5f), new Placement(C, 0f, -3f, true) },
                         hazards = new[] { new HazardDef(V, -6f, -1f, 0.9f, 0f), new HazardDef(V, 6f, -1f, 0.9f, 0.5f), new HazardDef(V, 0f, 7f, 0.9f, 0.25f) },
-                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Smelter, radio = "The smelter. Three plates, three colours. The pulsing one is next: roll to its gun." } },
+                        waves = new[] { new WaveDef { title = "FOREMAN", boss = EnemyKind.Smelter, radio = "The smelter. Three steel plates: railgun or plasma. Then its core shields up: arc lance." } },
                         startRadio = new[] { "The heat's unreal in here." },
-                        clearRadio = new[] { "A missile pod, on face 4. That's all six faces armed.", "Only the Core is left. The House is waiting." },
+                        clearRadio = new[] { "That's the foundry cold.", "Only the Core is left. The House is waiting." },
                     },
                 },
             };
@@ -349,10 +352,10 @@ namespace DiceHero
                         hazards = new[] { new HazardDef(I, -6f, -4f, 1.6f), new HazardDef(V, 6f, -4f, 0.9f, 0f), new HazardDef(S, 0f, 2.5f, 1.4f) },
                         waves = new[]
                         {
-                            new WaveDef { title = "THE HOUSE'S GUARD", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 5) }, shields = new[] { "tri", "plasma" }, radio = "The Core. Everything the House has, at once." },
-                            W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Mite, 9)),
+                            new WaveDef { title = "THE HOUSE'S GUARD", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 5) }, coats = new[] { Defence.Shield, Defence.Vines, Defence.Bare }, radio = "The Core. Everything the House has, at once." },
+                            W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Mite, 6)),
                             W("BOMBERS", null, (EnemyKind.Bomber, 4), (EnemyKind.Drone, 5)),
-                            new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Bomber, 2) }, shields = new[] { "scatter", "missile" } },
+                            new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Bomber, 2) }, coats = new[] { Defence.Ice, Defence.Shield, Defence.Bare } },
                         },
                         startRadio = new[] { "This is it, Pip. The crew is two rooms away." },
                         clearRadio = new[] { "One more line of defence." },
@@ -360,25 +363,24 @@ namespace DiceHero
                     new StageDef
                     {
                         id = "core2", name = "LAST LINE", objective = "Clear 4 waves", teaches = "Hold out", parTime = 140f,
-                        cache = "needler", cachePos = new Vector2(0f, 9.2f),
-                        layout = new[] { new Placement(B, -1.2f, 8f), new Placement(B, 1.2f, 8f), new Placement(C, -5f, 1f, false), new Placement(C, 5f, 1f, false) },
+                                                layout = new[] { new Placement(B, -1.2f, 8f), new Placement(B, 1.2f, 8f), new Placement(C, -5f, 1f, false), new Placement(C, 5f, 1f, false) },
                         hazards = new[] { new HazardDef(V, -2.5f, 3f, 0.9f, 0f), new HazardDef(V, 2.5f, 3f, 0.9f, 0.5f), new HazardDef(I, 0f, -3f, 2f) },
                         waves = new[]
                         {
-                            new WaveDef { title = "SHIELD WALL", enemies = new[] { (EnemyKind.Crawler, 12) }, shields = new[] { "tri", "plasma", "scatter", "missile", "rail" } },
+                            new WaveDef { title = "SHIELD WALL", enemies = new[] { (EnemyKind.Crawler, 12) }, coats = new[] { Defence.Shield, Defence.Ice, Defence.Vines } },
                             W("ARMOUR", null, (EnemyKind.Tank, 5), (EnemyKind.Drone, 5)),
-                            W("SWARM", null, (EnemyKind.Mite, 15), (EnemyKind.Bomber, 3)),
-                            W("LAST LINE", "There's a locker behind the barricade at the top. Grab what's inside if you can.", (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Bomber, 1)),
+                            W("SWARM", null, (EnemyKind.Mite, 10), (EnemyKind.Bomber, 3)),
+                            W("LAST LINE", null, (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Bomber, 1)),
                         },
                         startRadio = new[] { "The House is pulling everything back to defend itself." },
                         clearRadio = new[] { "The door's open. It's the House itself, in a die of its own." },
                     },
                     new StageDef
                     {
-                        id = "core3", name = "THE HIGH ROLLER", objective = "Beat the House", teaches = "The final boss: one face per phase", parTime = 180f,
+                        id = "core3", name = "THE HIGH ROLLER", objective = "Beat the House", teaches = "The final boss: a new defence each phase", parTime = 180f,
                         layout = new[] { new Placement(C, -5f, -2f, true), new Placement(C, 5f, -2f, true), new Placement(B, -7f, 6f), new Placement(B, 7f, 6f) },
                         hazards = new[] { new HazardDef(I, -7f, -6.5f, 1.5f), new HazardDef(I, 7f, -6.5f, 1.5f) },
-                        waves = new[] { new WaveDef { title = "THE HOUSE", boss = EnemyKind.Boss, bossTier = 1, bossHealth = 3f, radio = "Only the gun on its top number hurts it. It locks a number for each third of its health. Read it, roll to it." } },
+                        waves = new[] { new WaveDef { title = "THE HOUSE", boss = EnemyKind.Boss, bossTier = 1, bossHealth = 3f, radio = "It changes its armour every phase: steel, vines, ice, a shield. Read what it's wearing, roll to the gun that gets through." } },
                         startRadio = new[] { "Pip. Whatever happens: thank you." },
                         clearRadio = new[] { "It's over. Pip... you did it." },
                     },
@@ -467,14 +469,18 @@ namespace DiceHero
             }
         }
 
-        /// <summary>Granted modules plus the hidden ones found in caches (what the Workshop can mount).</summary>
+        /// <summary>Every module a cleared stage handed over (also those a later one replaced on its face), plus the ones found in caches: what the Workshop can mount.</summary>
         public static List<string> OwnedModules()
         {
             var list = new List<string>();
             foreach (var id in BaseFaces()) if (id != null && id != "empty" && !list.Contains(id)) list.Add(id);
-            foreach (var id in new[] { "flak", "lance", "mortar", "needler" }) if (CacheFound(id)) list.Add(id);
+            foreach (var d in Decks) foreach (var s in d.stages) if (s.grant != null && Cleared(s) && !list.Contains(s.grant)) list.Add(s.grant);
+            foreach (var id in CacheIds) if (CacheFound(id) && !list.Contains(id)) list.Add(id);
             return list;
         }
+
+        /// <summary>The modules hidden in stage caches.</summary>
+        public static readonly string[] CacheIds = { "flak", "mortar", "needler" };
 
         /// <summary>Workshop: put a module on a face (swapping with wherever it was).</summary>
         public static void Arrange(int face, string id)

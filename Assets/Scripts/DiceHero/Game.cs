@@ -94,7 +94,7 @@ namespace DiceHero
         static readonly EnemyKind[] FocusOrder = { EnemyKind.Crawler, EnemyKind.Drone, EnemyKind.Tank, EnemyKind.Mite, EnemyKind.Bomber };
         readonly Queue<EnemyKind> spawnQueue = new Queue<EnemyKind>();
         float spawnTimer;
-        int shieldTurn;
+        int coatTurn;
         public EnemyKind Focus { get; private set; }
         public bool BossWave => Wave > 0 && Wave % 5 == 0;
         /// <summary>Enemies on the field plus those still queued for this wave.</summary>
@@ -147,7 +147,7 @@ namespace DiceHero
                 Vector3 d = e.pos - c; d.y = 0f;
                 if (d.magnitude > radius + e.radius) continue;
                 if (!e.IsBig) e.vel += d.normalized * 7f;
-                BlastEnemy(e, steps + s.slamDamageBonus, c, steps == 2 ? "MEGA SLAM" : "SLAM");
+                if (e.Crushable) BlastEnemy(e, steps + s.slamDamageBonus, c, e.Low ? "CRUSHED" : steps == 2 ? "MEGA SLAM" : "SLAM");
             }
         }
 
@@ -159,7 +159,7 @@ namespace DiceHero
             Enemies.Add(e);
             Targets.All.Add(e);
             Fx.Flash(pal, pos + Vector3.up * 0.5f, Palette.Hex("#FF2A3D"), kind == EnemyKind.Boss ? 3f : 1.2f, 0.25f);
-            if (kind == EnemyKind.Boss) Boss = e;
+            if (kind == EnemyKind.Boss) { Boss = e; e.boss.defence = BossDefence(e.boss.tier, Defence.Bare); ShowBossDefence(e); }
             if (e.IsForeman) Foreman = e;
             return e;
         }
@@ -196,7 +196,7 @@ namespace DiceHero
                 b.hp = b.maxHp;
                 bombsLeft = 3 + tier * 2;
                 bombTimer = 6f;
-                loop.ShowBanner("BOSS: HIGH ROLLER", $"WEAK TO {b.boss.weak}: {WeaponDef.All[b.boss.weak].name}  ·  " + Enemy.Hint(EnemyKind.Boss), 4f, UiKit.Red);
+                loop.ShowBanner("BOSS: HIGH ROLLER", BossLine(b.boss.defence) + "  ·  " + Enemy.Hint(EnemyKind.Boss), 4f, UiKit.Red);
                 Sound.Play(Sfx.BossRoar, 1f, 0f);
                 Juice(0.5f, 0f);
                 return;
@@ -233,7 +233,7 @@ namespace DiceHero
                 var b = Spawn(w.boss.Value, new Vector3(0f, 0f, 5f), w.bossTier);
                 b.hp = b.maxHp = b.maxHp * w.bossHealth * (Settings.Hard ? 1.3f : 1f);
                 loop.ShowBanner((b.kind == EnemyKind.Boss ? "THE HOUSE: " : "FOREMAN: ") + Enemy.Plural(w.boss.Value),
-                    b.kind == EnemyKind.Boss ? $"WEAK TO {b.boss.weak}: {WeaponDef.All[b.boss.weak].name}" : Enemy.Hint(w.boss.Value), 4.5f, UiKit.Red);
+                    b.kind == EnemyKind.Boss ? BossLine(b.boss.defence) : Enemy.Hint(w.boss.Value), 4.5f, UiKit.Red);
                 Sound.Play(Sfx.BossRoar, 1f, 0f);
                 Juice(0.5f, 0f);
                 if (w.radio != null) loop.Radio(w.radio);
@@ -261,8 +261,8 @@ namespace DiceHero
                     for (int i = 0; i < group; i++)
                     {
                         var e = Spawn(spawnQueue.Dequeue(), anchor + new Vector3(i % 2, 0f, i / 2) * 1.1f);
-                        var sh = Stage != null && Wave >= 1 && Wave <= Stage.waves.Length ? Stage.waves[Wave - 1].shields : null;
-                        if (sh != null && sh.Length > 0 && (e.kind == EnemyKind.Crawler || e.kind == EnemyKind.Bomber)) GiveShield(e, sh[shieldTurn++ % sh.Length]);
+                        var coats = Stage != null && Wave >= 1 && Wave <= Stage.waves.Length ? Stage.waves[Wave - 1].coats : null;
+                        if (coats != null && coats.Length > 0 && (e.kind == EnemyKind.Crawler || e.kind == EnemyKind.Bomber)) GiveCoat(e, coats[coatTurn++ % coats.Length]);
                         if (Stage == null) e.hp *= 1f + 0.12f * (Wave - 1); // stages set their own difficulty
                         else if (Settings.Hard) e.hp *= 1.35f;
                         e.maxHp = e.hp;
@@ -476,31 +476,49 @@ namespace DiceHero
         /// <summary>Starts the next wave (after the upgrade pick).</summary>
         public void StartNextWave() => StartWave();
 
-        /// <summary>Foundry elite: a ring in the gun's colour; only that gun breaks it.</summary>
-        public void GiveShield(Enemy e, string gunId)
+        /// <summary>Coats a robot in vines, ice or an energy shield (Bare: leaves it as it is). Only the coat's counter breaks it.</summary>
+        public void GiveCoat(Enemy e, Defence coat, float hp = 0f)
         {
-            var gun = WeaponDef.Find(gunId);
-            e.shieldGun = gunId;
-            e.shieldHp = 4f;
-            var ring = new GameObject("Shield").transform;
-            ring.SetParent(e.t, false);
-            var m = pal.Glow("Shield" + gunId, gun.color, 2.6f);
-            float r = e.radius + 0.28f;
-            for (int k = 0; k < 14; k++)
-            {
-                float a = k * Mathf.PI * 2f / 14f;
-                Prim.Make(PrimitiveType.Cube, "Seg", ring, new Vector3(Mathf.Cos(a) * r, 0.45f, Mathf.Sin(a) * r), new Vector3(0.06f, 0.5f, r * 0.42f), m, Quaternion.Euler(0f, -a * Mathf.Rad2Deg, 0f));
-            }
-            e.shieldRing = ring;
+            if (coat == Defence.Bare) return;
+            e.coat = coat;
+            e.coatHp = e.coatMax = hp > 0f ? hp : coat == Defence.Ice ? 5f : 4f;
+            if (e.coatFx != null) Object.Destroy(e.coatFx.gameObject);
+            e.coatFx = CoatModels.Build(pal, e.t, coat, e.radius + 0.14f, 0.45f);
         }
 
-        public void ShieldBroken(Enemy e)
+        public void CoatBroken(Enemy e)
         {
-            if (e.shieldRing != null) Object.Destroy(e.shieldRing.gameObject);
-            e.shieldRing = null;
-            Fx.Shockwave(pal, e.pos, WeaponDef.Find(e.shieldGun).color, 1.2f);
-            Fx.Text(e.Position + Vector3.up * 0.9f, "SHIELD DOWN", WeaponDef.Find(e.shieldGun).color, 0.8f, 0.8f);
+            if (e.coatFx != null) Object.Destroy(e.coatFx.gameObject);
+            e.coatFx = null;
+            Color c = CoatModels.Tint(e.coat);
+            string text = e.coat == Defence.Vines ? "VINES BURNT" : e.coat == Defence.Ice ? "ICE MELTED" : "SHIELD DOWN";
+            Fx.Shockwave(pal, e.pos, c, 1.2f + (e.IsBig ? 1.5f : 0f));
+            Fx.Debris(pal, e.Position, c, 6, 3.5f);
+            Fx.Text(e.Position + Vector3.up * 0.9f, text, c, 0.8f, 0.8f);
             Sound.Play(Sfx.Clonk, 0.8f, 0f);
+            if (e.kind == EnemyKind.Smelter) loop.ShowBanner(null, "CORE SHIELD DOWN · ANY GUN", 2f, UiKit.Gold);
+        }
+
+        // ---------------- High Roller defences ----------------
+
+        static readonly Defence[] BossDefences = { Defence.Steel, Defence.Vines, Defence.Ice, Defence.Shield };
+
+        /// <summary>A defence for the next phase that one of Pip's guns gets through (so the fight can always be won), not the current one.</summary>
+        static Defence BossDefence(int seed, Defence not)
+        {
+            var options = new List<Defence>();
+            foreach (var d in BossDefences) if (Enemy.CounterFace(d) > 0 && d != not) options.Add(d);
+            if (options.Count == 0) return Enemy.CounterFace(not) > 0 && not != Defence.Bare ? not : Defence.Bare;
+            return options[new System.Random(seed).Next(options.Count)];
+        }
+
+        static string BossLine(Defence d) => d == Defence.Bare ? "NO ARMOUR: ANY GUN" : Enemy.DefenceName(d) + ": " + Enemy.Beaters(d);
+
+        /// <summary>Dresses the High Roller in this phase's defence (plates, vines, ice or a shield ring).</summary>
+        void ShowBossDefence(Enemy e)
+        {
+            if (e.coatFx != null) Object.Destroy(e.coatFx.gameObject);
+            e.coatFx = e.boss.defence == Defence.Bare ? null : CoatModels.Build(pal, e.boss.model.Body, e.boss.defence, BossState.Size * 0.62f, 0f, true);
         }
 
         /// <summary>Distance from p to the closest enemy bullet (infinity when there is none).</summary>
@@ -588,12 +606,32 @@ namespace DiceHero
                 e.t.rotation = Quaternion.Slerp(e.t.rotation, Quaternion.LookRotation(e.kind == EnemyKind.Drone ? dir : (e.vel.sqrMagnitude > 0.1f ? e.vel : dir)), 1f - Mathf.Exp(-8f * dt));
 
             // Contact damage (ground units only)
-            if (!e.Flying && dist < e.radius + 0.5f)
+            // Contact damage (ground units only), once they have finished appearing.
+            if (!e.Flying && e.spawnT >= 1f && dist < e.radius + 0.5f)
             {
-                HurtPlayer(1, e.pos, "contact:" + e.kind);
-                e.vel = -dir * 3f;
+                if (e.Low)
+                {
+                    // A mite latches on and chews for a moment (it shakes): roll now and the landing crushes it.
+                    // If it gets to bite, it bursts: a swarm you didn't crush costs a hit each, not your whole hull.
+                    e.abilityTimer += dt;
+                    e.t.position += Random.insideUnitSphere * 0.04f;
+                    if (e.abilityTimer >= MiteBite)
+                    {
+                        HurtPlayer(1, e.pos, "contact:" + e.kind);
+                        e.hp = 0f; Fx.Sparks(pal, e.Position, Palette.Hex("#FF6A2A"), 4); Sound.Play(Sfx.Hit, 0.5f, 0.1f);
+                    }
+                }
+                else
+                {
+                    HurtPlayer(1, e.pos, "contact:" + e.kind);
+                    e.vel = -dir * 3f;
+                }
             }
+            else if (e.Low) e.abilityTimer = 0f;
         }
+
+        /// <summary>Seconds a mite chews on Pip before it bites.</summary>
+        public const float MiteBite = 0.55f;
 
         // ---------------- Foreman: Compactor (deck 1) ----------------
         // Rolls toward Pip, winds up (its charge lane lights the floor), then charges in a straight line. Hitting the
@@ -710,12 +748,14 @@ namespace DiceHero
                 {
                     b.orientation = b.targetRot;
                     b.weak = b.next;
+                    b.defence = b.nextDefence;
+                    ShowBossDefence(e);
                     b.phase++;
                     b.rest = 0.8f;
                     b.model.Body.localRotation = b.orientation;
                     b.model.Body.localPosition = new Vector3(0f, half, 0f);
                     BossImpact(e, dp, 1.2f);
-                    loop.ShowBanner(null, $"WEAK TO {b.weak}: {WeaponDef.All[b.weak].name}", 2.2f, WeaponDef.All[b.weak].color);
+                    loop.ShowBanner(null, BossLine(b.defence), 2.2f, CoatModels.Tint(b.defence));
                 }
                 return;
             }
@@ -790,13 +830,14 @@ namespace DiceHero
             int next;
             do next = 1 + rng2.Next(6); while (next == b.weak);
             b.next = next;
+            b.nextDefence = BossDefence(b.tier * 31 + b.phase * 7 + Wave, b.defence);
             b.reroll = BossRerollTime;
             b.hopT = -1f;
             b.startRot = b.orientation;
             b.targetRot = BossState.RotationFor(next, rng2.Next(4));
             b.axis = new Vector3(1f, 0.6f, 0.4f).normalized;
-            loop.ShowBanner("REROLL", $"NEXT WEAK NUMBER: {next}  ({WeaponDef.All[next].name})", BossRerollTime, WeaponDef.All[next].color);
-            if (Stage != null && Hp < MaxHp) { Hp = Mathf.Min(MaxHp, Hp + 2); Fx.Text(dice.transform.position + Vector3.up * 2f, "+2 HULL", UiKit.Mint, 1.2f, 1f); loop.Radio("Patched you up. Two more. Watch the new number."); }
+            loop.ShowBanner("REROLL", "NEXT: " + BossLine(b.nextDefence), BossRerollTime, CoatModels.Tint(b.nextDefence));
+            if (Stage != null && Hp < MaxHp) { Hp = Mathf.Min(MaxHp, Hp + 2); Fx.Text(dice.transform.position + Vector3.up * 2f, "+2 HULL", UiKit.Mint, 1.2f, 1f); loop.Radio("Patched you up. Two more. Watch what it's wearing now."); }
             Sound.Play(Sfx.BossRoar, 0.8f, 0f);
             Juice(0.4f, 0f);
         }
@@ -898,20 +939,15 @@ namespace DiceHero
             }
         }
 
-        /// <summary>What the current gun can't hurt right now (for the HUD warning), or null.</summary>
+        /// <summary>What the current gun can't hurt right now (for the autopilot and HUD), or null.</summary>
         public string Immune(WeaponDef w)
         {
-            bool drone = false, tank = false, boss = false;
             foreach (var e in Enemies)
             {
-                if (!e.Alive || e.CanBeHitBy(w)) continue;
-                if (e.kind == EnemyKind.Drone) drone = true;
-                if (e.kind == EnemyKind.Tank) tank = true;
-                if (e.kind == EnemyKind.Boss) boss = true;
+                if (!e.Alive || e.Low || e.Untouchable || e.CanBeHitBy(w)) continue;
+                return Enemy.DefenceName(e.CurrentDefence);
             }
-            if (boss) return $"THE HIGH ROLLER (NEEDS A {Boss?.Weakness})";
-            if (drone && tank) return "DRONES & TANKS";
-            return drone ? "DRONES" : tank ? "TANKS" : null;
+            return null;
         }
 
         /// <summary>Removes every bullet (used when the run ends).</summary>

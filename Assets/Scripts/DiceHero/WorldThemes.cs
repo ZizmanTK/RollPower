@@ -212,7 +212,9 @@ namespace DiceHero
                 var o = new GameObject("Barrier").transform;
                 o.SetParent(root, false);
                 o.localPosition = new Vector3(b.x, 0f, b.y);
-                if (t >= 5) DeckProps.Barrier(pal, o, t);
+                // Blender stoppers: tall and solid (a roll into one is cancelled), themed to the deck.
+                if (t >= 3 && BlenderModels.Spawn("Obstacles/Barrier" + t, o, pal) != null) { }
+                else if (t >= 5) DeckProps.Barrier(pal, o, t);
                 else if (t == 4) ScrapProps.Barrier(pal, o);
                 else if (t == 3) NavyProps.Barrier(pal, o);
                 else if (t == 2)
@@ -243,7 +245,10 @@ namespace DiceHero
                 Quaternion rot = c.alongX ? Quaternion.Euler(0f, 0f, 90f) : Quaternion.Euler(90f, 0f, 0f);
                 Vector3 axis = c.alongX ? Vector3.right : Vector3.forward;
                 Vector3 center = new Vector3(0f, 0.24f, 0f);
-                if (t >= 5) DeckProps.Conduit(pal, o, c.alongX, t);
+                // Blender low pipes: close to the floor, so Pip tips over them (a vault). Modelled along +Z.
+                Transform lp = t >= 3 ? BlenderModels.Spawn("Obstacles/Conduit" + t, o, pal) : null;
+                if (lp != null) { if (c.alongX) lp.localRotation = Quaternion.Euler(0f, 90f, 0f); }
+                else if (t >= 5) DeckProps.Conduit(pal, o, c.alongX, t);
                 else if (t == 4) ScrapProps.Conduit(pal, o, c.alongX);
                 else if (t == 3) NavyProps.Conduit(pal, o, c.alongX);
                 else

@@ -52,7 +52,9 @@ namespace DiceHero
         {
             var mat = pal.Glow("Shot" + def.id, def.color, 1.6f, def.color);
             var go = Prim.Make(PrimitiveType.Sphere, "Shot", null, pos, Vector3.one * def.radius * 2f, mat);
-            if (!def.homing && def.aoe <= 0f) go.transform.localScale = new Vector3(def.radius * 1.6f, def.radius * 1.6f, def.radius * 5f);
+            // Fire leaves the nozzle as small puffs that swell and slow (see Step); bolts are stretched streaks.
+            if (def.type == DamageType.Fire) go.transform.localScale = Vector3.one * def.radius * 0.8f;
+            else if (!def.homing && def.aoe <= 0f) go.transform.localScale = new Vector3(def.radius * 1.6f, def.radius * 1.6f, def.radius * 5f);
             var s = new Shot { t = go.transform, def = def, pos = pos, life = def.range / def.speed + 0.6f, delay = delay };
             s.vel = def.homing ? (dir + Vector3.up * 0.9f).normalized * def.speed * 0.6f : dir * def.speed;
             if (def.homing) s.target = Targets.Nearest(pos + dir * 6f, def.range, t => t.Reachable(def));
@@ -115,6 +117,11 @@ namespace DiceHero
                     if (Random.value < 0.6f) Fx.Puff(pal, s.pos, 0.12f, 0.35f);
                 }
 
+                if (s.def.type == DamageType.Fire)
+                {
+                    s.vel *= Mathf.Exp(-1.6f * dt);
+                    s.t.localScale = Vector3.one * s.def.radius * Mathf.Lerp(0.8f, 3.2f, Mathf.Clamp01(s.age / 0.45f));
+                }
                 s.pos += s.vel * dt;
                 s.t.position = s.pos;
                 if (s.vel.sqrMagnitude > 0.01f) s.t.rotation = Quaternion.LookRotation(s.vel);

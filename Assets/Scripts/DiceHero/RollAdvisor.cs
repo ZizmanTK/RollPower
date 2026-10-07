@@ -25,15 +25,16 @@ namespace DiceHero
     {
         public static readonly Vector3[] Directions = { Vector3.forward, Vector3.right, Vector3.back, Vector3.left };
 
-        /// <summary>How useful a gun is right now: enemies it can hurt (the boss counts a lot, mites a little).</summary>
+        /// <summary>How useful a gun is right now: enemies it can hurt (bosses count a lot; mites never: only a roll crushes them).</summary>
         public static int Value(WeaponDef w, Game game)
         {
             int n = 0;
             foreach (var e in game.Enemies)
             {
                 if (!e.Alive) continue;
-                if (e.kind == EnemyKind.Boss) { if (w.number == e.PlannedWeakness) n += 6; }
-                else if (e.CanBeHitBy(w)) n += e.IsForeman ? 6 : e.kind == EnemyKind.Mite ? 1 : 2;
+                // The High Roller counts for the defence it wears next too, so Pip lines up during the reroll.
+                if (e.kind == EnemyKind.Boss) { if (!w.IsEmpty && Enemy.Counters(w.type, e.PlannedDefence)) n += 6; }
+                else if (e.CanBeHitBy(w)) n += e.IsForeman ? 6 : 2;
             }
             return n;
         }

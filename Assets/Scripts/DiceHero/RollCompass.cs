@@ -106,7 +106,7 @@ namespace DiceHero
         }
     }
 
-    /// <summary>Flat outlines of the six gun families, shared by the floor markers and Pip's face modules.</summary>
+    /// <summary>Flat outlines of the gun families, shared by the floor markers and Pip's face modules.</summary>
     public static class Glyphs
     {
         /// <summary>Flat outline of a gun family (same shapes as the Pip concept), lying on the floor, "up" = away from the die.</summary>
@@ -128,6 +128,12 @@ namespace DiceHero
                     Dot(0f, 0f, 0.08f); break;
                 case 5:                                                                                     // scatter
                     for (int i = 0; i < 5; i++) { float a = (-56f + i * 28f) * Mathf.Deg2Rad; Dot(Mathf.Sin(a) * 0.36f, Mathf.Cos(a) * 0.36f - 0.2f, 0.042f); }
+                    break;
+                case 7:                                                                                     // flamer: a flame
+                    Bar(0f, 0.04f, 0.09f, 0.42f); Bar(-0.1f, -0.03f, 0.07f, 0.28f, -28f); Bar(0.1f, -0.03f, 0.07f, 0.28f, 28f); Bar(0f, -0.2f, 0.26f, 0.06f);
+                    break;
+                case 8:                                                                                     // arc: a lightning bolt
+                    Bar(0.04f, 0.17f, 0.07f, 0.24f, 25f); Bar(0f, 0f, 0.2f, 0.06f); Bar(-0.04f, -0.17f, 0.07f, 0.24f, 25f);
                     break;
                 default:                                                                                    // missile pod
                     for (int ix = 0; ix < 3; ix++) for (int iz = 0; iz < 2; iz++) Dot((ix - 1) * 0.15f, (iz - 0.5f) * 0.16f, 0.06f);
