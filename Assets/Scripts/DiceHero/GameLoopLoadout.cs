@@ -78,7 +78,7 @@ namespace DiceHero
         void DrawLoadout(float w)
         {
             loadoutMsgTime -= Time.unscaledDeltaTime;
-            Plate(w, 40f, $"CHIPS  {Num(Loadout.Chips)}", Palette.Hex("#FFB020"), "BUILD YOUR DIE", 44);
+            Plate(w, 40f, $"CHIPS  {Num(Loadout.Chips)}", Palette.Hex("#FFB020"), "ENDLESS RUN · ARM YOUR DIE", 44);
             var e = Event.current;
 
             // Left: the die net.

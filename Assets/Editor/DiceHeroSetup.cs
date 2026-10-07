@@ -705,6 +705,18 @@ public static class DiceHeroSetup
                 for (int f = 0; f < 30; f++) { e.t.position += Vector3.forward * 0.04f; rig.Tick(1f / 60f); if (Quaternion.Angle(rig.LegRotation(0), rig.LegRest(0)) > 5f) moved = true; }
             Check(rig != null && rig.LegCount == 4 && moved, $"the crawler walks (rig {(rig != null)}, legs {rig?.LegCount ?? 0}, swung {moved})");
         }
+        {
+            // (6) A mite clamped on Pip chews before it bites: no damage for most of Game.MiteBite, then one bite and it bursts.
+            var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
+            boot.BuildWorld();
+            var loop = boot.Loop; var game = loop.Game; var dice = boot.Controller;
+            game.ManualSpawning = true; dice.InputOverride = Vector2.zero;
+            var m = game.Spawn(EnemyKind.Mite, dice.transform.position + Vector3.right * 0.6f);
+            m.spawnT = 1f;
+            int hp0 = game.Hp; float t = 0f; float bitAt = -1f;
+            while (t < 2.2f && bitAt < 0f) { loop.Step(dt, false); t += dt; if (game.Hp < hp0) bitAt = t; }
+            Check(bitAt > Game.MiteBite - 0.1f && bitAt < Game.MiteBite + 0.3f && !m.Alive, $"a mite chews {Game.MiteBite}s before biting (bit at {bitAt:0.00}s, burst {!m.Alive})");
+        }
         Debug.Log($"[RollPower] TestButtonRoll: {pass} passed, {fail} failed, {skipped} cases where the gun already worked");
         if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
     }

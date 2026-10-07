@@ -219,7 +219,12 @@ namespace DiceHero
                 var k = focus ? Focus : (Wave < 5 ? EnemyKind.Crawler : FocusOrder[rng.Next(unlocked)]);
                 if (k == EnemyKind.Bomber && list.FindAll(x => x == EnemyKind.Bomber).Count >= 2 + Wave / 6) k = EnemyKind.Crawler;
                 list.Add(k);
-                if (k == EnemyKind.Mite) { list.Add(k); list.Add(k); } // mites come in threes
+                if (k == EnemyKind.Mite)
+                {
+                    // Mites come in pairs, and only so many: they must be crushed one roll at a time.
+                    if (list.FindAll(x => x == EnemyKind.Mite).Count > 4 + Wave / 2) list[list.Count - 1] = EnemyKind.Crawler;
+                    else list.Add(k);
+                }
             }
             // Shuffle so the focus type trickles in with the rest.
             for (int i = list.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (list[i], list[j]) = (list[j], list[i]); }
@@ -649,7 +654,7 @@ namespace DiceHero
 
 
         /// <summary>Seconds a mite chews on Pip before it bites.</summary>
-        public const float MiteBite = 0.55f;
+        public const float MiteBite = 1.6f;
 
         // ---------------- Foreman: Compactor (deck 1) ----------------
         // Rolls toward Pip, winds up (its charge lane lights the floor), then charges in a straight line. Hitting the

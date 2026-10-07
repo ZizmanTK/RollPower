@@ -17,10 +17,10 @@ namespace DiceHero
 
         void BuildMenus()
         {
-            titleMenu = new Menu().Add("CAMPAIGN", "play").Add("GAUNTLET", "restart").Add("HOW TO PLAY", "help").Add("SETTINGS", "settings");
+            titleMenu = new Menu().Add("CAMPAIGN", "play").Add("ENDLESS RUN", "restart").Add("HOW TO PLAY", "help").Add("SETTINGS", "settings");
             if (CanQuit) titleMenu.Add("QUIT", "quit");
             pauseMenu = new Menu().Add("RESUME", "resume").Add("SETTINGS", "settings").Add("HOW TO PLAY", "help").Add("RESTART", "restart").Add("MAIN MENU", "home");
-            gameOverMenu = new Menu().Add("PLAY AGAIN", "restart").Add("BUILD YOUR DIE", "help").Add("MAIN MENU", "home");
+            gameOverMenu = new Menu().Add("PLAY AGAIN", "restart").Add("CHANGE GUNS", "help").Add("MAIN MENU", "home");
             settingsMenu = new Menu()
                 .AddSlider("MUSIC", () => Settings.Music, v => Settings.Music = v)
                 .AddSlider("SOUND FX", () => Settings.Sfx, v => Settings.Sfx = v)
@@ -379,7 +379,17 @@ namespace DiceHero
                 if (e.Low)
                 {
                     Vector3 dd = e.pos - Dice.transform.position; dd.y = 0f;
-                    if (dd.magnitude < 5f && ToCanvas(e.t.position + Vector3.up * 0.7f, out var mp)) UiKit.Line("ROLL", mp.x, mp.y - 8f, 13, UiKit.Mint, 0.5f, 2);
+                    if (dd.magnitude < 5f && ToCanvas(e.t.position + Vector3.up * 0.7f, out var mp))
+                    {
+                        // Clamped on and chewing: a bar runs down to the bite, so the time to roll is visible.
+                        if (e.abilityTimer > 0f)
+                        {
+                            var cr = new Rect(mp.x - 22f, mp.y - 4f, 44f, 6f);
+                            UiKit.Rect(new Rect(cr.x - 2f, cr.y - 2f, cr.width + 4f, cr.height + 4f), new Color(0f, 0f, 0f, 0.6f));
+                            UiKit.Bar(cr, 1f - e.abilityTimer / Game.MiteBite, UiKit.Red, new Color(1f, 1f, 1f, 0.12f));
+                        }
+                        else UiKit.Line("ROLL", mp.x, mp.y - 8f, 13, UiKit.Mint, 0.5f, 2);
+                    }
                     continue;
                 }
                 if (!ToCanvas(e.t.position + Vector3.up * (e.radius * 2f + 0.55f), out var p)) continue;
@@ -736,7 +746,7 @@ namespace DiceHero
             var cr = new Rect(w * 0.5f - 389f, 610f, 778f, 50f);
             UiKit.ChamferPanel(cr, new Color(0.2f, 0.13f, 0.02f, 0.9f), Palette.Hex("#FFB020"));
             UiKit.Line($"+{chipsEarned} CHIPS", cr.x + 24f, cr.y + 13f, 24, Palette.Hex("#FFB020"), 0f, 2);
-            UiKit.Line($"TOTAL {Num(Loadout.Chips)}  ·  spend them on new guns in BUILD YOUR DIE", cr.xMax - 24f, cr.y + 16f, 18, UiKit.Soft, 1f, 1);
+            UiKit.Line($"TOTAL {Num(Loadout.Chips)}  ·  spend them on new guns before your next endless run", cr.xMax - 24f, cr.y + 16f, 18, UiKit.Soft, 1f, 1);
             Activate(Screen2.GameOver, gameOverMenu.Draw(w * 0.5f, 680f, 540f, 80f));
             float hy = UiKit.H - 66f;
             float kx = w * 0.5f - 110f;

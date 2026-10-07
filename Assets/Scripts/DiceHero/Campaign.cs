@@ -76,7 +76,7 @@ namespace DiceHero
             ("SHUTDOWN", "The High Roller falls apart. Without its die, the House goes quiet."),
             ("LIGHTS", "Deck by deck the lights come back on. The Core opens and the crew walk out."),
             ("SIX", "On the observation deck, Pip rolls once more. It lands on a 6."),
-            ("THANK YOU", "Roll Power, a GMTK Game Jam 2022 game by ZizmanTK, rebuilt. The Gauntlet is always open, and the station map now has a hard campaign (press H)."),
+            ("THANK YOU", "Roll Power, a GMTK Game Jam 2022 game by ZizmanTK, rebuilt. The endless run is always open, and the station map now has a hard campaign (press H)."),
         };
 
         public const string Vega = "VEGA · CHIEF ENGINEER";
@@ -136,7 +136,7 @@ namespace DiceHero
                         {
                             new WaveDef { title = "CRAWLERS AND DRONES", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 5) }, radio = "Ground and air at once. Dodge with the roll, and land on the gun you need." },
                             new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Drone, 5) }, bombs = 2 },
-                            new WaveDef { title = "MITES", enemies = new[] { (EnemyKind.Mite, 12), (EnemyKind.Crawler, 6) }, radio = "Mites. Too low for your barrels: roll right onto them. You weigh a tonne." },
+                            new WaveDef { title = "MITES", enemies = new[] { (EnemyKind.Mite, 7), (EnemyKind.Crawler, 6) }, radio = "Mites. Too low for your barrels: roll right onto them. You weigh a tonne." },
                             new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Crawler, 12), (EnemyKind.Drone, 7), (EnemyKind.Bomber, 2) }, bombs = 2, radio = "Roll over a pipe rack to vault it: you land on the opposite face." },
                         },
                         startRadio = new[] { "The House is throwing everything at you. Good. That means it's worried." },
@@ -198,7 +198,7 @@ namespace DiceHero
                         {
                             new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Crawler, 6) }, coats = new[] { Defence.Vines, Defence.Bare }, radio = "Bombers in the planters. Shove the bombs off the edge." },
                             W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Drone, 3)),
-                            W("SWARM", "Mites in the soil. Roll onto them.", (EnemyKind.Mite, 9), (EnemyKind.Drone, 4)),
+                            W("SWARM", "Mites in the soil. Roll onto them.", (EnemyKind.Mite, 6), (EnemyKind.Drone, 4)),
                             new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 6), (EnemyKind.Drone, 3), (EnemyKind.Bomber, 2) }, coats = new[] { Defence.Vines, Defence.Bare }, radio = "Something's hidden in the far corner, behind the planters. Worth a look." },
                         },
                         startRadio = new[] { "This one's overgrown. Watch the corners." },
@@ -229,7 +229,7 @@ namespace DiceHero
                         waves = new[]
                         {
                             new WaveDef { title = "FROZEN CRAWLERS", enemies = new[] { (EnemyKind.Crawler, 8) }, coats = new[] { Defence.Ice }, radio = "The House froze its crawlers solid: shots skid off the ice. Melt it, flamer on face 3. And mind the floor, you'll slide." },
-                            W("MITES", "Mites on the ice. Roll onto them.", (EnemyKind.Mite, 9), (EnemyKind.Drone, 3)),
+                            W("MITES", "Mites on the ice. Roll onto them.", (EnemyKind.Mite, 6), (EnemyKind.Drone, 3)),
                             new WaveDef { title = "TANKS ON ICE", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 6) }, coats = new[] { Defence.Ice, Defence.Bare } },
                         },
                         startRadio = new[] { "The cryo mines. Cold enough to freeze the drills. Mind your footing." },
@@ -243,7 +243,7 @@ namespace DiceHero
                         waves = new[]
                         {
                             new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 3), (EnemyKind.Crawler, 6) }, coats = new[] { Defence.Bare, Defence.Ice }, radio = "Bombers. A bomb you shove on ice keeps sliding. Aim it at a crowd." },
-                            W("MITE BOMBS", null, (EnemyKind.Mite, 9), (EnemyKind.Bomber, 2)),
+                            W("MITE BOMBS", null, (EnemyKind.Mite, 6), (EnemyKind.Bomber, 2)),
                             W("DEMOLITION", null, (EnemyKind.Bomber, 4), (EnemyKind.Tank, 2), (EnemyKind.Drone, 4)),
                         },
                         startRadio = new[] { "They're mining with explosives again. Turn that around." },
@@ -257,10 +257,10 @@ namespace DiceHero
                         hazards = new[] { new HazardDef(I, -5f, -2f, 2.2f), new HazardDef(I, 4f, 0.5f, 2f), new HazardDef(I, 0f, 7f, 2f) },
                         waves = new[]
                         {
-                            W("DRONES", null, (EnemyKind.Drone, 7), (EnemyKind.Mite, 6)),
+                            W("DRONES", null, (EnemyKind.Drone, 7), (EnemyKind.Mite, 4)),
                             new WaveDef { title = "TANKS", enemies = new[] { (EnemyKind.Tank, 4), (EnemyKind.Crawler, 6) }, coats = new[] { Defence.Ice } },
                             W("BOMBERS", null, (EnemyKind.Bomber, 3), (EnemyKind.Drone, 4)),
-                            new WaveDef { title = "WHITEOUT", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Mite, 6) }, coats = new[] { Defence.Ice, Defence.Bare }, radio = "I'm reading something odd near the bottom-right corner. A spare module?" },
+                            new WaveDef { title = "WHITEOUT", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Mite, 4) }, coats = new[] { Defence.Ice, Defence.Bare }, radio = "I'm reading something odd near the bottom-right corner. A spare module?" },
                         },
                         startRadio = new[] { "Visibility's dropping. Trust the markers." },
                         clearRadio = new[] { "The driller's tunnelling under the next chamber. Only an explosion reaches it down there." },
@@ -308,7 +308,7 @@ namespace DiceHero
                         {
                             W("CRAWLERS", "Heat vents. They glow, then they blow, always in the same rhythm. Learn it.", (EnemyKind.Crawler, 10)),
                             new WaveDef { title = "SHIELDS IN THE HEAT", enemies = new[] { (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4) }, coats = new[] { Defence.Shield, Defence.Bare } },
-                            new WaveDef { title = "FURNACE", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Mite, 6) }, coats = new[] { Defence.Shield } },
+                            new WaveDef { title = "FURNACE", enemies = new[] { (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Mite, 4) }, coats = new[] { Defence.Shield } },
                         },
                         startRadio = new[] { "Hot floor ahead. Watch the vents." },
                         clearRadio = new[] { "One more hall, then the smelter." },
@@ -323,7 +323,7 @@ namespace DiceHero
                         {
                             new WaveDef { title = "SHIELDS", enemies = new[] { (EnemyKind.Crawler, 8) }, coats = new[] { Defence.Shield, Defence.Vines, Defence.Ice } },
                             W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Drone, 4)),
-                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 4), (EnemyKind.Mite, 8) }, coats = new[] { Defence.Shield } },
+                            new WaveDef { title = "BOMBERS", enemies = new[] { (EnemyKind.Bomber, 4), (EnemyKind.Mite, 5) }, coats = new[] { Defence.Shield } },
                             new WaveDef { title = "MELTDOWN", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 4) }, coats = new[] { Defence.Shield, Defence.Bare }, radio = "There's a cold spot behind the crucibles, bottom-left. Something's stashed there." },
                         },
                         startRadio = new[] { "The furnaces are running hot. The House knows you're coming." },
@@ -353,7 +353,7 @@ namespace DiceHero
                         waves = new[]
                         {
                             new WaveDef { title = "THE HOUSE'S GUARD", enemies = new[] { (EnemyKind.Crawler, 10), (EnemyKind.Drone, 5) }, coats = new[] { Defence.Shield, Defence.Vines, Defence.Bare }, radio = "The Core. Everything the House has, at once." },
-                            W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Mite, 6)),
+                            W("TANKS", null, (EnemyKind.Tank, 4), (EnemyKind.Mite, 4)),
                             W("BOMBERS", null, (EnemyKind.Bomber, 4), (EnemyKind.Drone, 5)),
                             new WaveDef { title = "EVERYTHING", enemies = new[] { (EnemyKind.Tank, 2), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Bomber, 2) }, coats = new[] { Defence.Ice, Defence.Shield, Defence.Bare } },
                         },
@@ -369,7 +369,7 @@ namespace DiceHero
                         {
                             new WaveDef { title = "SHIELD WALL", enemies = new[] { (EnemyKind.Crawler, 12) }, coats = new[] { Defence.Shield, Defence.Ice, Defence.Vines } },
                             W("ARMOUR", null, (EnemyKind.Tank, 5), (EnemyKind.Drone, 5)),
-                            W("SWARM", null, (EnemyKind.Mite, 10), (EnemyKind.Bomber, 3)),
+                            W("SWARM", null, (EnemyKind.Mite, 7), (EnemyKind.Bomber, 3)),
                             W("LAST LINE", null, (EnemyKind.Tank, 3), (EnemyKind.Crawler, 8), (EnemyKind.Drone, 5), (EnemyKind.Bomber, 1)),
                         },
                         startRadio = new[] { "The House is pulling everything back to defend itself." },

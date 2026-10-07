@@ -402,7 +402,7 @@ namespace DiceHero
                     BossModels.Build(e, pal, root);
                     break;
                 default: // Mite
-                    e.hp = 1f; e.speed = 3.0f; e.radius = 0.24f;
+                    e.hp = 1f; e.speed = 2.5f; e.radius = 0.24f;
                     Prim.Make(PrimitiveType.Sphere, "Body", mroot, new Vector3(0f, 0.2f, 0f), new Vector3(0.42f, 0.3f, 0.5f), hull);
                     Prim.Make(PrimitiveType.Sphere, "Eye", mroot, new Vector3(0f, 0.24f, 0.2f), new Vector3(0.16f, 0.1f, 0.12f), eye);
                     break;
