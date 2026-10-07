@@ -168,7 +168,8 @@ namespace DiceHero
                 case EnemyKind.Gardener:
                 {
                     e.hp = 200f; e.speed = 0f; e.radius = 1.2f; e.fireTimer = 2f; e.abilityTimer = 5f; e.modeT = 10f;
-                    if (BlenderModels.Spawn("Enemies/Gardener", root, pal) != null) break;
+                    var gbm = BlenderModels.Spawn("Enemies/Gardener", root, pal);
+                    if (gbm != null) { EnemyRig.Attach(root, gbm, EnemyKind.Gardener); break; }
                     var pot = pal.Get("GardPot", Palette.Hex("#3A4B52"), 0.5f, 0.6f);
                     var band = pal.Get("GardBand", Palette.Hex("#C8913E"), 0.7f, 0.9f);
                     var leaf = pal.Get("GardLeaf", Palette.Hex("#4FA34A"), 0.35f, 0f);
@@ -197,6 +198,7 @@ namespace DiceHero
                     if (dbm != null)
                     {
                         e.plates = new[] { BlenderModels.Pivot(dbm, "Pivot_Machine", root), BlenderModels.Pivot(dbm, "Pivot_Mound", root) };
+                        EnemyRig.Attach(root, dbm, EnemyKind.Driller, e.plates[0]);
                         e.lane = Prim.Make(PrimitiveType.Cylinder, "SurfaceRing", null, root.position, new Vector3(4.4f, 0.01f, 4.4f), pal.Glow("DrillWarn", Red, 1.1f, Red * 0.4f)).transform;
                         e.lane.gameObject.SetActive(false);
                         break;
@@ -228,6 +230,7 @@ namespace DiceHero
                     {
                         e.plates = new Transform[3];
                         for (int i = 0; i < 3; i++) e.plates[i] = BlenderModels.Pivot(sbm, "Pivot_Plate" + i, root);
+                        EnemyRig.Attach(root, sbm, EnemyKind.Smelter);
                         break;
                     }
                     var iron = pal.Get("SmeltIron", Palette.Hex("#2A2624"), 0.4f, 0.8f);

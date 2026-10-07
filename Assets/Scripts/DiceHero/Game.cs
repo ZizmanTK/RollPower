@@ -552,6 +552,8 @@ namespace DiceHero
             e.t.localScale = Vector3.one * Mathf.Max(0.01f, pop);
             e.UpdateFlash(dt);
             if (Lost) return;
+            // Burning and shocked robots: flames and arcs; a shocked one is stunned (no moving, no biting).
+            if (StepStatus(e, dt)) { if (e.Alive) e.t.position = e.pos + Random.insideUnitSphere * 0.03f; return; }
 
             if (e.kind == EnemyKind.Boss) { StepBoss(e, dt, dp); return; }
             if (e.kind == EnemyKind.Compactor) { StepCompactor(e, dt, dp); return; }

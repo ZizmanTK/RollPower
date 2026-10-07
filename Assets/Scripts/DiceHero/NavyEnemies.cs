@@ -37,6 +37,7 @@ namespace DiceHero
                     BlenderModels.Spin(bm, "Glow_Blade", 1100f);
                     P(PrimitiveType.Cylinder, root, new Vector3(0f, 0.02f, 0f), new Vector3(0.8f, 0.005f, 0.8f), pal.Glow("DroneMarker", Palette.Hex("#FF2A3D"), 0.8f, Palette.Hex("#FF2A3D")));
                 }
+                EnemyRig.Attach(root, bm, kind);
                 return;
             }
             switch (kind)

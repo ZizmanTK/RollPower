@@ -672,6 +672,17 @@ public static class DiceHeroSetup
             for (int f = 0; f < 17; f++) loop.Step(dt, false); // ~0.28 s: past the 0.22 s shield, still rolling
             Check(dice.IsRolling && !dice.Shielded, "late in a single roll: still rolling, no longer shielded");
         }
+        {
+            // (5) The Blender crawler walks: moving it swings its legs away from their rest pose.
+            var boot = UnityEngine.Object.FindAnyObjectByType<GameBootstrap>();
+            boot.BuildWorld();
+            var e = boot.Loop.Game.Spawn(EnemyKind.Crawler, new Vector3(0f, 0f, 3f));
+            var rig = e.t.GetComponent<EnemyRig>();
+            bool moved = false;
+            if (rig != null && rig.LegCount == 4)
+                for (int f = 0; f < 30; f++) { e.t.position += Vector3.forward * 0.04f; rig.Tick(1f / 60f); if (Quaternion.Angle(rig.LegRotation(0), rig.LegRest(0)) > 5f) moved = true; }
+            Check(rig != null && rig.LegCount == 4 && moved, $"the crawler walks (rig {(rig != null)}, legs {rig?.LegCount ?? 0}, swung {moved})");
+        }
         Debug.Log($"[RollPower] TestButtonRoll: {pass} passed, {fail} failed, {skipped} cases where the gun already worked");
         if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
     }

@@ -32,6 +32,7 @@ PAL = {
     'Ore': ('#3A4F63', 0.4, 0.6, None), 'Ingot': ('#7A828C', 0.9, 0.35, None), 'Hot': ('#FF6A1A', 0.6, 0.4, 2.5),
     'Iron': ('#2A2624', 0.7, 0.5, None), 'Slag': ('#FF7A1A', 0.0, 0.4, 2.5), 'Rack': ('#141B24', 0.4, 0.45, None),
     'Led': ('#29E0FF', 0.0, 0.3, 6.0), 'Tray': ('#3A4554', 0.6, 0.45, None),
+    'Core': ('#FFFFFF', 0.0, 0.2, 8.0), 'Fire': ('#FF5A1A', 0.0, 0.4, 7.0),
     'CableA': ('#C8323C', 0.0, 0.5, None), 'CableB': ('#2F5FBF', 0.0, 0.5, None), 'CableY': ('#E0B030', 0.0, 0.5, None),
 }
 GUNCOL = {'twin': '#5CFF8A', 'tri': '#5CFF8A', 'scatter': '#5CFF8A', 'missile': '#FF4B3A', 'needler': '#FF4B3A', 'flak': '#FF4B3A',
@@ -160,10 +161,13 @@ def crawler():
         a = R(45 + i * 90)
         d = Vector((math.sin(a), math.cos(a), 0))
         hip, knee, foot = d * 0.2 + Vector((0, 0, 0.32)), d * 0.46 + Vector((0, 0, 0.52)), d * 0.62
-        m.limb('Shell', 'Thigh', hip, knee, 0.05)
-        m.limb('Metal', 'Shin', knee, foot + Vector((0, 0, 0.03)), 0.035)
-        m.sphere('Silver', 'Knee', 0.06, knee, seg=12)
-        m.box('Metal', 'Foot', (0.1, 0.12, 0.04), foot + Vector((0, 0, 0.02)), rot=(0, 0, -a))
+        m.into = m.empty('Pivot_Leg%d' % i, hip)  # the game swings each leg from its hip (walk cycle)
+        k, f = knee - hip, foot - hip
+        m.limb('Shell', 'Thigh', Vector((0, 0, 0)), k, 0.05)
+        m.limb('Metal', 'Shin', k, f + Vector((0, 0, 0.03)), 0.035)
+        m.sphere('Silver', 'Knee', 0.06, k, seg=12)
+        m.box('Metal', 'Foot', (0.1, 0.12, 0.04), f + Vector((0, 0, 0.02)), rot=(0, 0, -a))
+        m.into = None
     return m
 
 def drone():
@@ -197,15 +201,17 @@ def tank():
     m.box('Steel', 'Hull', (0.62, 0.86, 0.26), (0, -0.02, 0.38), bevel=0.03)
     m.box('Steel', 'Glacis', (0.6, 0.34, 0.05), (0, 0.48, 0.36), rot=(R(-38), 0, 0), bevel=0.01)
     for x in (-0.22, 0, 0.22): m.sphere('Rivet', 'Rivet', 0.024, (x, 0.53, 0.4), seg=8)
-    m.cyl('Steel', 'Turret', 0.3, 0.22, (0, -0.06, 0.62), seg=8, smooth=False)
-    m.cyl('Steel', 'TurretTop', 0.26, 0.05, (0, -0.06, 0.75), seg=8, smooth=False)
+    m.into = m.empty('Pivot_Turret', (0, -0.06, 0.62))  # turns toward Pip and kicks back when it fires
+    m.cyl('Steel', 'Turret', 0.3, 0.22, (0, 0, 0), seg=8, smooth=False)
+    m.cyl('Steel', 'TurretTop', 0.26, 0.05, (0, 0, 0.13), seg=8, smooth=False)
     for i in range(8):
         a = R(22.5 + i * 45)
-        m.sphere('Rivet', 'Rivet', 0.022, (math.sin(a) * 0.28, -0.06 + math.cos(a) * 0.28, 0.7), seg=8)
-    m.cyl('Metal', 'Barrel', 0.055, 0.6, (0, 0.42, 0.64), rot=(R(-90), 0, 0))
-    m.box('Metal', 'Brake', (0.14, 0.1, 0.1), (0, 0.74, 0.64), bevel=0.01)
-    m.box('Eye', 'Slit', (0.22, 0.02, 0.03), (0, 0.22, 0.66))
-    m.box('Hazard', 'Mark', (0.14, 0.14, 0.006), (0.17, -0.25, 0.775))
+        m.sphere('Rivet', 'Rivet', 0.022, (math.sin(a) * 0.28, math.cos(a) * 0.28, 0.08), seg=8)
+    m.cyl('Metal', 'Barrel', 0.055, 0.6, (0, 0.48, 0.02), rot=(R(-90), 0, 0))
+    m.box('Metal', 'Brake', (0.14, 0.1, 0.1), (0, 0.8, 0.02), bevel=0.01)
+    m.box('Eye', 'Slit', (0.22, 0.02, 0.03), (0, 0.28, 0.04))
+    m.box('Hazard', 'Mark', (0.14, 0.14, 0.006), (0.17, -0.19, 0.155))
+    m.into = None
     return m
 
 def mite():
@@ -218,7 +224,9 @@ def mite():
     for i in range(6):
         a = R(30 + i * 60 + (0 if i < 3 else 0))
         d = Vector((math.sin(a), math.cos(a), 0))
-        m.limb('Metal', 'Leg', d * 0.18 + Vector((0, 0, 0.04)), d * 0.32 + Vector((0, 0, 0.01)), 0.016)
+        m.into = m.empty('Pivot_Leg%d' % i, d * 0.18 + Vector((0, 0, 0.04)))
+        m.limb('Metal', 'Leg', Vector((0, 0, 0)), d * 0.14 + Vector((0, 0, -0.03)), 0.016)
+        m.into = None
     return m
 
 def bomber():
@@ -227,7 +235,10 @@ def bomber():
     m.cyl('Metal', 'Base', 0.36, 0.1, (0, 0, 0.12), seg=24)
     for i in range(3):
         a = R(i * 120 + 60)
-        m.cyl('Tread', 'Wheel', 0.08, 0.06, (math.sin(a) * 0.3, math.cos(a) * 0.3, 0.08), rot=(0, R(90), -a), seg=14)
+        m.into = m.empty('Pivot_Wheel%d' % i, (math.sin(a) * 0.3, math.cos(a) * 0.3, 0.08), rot=(0, 0, -a))
+        m.cyl('Tread', 'Wheel', 0.08, 0.06, (0, 0, 0), rot=(0, R(90), 0), seg=14)
+        m.box('Hazard', 'Hub', (0.065, 0.03, 0.12), (0, 0, 0))
+        m.into = None
     m.box('Pcb', 'Board', (0.36, 0.3, 0.02), (0, -0.02, 0.18))
     for x in (-0.09, 0.08): m.box('Chip', 'Chip', (0.08, 0.07, 0.03), (x, -0.04, 0.2))
     m.box('Trace', 'Trace', (0.3, 0.012, 0.006), (0, 0.06, 0.193))
@@ -534,6 +545,83 @@ def core_obstacles():
     for y in (-0.9, 0.0, 0.9): p.box('Hazard', 'Clip', (0.38, 0.05, 0.05), (0, y, 0.22))
     return s, p
 
+# ======================= AMMO (flies along +Y; 'Emit' takes the gun's colour) =======================
+
+def ammo_bolt():
+    # Bolt guns: a streak of plain energy, bright core, soft sheath, tapering tail.
+    m = model('Bolt', 'Ammo')
+    m.sphere('Core', 'Core', 0.035, (0, 0.03, 0), scale=(1, 3.2, 1), seg=12)
+    m.sphere('Emit', 'Sheath', 0.06, (0, 0, 0), scale=(1, 3.0, 1), seg=12)
+    m.cyl('Emit', 'Tail', 0.05, 0.22, (0, -0.25, 0), rot=FWD, r2=0.002, seg=12).rotation_euler = (R(90), 0, 0)
+    return m
+
+def ammo_missile():
+    # Seeker: a real little missile: nose cone, band, four fins, exhaust flame.
+    m = model('Missile', 'Ammo')
+    m.cyl('Panel', 'Body', 0.04, 0.24, (0, 0, 0), rot=FWD, seg=14)
+    m.cyl('Emit', 'Nose', 0.04, 0.09, (0, 0.165, 0), rot=FWD, r2=0.003, seg=14)
+    m.cyl('Hazard', 'Band', 0.041, 0.025, (0, 0.08, 0), rot=FWD, seg=14)
+    for k in range(4):
+        a = k * math.pi / 2
+        m.box('Metal', 'Fin', (0.006, 0.07, 0.07), (math.cos(a) * 0.055, -0.1, math.sin(a) * 0.055), rot=(0, a, 0))
+    m.cyl('Flame', 'Exhaust', 0.03, 0.12, (0, -0.18, 0), rot=(R(90), 0, 0), r2=0.002, seg=10)
+    return m
+
+def ammo_needle():
+    m = model('Needle', 'Ammo')
+    m.cyl('Silver', 'Shaft', 0.012, 0.2, (0, 0, 0), rot=FWD, seg=8)
+    m.cyl('Emit', 'Point', 0.012, 0.07, (0, 0.135, 0), rot=FWD, r2=0.001, seg=8)
+    for k in range(3):
+        a = k * 2 * math.pi / 3
+        m.box('Emit', 'Vane', (0.003, 0.05, 0.03), (math.cos(a) * 0.02, -0.08, math.sin(a) * 0.02), rot=(0, a, 0))
+    return m
+
+def ammo_flak():
+    # Proximity shell: a brass case, a pointed nose with a glowing fuse ring.
+    m = model('Flak', 'Ammo')
+    m.cyl('Copper', 'Case', 0.04, 0.1, (0, -0.02, 0), rot=FWD, seg=14)
+    m.cyl('Metal', 'Nose', 0.04, 0.08, (0, 0.07, 0), rot=FWD, r2=0.008, seg=14)
+    m.cyl('Emit', 'Fuse', 0.042, 0.015, (0, 0.035, 0), rot=FWD, seg=14)
+    return m
+
+def ammo_plasma():
+    # Explosive orb held in two spinning containment rings.
+    m = model('Plasma', 'Ammo')
+    m.sphere('Core', 'Core', 0.07, (0, 0, 0), seg=14)
+    m.sphere('Emit', 'Orb', 0.12, (0, 0, 0), seg=16)
+    m.torus('Emit', 'Ring', 0.16, 0.012, (0, 0, 0), rot=(R(70), 0, 0))
+    m.torus('Emit', 'Ring', 0.16, 0.012, (0, 0, 0), rot=(R(-20), R(60), 0))
+    return m
+
+def ammo_mortar():
+    # A real mortar bomb: teardrop body, hazard band, tail fins, glowing fuse on the nose.
+    m = model('Mortar', 'Ammo')
+    m.sphere('Bomb', 'Body', 0.07, (0, 0.02, 0), scale=(1, 1.7, 1), seg=14)
+    m.cyl('Hazard', 'Band', 0.071, 0.03, (0, 0.03, 0), rot=FWD, seg=14)
+    m.cyl('Metal', 'Tail', 0.025, 0.1, (0, -0.13, 0), rot=FWD, seg=10)
+    for k in range(4):
+        a = k * math.pi / 2
+        m.box('Metal', 'Fin', (0.005, 0.06, 0.05), (math.cos(a) * 0.035, -0.16, math.sin(a) * 0.035), rot=(0, a, 0))
+    m.sphere('Emit', 'Fuse', 0.022, (0, 0.14, 0), seg=10)
+    return m
+
+def ammo_flame():
+    # Fire: a bundle of flame tongues, white-yellow core, orange edge.
+    m = model('Flame', 'Ammo')
+    m.sphere('Flame', 'Core', 0.08, (0, 0.02, 0), scale=(1, 1.6, 1), seg=12)
+    for k, (x, z, s) in enumerate(((0.06, 0.03, 1.0), (-0.06, 0.02, 0.9), (0.0, -0.06, 0.8), (0.02, 0.07, 0.7))):
+        m.cyl('Fire', 'Tongue', 0.07 * s, 0.26 * s, (x, -0.04, z), rot=(R(90), 0, 0), r2=0.004, seg=10).rotation_euler = (R(90 + x * 200), 0, R(z * 300))
+    m.ico('Fire', 'Lick', 0.09, (0, 0.05, 0), scale=(1.1, 1.4, 1.1), sub=1)
+    return m
+
+def ammo_slug():
+    # Railgun: a tungsten dart, shown flying down the beam.
+    m = model('Slug', 'Ammo')
+    m.cyl('Slug', 'Body', 0.02, 0.18, (0, 0, 0), rot=FWD, seg=10)
+    m.cyl('Slug', 'Tip', 0.02, 0.08, (0, 0.13, 0), rot=FWD, r2=0.001, seg=10)
+    m.cyl('Emit', 'Trail', 0.018, 0.5, (0, -0.34, 0), rot=(R(90), 0, 0), r2=0.001, seg=8)
+    return m
+
 # ======================= FOREMEN =======================
 # Moving pieces sit under named empties ("Pivot_..."); Unity rebuilds a clean pivot at each and animates it.
 
@@ -542,7 +630,11 @@ def compactor():
     m = model('Compactor', 'Enemies')
     for x in (-0.85, 0.85):
         m.box('Tread', 'Tread', (0.42, 2.0, 0.52), (x, 0, 0.26), bevel=0.08)
-        for y in (-0.7, -0.23, 0.23, 0.7): m.cyl('Metal', 'Wheel', 0.2, 0.44, (x, y, 0.26), rot=(0, R(90), 0), seg=16)
+        for y in (-0.7, -0.23, 0.23, 0.7):
+            m.into = m.empty('Pivot_Wheel%d' % len([o for o in m.root.children if o.name.startswith('Pivot_Wheel')]), (x, y, 0.26))
+            m.cyl('Metal', 'Wheel', 0.2, 0.44, (0, 0, 0), rot=(0, R(90), 0), seg=16)
+            m.box('Hazard', 'Spoke', (0.46, 0.06, 0.3), (0, 0, 0))
+            m.into = None
         for i in range(6): m.box('Steel', 'Lug', (0.44, 0.12, 0.04), (x, -0.85 + i * 0.34, 0.53))
     m.box('Steel', 'Hull', (1.32, 1.6, 0.78), (0, -0.1, 0.72), bevel=0.05)
     for x in (-0.6, -0.2, 0.2, 0.6):
@@ -577,9 +669,12 @@ def gardener():
     for k in range(5):
         a0 = k * 2 * math.pi / 5 + 0.3
         pts = [Vector((math.cos(a0 + t * 1.6) * (0.8 + 0.3 * t), math.sin(a0 + t * 1.6) * (0.8 + 0.3 * t), 0.6 + math.sin(t * 3) * 0.5 + t * 0.3)) for t in [i / 8 for i in range(9)]]
-        for i in range(8): m.limb('Vine', 'Tendril', pts[i], pts[i + 1], 0.07 - i * 0.006)
-        m.sphere('Leaf', 'Leaf', 0.18, pts[5], scale=(1, 0.5, 0.15), seg=10)
-        m.sphere('Water', 'Pod', 0.12, pts[8], seg=12)
+        m.into = m.empty('Pivot_Tendril%d' % k, pts[0])  # vines sway
+        q = [p - pts[0] for p in pts]
+        for i in range(8): m.limb('Vine', 'Tendril', q[i], q[i + 1], 0.07 - i * 0.006)
+        m.sphere('Leaf', 'Leaf', 0.18, q[5], scale=(1, 0.5, 0.15), seg=10)
+        m.sphere('Water', 'Pod', 0.12, q[8], seg=12)
+        m.into = None
     m.sphere('Eye', 'Core', 0.24, (0, 0.38, 1.5))
     return m
 
@@ -590,9 +685,12 @@ def driller():
     m.cyl('Steel', 'Body', 0.75, 0.55, (0, -0.1, 0.55), seg=24)
     m.cyl('Hazard', 'Band', 0.76, 0.06, (0, -0.1, 0.7), seg=24)
     for x in (-0.75, 0.75): m.box('Tread', 'Tread', (0.35, 1.6, 0.44), (x, -0.1, 0.22), bevel=0.06)
+    bit = m.empty('Pivot_Bit', (0, 0.95, 0.6)); m.into = bit  # spins while it's up
     for i, (r, d, y) in enumerate(((0.45, 0.25, 0.95), (0.28, 0.2, 1.3), (0.12, 0.2, 1.58))):
-        m.cyl('Copper', 'Bit', r, d, (0, y, 0.6), rot=FWD, r2=r * 0.6, seg=16)
-    m.cyl('Copper', 'Tip', 0.08, 0.2, (0, 1.75, 0.6), rot=FWD, r2=0.002, seg=12)
+        m.cyl('Copper', 'Bit', r, d, (0, y - 0.95, 0), rot=FWD, r2=r * 0.6, seg=16)
+        m.box('Tread', 'Flute', (r * 2.05, 0.05, 0.06), (0, y - 0.95, 0), rot=(0, R(30 * i), 0))
+    m.cyl('Copper', 'Tip', 0.08, 0.2, (0, 0.8, 0), rot=FWD, r2=0.002, seg=12)
+    m.into = mach
     m.box('Eye', 'Eye', (0.7, 0.06, 0.08), (0, 0.45, 1.05))
     import random
     rnd = random.Random(11)
@@ -618,7 +716,10 @@ def smelter():
     m.cyl('Iron', 'Chimney', 0.22, 0.6, (0.5, -0.4, 2.0), seg=16)
     m.cyl('Slag', 'Glow', 0.17, 0.02, (0.5, -0.4, 2.31), seg=16)
     m.box('Eye', 'Eye', (1.2, 0.05, 0.07), (0, 0.86, 1.4))
-    for x in (-0.7, 0.7): m.box('Tread', 'Leg', (0.4, 1.8, 0.3), (x, 0, 0.15), bevel=0.05)
+    for i, x in enumerate((-0.7, 0.7)):
+        m.into = m.empty('Pivot_Leg%d' % i, (x, 0, 0.3))  # stomps
+        m.box('Tread', 'Leg', (0.4, 1.8, 0.3), (0, 0, -0.15), bevel=0.05)
+        m.into = None
     m.sphere('Hot', 'Core', 0.32, (0, 0.55, 0.95), seg=16)
     for i, (loc, yaw) in enumerate((((0, 0.98, 0.95), 0), ((-1.02, 0, 0.95), 90), ((1.02, 0, 0.95), -90))):
         piv = m.empty('Pivot_Plate%d' % i, loc, rot=(0, 0, R(yaw))); m.into = piv
@@ -634,6 +735,7 @@ def smelter():
 
 for f in (crawler, drone, tank, mite, bomber, coat_vines, coat_ice, coat_shield): f()
 for g in ('twin', 'tri', 'scatter', 'missile', 'needler', 'flak', 'rail', 'plasma', 'mortar', 'flamer', 'lance'): gun(g)
+AMMO = [f() for f in (ammo_bolt, ammo_missile, ammo_needle, ammo_flak, ammo_plasma, ammo_mortar, ammo_flame, ammo_slug)]
 BOSSES = [('COMPACTOR', 'steel: ram it into a wall', compactor()), ('GARDENER', 'a plant: fire', gardener()), ('DRILLER', 'underground: explosive · iced: fire', driller()), ('SMELTER', 'steel shutters, then a shield', smelter())]
 OBST = [('SCRAP BAY', scrap_obstacles()), ('HYDROPONICS', hydro_obstacles()), ('CRYO MINES', cryo_obstacles()), ('FOUNDRY', foundry_obstacles()), ('THE CORE', core_obstacles())]
 
@@ -762,5 +864,41 @@ def export(outdir):
                                  axis_forward='Y', axis_up='Z', mesh_smooth_type='FACE', add_leaf_bones=False)
         print('[roster] exported', path)
 
+def portraits(out):
+    # Intro cards: one enemy alone, facing the camera, on a transparent background.
+    os.makedirs(out, exist_ok=True)
+    w = bpy.data.worlds.new('W'); scene.world = w; w.use_nodes = True
+    w.node_tree.nodes['Background'].inputs[0].default_value = hexc('#0A1726'); w.node_tree.nodes['Background'].inputs[1].default_value = 0.8
+    get = {m.name: m for m in MODELS}
+    for m in MODELS: m.root.location = (0, 100, 0)
+    subjects = [('Crawler', 'Crawler', None, 0.45), ('Drone', 'Drone', None, 0.0), ('Tank', 'Tank', None, 0.5), ('Mite', 'Mite', None, 0.1),
+                ('Bomber', 'Bomber', None, 0.4), ('Vines', 'Crawler', 'Vines', 0.5), ('Ice', 'Crawler', 'Ice', 0.5), ('Shield', 'Crawler', 'Shield', 0.55)]
+    scene.render.film_transparent = True
+    for key, name, coat, h in subjects:
+        a = duplicate(get[name]); a.rotation_euler = (0, 0, R(205))
+        if coat: c = duplicate(get[coat]); c.scale = (0.54, 0.54, 0.52); c.rotation_euler = (0, 0, R(205))
+        size = 0.35 if name == 'Mite' else 1.0
+        cam(Vector((0, -2.6, 1.9)) * size + Vector((0, 0, h * 0.4)), Vector((0, 0, h)), 50)
+        for loc, e, col in (((-2, -3, 4), 400, (1, 1, 1)), ((3, 1, 2), 150, (0.6, 0.8, 1.0)), ((0, 3, 2), 120, (1.0, 0.7, 0.6))):
+            ld = bpy.data.lights.new('L', 'AREA'); ld.energy = e * size * size; ld.size = 3 * size; ld.color = col
+            o = bpy.data.objects.new('L', ld); scene.collection.objects.link(o); o.location = Vector(loc) * size
+            o.rotation_euler = (Vector((0, 0, h)) - o.location).to_track_quat('-Z', 'Y').to_euler()
+        setup_render(512, 512, 48); save(os.path.join(out, key + '.png'))
+        clear_dups()
+
 if MODE == 'sheet': sheet(argv[1])
+elif MODE == 'portraits': portraits(argv[1])
+elif MODE == 'ammo':
+    os.makedirs(argv[1], exist_ok=True)
+    w = bpy.data.worlds.new('W'); scene.world = w; w.use_nodes = True; w.node_tree.nodes['Background'].inputs[0].default_value = hexc('#0A1726')
+    for m in MODELS: m.root.location = (0, 100, 0)
+    for i, m in enumerate(AMMO):
+        EMIT[0] = ['#5CFF8A', '#FF4B3A', '#FF4B3A', '#FF4B3A', '#FF3FA4', '#FF3FA4', '#FF8A2A', '#B98CFF'][i]
+        a = duplicate(m); a.location = ((i - 3.5) * 0.55, 0, 0.3); a.rotation_euler = (0, 0, R(-70)); a.scale = (1.6, 1.6, 1.6)
+        label(m.name.upper(), ((i - 3.5) * 0.55, -0.35, 0.02), 0.07)
+    cam(Vector((0, -3.6, 2.2)), Vector((0, 0, 0.15)), 35)
+    for loc, e in (((-2, -3, 4), 500), ((3, 1, 2), 200)):
+        ld = bpy.data.lights.new('L', 'AREA'); ld.energy = e; ld.size = 3
+        o = bpy.data.objects.new('L', ld); scene.collection.objects.link(o); o.location = loc; o.rotation_euler = (Vector((0, 0, 0)) - o.location).to_track_quat('-Z', 'Y').to_euler()
+    setup_render(2000, 600, 48); save(os.path.join(argv[1], 'ammo.png'))
 elif MODE == 'export': export(argv[1])

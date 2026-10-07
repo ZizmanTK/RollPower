@@ -42,21 +42,63 @@ namespace DiceHero
             public Transform t;
             public WeaponDef def;
             public Vector3 pos, vel;
-            public float life, delay, age;
+            public float life, delay, age, baseScale = 1f;
             public ITarget target;
+            public bool lob, visual;                       // mortar arc; a tracer with no hits (the railgun's slug)
+            public List<ITarget> passed;                   // targets the shot flew through (vines)
         }
+
+        /// <summary>The Blender ammo model for a gun (Resources/Models/Ammo), or null for the plain glowing shot.</summary>
+        static string AmmoFor(WeaponDef def)
+        {
+            switch (def.id)
+            {
+                case "twin": case "tri": case "scatter": return "Bolt";
+                case "missile": return "Missile";
+                case "needler": return "Needle";
+                case "flak": return "Flak";
+                case "plasma": return "Plasma";
+                case "mortar": return "Mortar";
+                case "flamer": return "Flame";
+                default: return null;
+            }
+        }
+
+        static float AmmoScale(WeaponDef def) => def.id == "scatter" ? 0.8f : def.id == "tri" ? 0.9f : def.id == "flamer" ? 0.7f : 1f;
+
+        const float MortarGravity = 18f;
 
         static readonly List<Shot> shots = new List<Shot>();
 
         public static void Spawn(Palette pal, WeaponDef def, Vector3 pos, Vector3 dir, float delay)
         {
-            var mat = pal.Glow("Shot" + def.id, def.color, 1.6f, def.color);
-            var go = Prim.Make(PrimitiveType.Sphere, "Shot", null, pos, Vector3.one * def.radius * 2f, mat);
-            // Fire leaves the nozzle as small puffs that swell and slow (see Step); bolts are stretched streaks.
-            if (def.type == DamageType.Fire) go.transform.localScale = Vector3.one * def.radius * 0.8f;
-            else if (!def.homing && def.aoe <= 0f) go.transform.localScale = new Vector3(def.radius * 1.6f, def.radius * 1.6f, def.radius * 5f);
-            var s = new Shot { t = go.transform, def = def, pos = pos, life = def.range / def.speed + 0.6f, delay = delay };
+            GameObject go;
+            float baseScale = 1f;
+            var model = AmmoFor(def) != null ? BlenderModels.Spawn("Ammo/" + AmmoFor(def), null, pal, def.color, def.id) : null;
+            if (model != null)
+            {
+                go = model.gameObject;
+                go.transform.position = pos;
+                baseScale = AmmoScale(def);
+                go.transform.localScale = Vector3.one * baseScale;
+            }
+            else
+            {
+                var mat = pal.Glow("Shot" + def.id, def.color, 1.6f, def.color);
+                go = Prim.Make(PrimitiveType.Sphere, "Shot", null, pos, Vector3.one * def.radius * 2f, mat);
+                if (!def.homing && def.aoe <= 0f) go.transform.localScale = new Vector3(def.radius * 1.6f, def.radius * 1.6f, def.radius * 5f);
+            }
+            var s = new Shot { t = go.transform, def = def, pos = pos, life = def.range / def.speed + 0.6f, delay = delay, baseScale = baseScale };
             s.vel = def.homing ? (dir + Vector3.up * 0.9f).normalized * def.speed * 0.6f : dir * def.speed;
+            if (def.id == "mortar")
+            {
+                // A real mortar lobs its bomb: up, over, and down onto the target (or most of its range ahead).
+                var aim = Targets.Nearest(pos + dir * 6f, def.range, t => t.Reachable(def));
+                Vector3 to = (aim != null ? aim.Position : pos + dir * def.range * 0.7f) - pos; to.y = 0f;
+                float T = Mathf.Clamp(to.magnitude / def.speed, 0.55f, 1.3f);
+                s.vel = to / T + Vector3.up * (MortarGravity * T * 0.5f - (pos.y - 0.1f) / T);
+                s.lob = true; s.life = T + 0.5f;
+            }
             if (def.homing) s.target = Targets.Nearest(pos + dir * 6f, def.range, t => t.Reachable(def));
             go.SetActive(delay <= 0f);
             go.transform.rotation = Quaternion.LookRotation(s.vel);
@@ -87,8 +129,35 @@ namespace DiceHero
                 Vector3 p = from + dir * d;
                 if (Mathf.Abs(p.x) > wall || Mathf.Abs(p.z) > wall) { length = d; break; }
             }
+            if (def.type == DamageType.Shock)
+            {
+                // The arc lance throws lightning: a jagged arc to the first thing it hit (or its reach), with a fork.
+                float reach = length;
+                foreach (var t in Targets.All)
+                {
+                    if (!t.Alive || !t.Reachable(def)) continue;
+                    Vector3 to = t.Position - from; to.y = 0f;
+                    float along = Vector3.Dot(to, dir);
+                    if (along > 0f && along < reach && (to - dir * along).magnitude < t.Radius + 0.35f) reach = along;
+                }
+                Vector3 end = from + dir * reach;
+                Fx.Arc(pal, from, end, def.color, 0.14f, 0.06f);
+                Fx.Arc(pal, from, end + Random.insideUnitSphere * 0.4f, Color.white, 0.09f, 0.03f);
+                Fx.Flash(pal, end, def.color, 0.6f, 0.12f);
+                return;
+            }
             Fx.Beam(pal, from, dir, length, def.color);
             Fx.Flash(pal, from + dir * length, def.color, 0.5f, 0.12f);
+            if (def.type == DamageType.Pierce)
+            {
+                // The railgun's slug, visible for a blink as it flies down the beam.
+                var slug = BlenderModels.Spawn("Ammo/Slug", null, pal, def.color, def.id);
+                if (slug != null)
+                {
+                    slug.position = from; slug.rotation = Quaternion.LookRotation(dir);
+                    shots.Add(new Shot { t = slug, def = def, pos = from, vel = dir * 70f, life = length / 70f, visual = true });
+                }
+            }
         }
 
         public static void Step(Palette pal, float dt)
@@ -114,26 +183,48 @@ namespace DiceHero
                         s.vel = Vector3.Lerp(s.vel, want, 1f - Mathf.Exp(-6f * dt));
                     }
                     else s.vel += Vector3.down * 3f * dt;
-                    if (Random.value < 0.6f) Fx.Puff(pal, s.pos, 0.12f, 0.35f);
+                    if (Random.value < 0.35f) Fx.Puff(pal, s.pos - s.vel.normalized * 0.12f, 0.07f, 0.3f);
                 }
 
                 if (s.def.type == DamageType.Fire)
                 {
+                    // Flames swell, slow and flicker as they leave the nozzle.
                     s.vel *= Mathf.Exp(-1.6f * dt);
-                    s.t.localScale = Vector3.one * s.def.radius * Mathf.Lerp(0.8f, 3.2f, Mathf.Clamp01(s.age / 0.45f));
+                    float k = Mathf.Clamp01(s.age / 0.45f);
+                    s.t.localScale = Vector3.one * s.baseScale * Mathf.Lerp(0.6f, 1.6f, k) * (0.9f + 0.2f * Mathf.Sin(s.age * 40f));
+                    if (Random.value < 0.1f) Fx.Flame(pal, s.pos + Random.insideUnitSphere * 0.12f, Palette.Hex("#FF5A1A"), 0.12f, 0.22f);
                 }
+                if (s.lob) s.vel += Vector3.down * MortarGravity * dt;
                 s.pos += s.vel * dt;
                 s.t.position = s.pos;
-                if (s.vel.sqrMagnitude > 0.01f) s.t.rotation = Quaternion.LookRotation(s.vel);
+                if (s.vel.sqrMagnitude > 0.01f) s.t.rotation = Quaternion.LookRotation(s.vel) * (s.def.id == "plasma" ? Quaternion.Euler(0f, 0f, s.age * 540f) : Quaternion.identity);
+                if ((s.def.id == "flak" || s.lob) && Random.value < 0.3f) Fx.Puff(pal, s.pos - s.vel.normalized * 0.15f, 0.07f, 0.25f);
 
                 bool done = s.life <= 0f;
-                ITarget hit = null;
-                foreach (var t in Targets.All)
+                if (s.visual)
                 {
-                    if (!t.Alive || !t.Reachable(s.def)) continue;
-                    if (FlatDistSq(t.Position, s.pos) < (t.Radius + s.def.radius) * (t.Radius + s.def.radius)) { hit = t; break; }
+                    if (done) { Fx.Kill(s.t.gameObject); shots.RemoveAt(i); }
+                    continue;
                 }
-                if (hit != null) { hit.Hit(s.def, s.def.damage, s.pos - s.vel.normalized); done = true; }
+                ITarget hit = null;
+                // A lobbed bomb only lands on things at the end of its fall.
+                if (!s.lob || (s.vel.y < 0f && s.pos.y < 0.9f))
+                    foreach (var t in Targets.All)
+                    {
+                        if (!t.Alive || !t.Reachable(s.def) || (s.passed != null && s.passed.Contains(t))) continue;
+                        if (FlatDistSq(t.Position, s.pos) < (t.Radius + s.def.radius) * (t.Radius + s.def.radius)) { hit = t; break; }
+                    }
+                if (hit != null)
+                {
+                    bool landed = hit.Hit(s.def, s.def.damage, s.pos - s.vel.normalized);
+                    // Shots pass straight through vines they can't burn: the shot flies on.
+                    if (!landed && hit is Enemy en && en.CurrentDefence == Defence.Vines && !en.Untouchable)
+                    {
+                        (s.passed ??= new List<ITarget>()).Add(hit);
+                        hit = null;
+                    }
+                    else done = true;
+                }
                 if (Mathf.Abs(s.pos.x) > World.HalfSize + 0.2f || Mathf.Abs(s.pos.z) > World.HalfSize + 0.2f || s.pos.y < 0.05f) done = true;
 
                 if (done)

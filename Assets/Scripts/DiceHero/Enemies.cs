@@ -28,6 +28,8 @@ namespace DiceHero
         public EnemyKind kind;
         public Transform t;
         public float hp, maxHp, speed, radius, fireTimer, hitFlash, spawnT, abilityTimer;
+        /// <summary>Status from hits: burning (fire) and shocked (stunned), and the timer for their particles.</summary>
+        public float burnT, shockT, fxT;
         public Vector3 pos, vel;
         public BossState boss;
         // Compactor (deck 1 foreman): 0 approach, 1 wind-up, 2 charge, 3 stunned (armour open).
@@ -192,9 +194,10 @@ namespace DiceHero
         public bool Hit(WeaponDef w, float damage, Vector3 from)
         {
             if (!Alive) return false;
+            if (CanBeHitBy(w) && Game.I != null) Game.I.HitFx(this, w, from, CurrentDefence);
             if (!CanBeHitBy(w))
             {
-                if (Game.I != null) Game.I.Deflect(this, DeflectText());
+                if (Game.I != null) { Game.I.Deflect(this, DeflectText()); Game.I.DeflectFx(this, w, from); }
                 return false;
             }
             if (kind == EnemyKind.Smelter && mode < 3)
@@ -358,7 +361,7 @@ namespace DiceHero
                     // Deck 1 foreman: a scrap compactor on treads. Armoured plates on top open when it's stunned.
                     e.hp = 140f; e.speed = 1.4f; e.radius = 1.15f; e.modeT = 2.5f;
                     var cbm = BlenderModels.Spawn("Enemies/Compactor", root, pal);
-                    if (cbm != null) e.plates = new[] { BlenderModels.Pivot(cbm, "Pivot_PlateL", root), BlenderModels.Pivot(cbm, "Pivot_PlateR", root) };
+                    if (cbm != null) { e.plates = new[] { BlenderModels.Pivot(cbm, "Pivot_PlateL", root), BlenderModels.Pivot(cbm, "Pivot_PlateR", root) }; EnemyRig.Attach(root, cbm, EnemyKind.Compactor); }
                     else
                     {
                     var steel = pal.Get("CompSteel", Palette.Hex("#4A505C"), 0.55f, 0.75f);

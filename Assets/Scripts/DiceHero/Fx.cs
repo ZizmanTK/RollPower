@@ -148,6 +148,49 @@ namespace DiceHero
             Add(tm.gameObject, null, Mode.Text, life, Vector3.one);
         }
 
+        /// <summary>A lick of flame: a glowing blob that rises and shrinks (burning robots, the flamer's jet).</summary>
+        public static void Flame(Palette pal, Vector3 pos, Color c, float size, float life)
+        {
+            var go = Get(PrimitiveType.Sphere, "Flame", pos, new Vector3(size, size * 1.5f, size), Glow(pal, "Flame", c, 2.6f));
+            Add(go, PrimitiveType.Sphere, Mode.Smoke, life * Random.Range(0.7f, 1.1f), go.transform.localScale);
+        }
+
+        /// <summary>A jagged lightning arc from a to b (shock hits, the arc lance).</summary>
+        public static void Arc(Palette pal, Vector3 a, Vector3 b, Color c, float life, float thick = 0.045f)
+        {
+            var mat = Glow(pal, "Arc", c, 3.2f);
+            int n = Mathf.Clamp(Mathf.RoundToInt((b - a).magnitude / 0.35f), 3, 18);
+            Vector3 d = b - a, side = Vector3.Cross(d.normalized, Vector3.up);
+            if (side.sqrMagnitude < 0.01f) side = Vector3.right;
+            Vector3 prev = a;
+            for (int i = 1; i <= n; i++)
+            {
+                float t = i / (float)n;
+                Vector3 p = i == n ? b : a + d * t + (side * Random.Range(-1f, 1f) + Vector3.up * Random.Range(-0.6f, 0.6f)) * Mathf.Min(0.3f, d.magnitude * 0.08f);
+                Vector3 seg = p - prev;
+                if (seg.sqrMagnitude > 0.0001f)
+                {
+                    var go = Get(PrimitiveType.Cube, "Arc", (p + prev) * 0.5f, new Vector3(thick, thick, seg.magnitude), mat, Quaternion.LookRotation(seg));
+                    Add(go, PrimitiveType.Cube, Mode.Beam, life, go.transform.localScale);
+                }
+                prev = p;
+            }
+        }
+
+        /// <summary>A few sparks thrown one way (ricochets, a slug punching out of the far side).</summary>
+        public static void Spray(Palette pal, Vector3 pos, Vector3 dir, Color c, int count, float speed)
+        {
+            var mat = Glow(pal, "Spark", c, 3.5f);
+            count = Mathf.Max(1, Mathf.RoundToInt(count * Density));
+            dir = dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.up;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 v = (dir + Random.insideUnitSphere * 0.35f).normalized * speed * Random.Range(0.6f, 1.1f);
+                var go = Get(PrimitiveType.Cube, "Spark", pos, new Vector3(0.04f, 0.04f, 0.3f), mat, Quaternion.LookRotation(v));
+                Add(go, PrimitiveType.Cube, Mode.Spark, Random.Range(0.15f, 0.3f), go.transform.localScale, v);
+            }
+        }
+
         public static void Puff(Palette pal, Vector3 pos, float size, float life)
         {
             var go = Get(PrimitiveType.Sphere, "Smoke", pos, Vector3.one * size, pal.Get("Smoke", Palette.Hex("#3A3F4A"), 0.05f));

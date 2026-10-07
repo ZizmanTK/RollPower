@@ -220,8 +220,11 @@ namespace DiceHero
                 case Screen2.Playing:
                     if (!ExternalInput) Dice.InputOverride = null;
                     if (Controls.Pause && !Game.Lost) { SetPaused(true); break; }
-                    if (Controls.Dash) Dice.Dash();
-                    float dt = Mathf.Min(udt, 1f / 20f) * (InStage && Settings.Assist ? 0.85f : 1f); // assist slows the campaign down
+                    // First contact: a card freezes the game, then half speed until the right gun is on top.
+                    bool introCard = IntroBlocking;
+                    StepIntro(udt);
+                    if (Controls.Dash && !introCard && !IntroBlocking) Dice.Dash();
+                    float dt = Mathf.Min(udt, 1f / 20f) * (InStage && Settings.Assist ? 0.85f : 1f) * IntroScale; // assist slows the campaign down
                     if (hitStop > 0f) { hitStop -= udt; dt = 0f; }
                     if (Game.Lost)
                     {

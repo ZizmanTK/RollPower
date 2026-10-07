@@ -58,6 +58,8 @@ namespace DiceHero
         public void DemoEnding() { story = Campaign.Ending; storyIndex = 0; storyToMap = false; State = Screen2.Story; }
         public void DemoAdvanceStory() { storyIndex++; if (storyIndex >= story.Length) FinishStory(); }
         public void DemoLaunchFirstStage() => LaunchStage(Campaign.Decks[0].stages[0], true);
+        /// <summary>Capture: play one stage with the modules a player would have by then.</summary>
+        public void DemoLaunchStage(string id) { var s = Campaign.Find(id); if (s == null) return; Campaign.AssumeClearedBefore = s; LaunchStage(s, true); }
         public void DemoStageMenu(int index) { if (State == Screen2.StageClear) ActivateStageClear(index); else if (State == Screen2.StageFailed) ActivateStageFail(index); }
 
         public void Radio(string line) { if (!string.IsNullOrEmpty(line)) radio.Enqueue(line); }

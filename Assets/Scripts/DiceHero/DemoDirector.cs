@@ -64,6 +64,7 @@ namespace DiceHero
             stateTime += dt;
             lastDt = dt;
             if (Flag("-campaign")) { CampaignWalk(dt); return; }
+            if (Arg("-stagewalk") != null) { StageWalk(dt); return; }
             if (t > limit) { Debug.Log($"[RollPower] demo end: wave {loop.Game.Wave}, score {loop.Game.Score}"); Application.Quit(); return; }
 
             switch (loop.State)
@@ -111,6 +112,17 @@ namespace DiceHero
         }
 
         bool Near(float at) => stateTime >= at && stateTime - lastDt < at;
+
+        /// <summary>-stagewalk id: one campaign stage played by the bot, a screenshot every 0.7 s (effects and animation checks).</summary>
+        void StageWalk(float dt)
+        {
+            if (Time.realtimeSinceStartup > limit) { Application.Quit(); return; }
+            if (loop.State == Screen2.Title && Near(1f)) loop.DemoLaunchStage(Arg("-stagewalk"));
+            if (loop.State != Screen2.Playing) return;
+            loop.Game.Invincible = true;
+            bot.Step(Mathf.Min(dt, 0.05f));
+            if (stateTime > 4f && t > nextShot) { nextShot = t + 0.7f; Shot("fx"); }
+        }
 
         /// <summary>-campaign: story slides, station map, a stage played by the bot to its clear screen and card,
         /// the next stage until Pip goes offline (retry screen), then the map again.</summary>

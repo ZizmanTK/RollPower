@@ -143,7 +143,7 @@ namespace DiceHero
                 case Screen2.Story: DrawStory(w); break;
                 case Screen2.StageClear: Dim(w, 0.72f); DrawStageClear(w); break;
                 case Screen2.StageFailed: Dim(w, 0.62f); DrawStageFailed(w); break;
-                case Screen2.Playing: DrawTutorial(w); DrawRadio(w); break;
+                case Screen2.Playing: DrawTutorial(w); DrawRadio(w); DrawIntro(w); break;
             }
             UiKit.End();
         }
