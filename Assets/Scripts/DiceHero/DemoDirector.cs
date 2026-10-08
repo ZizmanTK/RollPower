@@ -9,6 +9,8 @@ namespace DiceHero
     /// -godmode (can't die)  -captureTime &lt;seconds&gt;  (quit after, default 240).
     /// The autopilot plays the real game; the director walks through title, how-to, pause, upgrades
     /// and game over, saving a PNG of each.
+    /// -video with -stagewalk id (or -titleclip): records every frame as JPG at a fixed 30 fps (Time.captureFramerate)
+    /// from -videoStart seconds into the stage, -videoFrames frames, then quits. Frames: v00000.jpg ... (for ffmpeg).
     /// </summary>
     public class DemoDirector : MonoBehaviour
     {
@@ -45,6 +47,13 @@ namespace DiceHero
             loop.ExternalInput = true;
             bot = new Autopilot(loop.Dice, loop.Weapons, loop.Game) { Goal = () => loop.TutorialGoal, ExtraAdvice = () => loop.TutorialAdvice };
             Debug.Log($"[RollPower] demo director: capture={dir ?? "off"} god={godMode} limit={limit}s");
+            if (Flag("-video") && dir != null)
+            {
+                Time.captureFramerate = 30;
+                int.TryParse(Arg("-videoFrames") ?? "240", out videoMax);
+                float.TryParse(Arg("-videoStart") ?? "4", System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out videoStart);
+                StartCoroutine(Record());
+            }
         }
 
         void Shot(string name)
@@ -113,15 +122,35 @@ namespace DiceHero
 
         bool Near(float at) => stateTime >= at && stateTime - lastDt < at;
 
+        static int videoFrames;
+        int videoMax = 240;
+        float videoStart = 4f;
+        bool Recording => Flag("-titleclip") ? loop.State == Screen2.Title && stateTime > 0.5f : loop.State == Screen2.Playing && stateTime > videoStart;
+
+        System.Collections.IEnumerator Record()
+        {
+            var wait = new WaitForEndOfFrame();
+            while (true)
+            {
+                yield return wait;
+                if (loop == null || !Recording) continue;
+                var tex = ScreenCapture.CaptureScreenshotAsTexture();
+                File.WriteAllBytes(Path.Combine(dir, $"v{videoFrames:00000}.jpg"), tex.EncodeToJPG(90));
+                Destroy(tex);
+                if (++videoFrames >= videoMax) { Debug.Log("[RollPower] video done: " + videoFrames + " frames"); Application.Quit(); }
+            }
+        }
+
         /// <summary>-stagewalk id: one campaign stage played by the bot, a screenshot every 0.7 s (effects and animation checks).</summary>
         void StageWalk(float dt)
         {
             if (Time.realtimeSinceStartup > limit) { Application.Quit(); return; }
+            if (loop.State == Screen2.Title && Flag("-titleclip")) { loop.CoverMode = true; return; }
             if (loop.State == Screen2.Title && Near(1f)) loop.DemoLaunchStage(Arg("-stagewalk"));
             if (loop.State != Screen2.Playing) return;
             loop.Game.Invincible = true;
             bot.Step(Mathf.Min(dt, 0.05f));
-            if (stateTime > 4f && t > nextShot) { nextShot = t + 0.7f; Shot("fx"); }
+            if (!Flag("-video") && stateTime > 4f && t > nextShot) { nextShot = t + 0.7f; Shot("fx"); }
         }
 
         /// <summary>-campaign: story slides, station map, a stage played by the bot to its clear screen and card,
