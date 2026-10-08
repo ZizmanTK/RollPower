@@ -75,7 +75,7 @@ namespace DiceHero
             public int lead;      // 0 none, 1 square, 2 bell, 3 marimba, 4 saw
             public int arp;       // 0 none, 1 slow bell eighths, 2 square sixteenths
             public int percKind;  // 0 none, 1 metal clank, 2 shaker, 3 anvil
-            public float padCut = 900f, delay = 0.2f, drive = 0f, padGain = 0.06f;
+            public float padCut = 900f, delay = 0.2f, drive = 0f, padGain = 0.06f, bassGain = 1f;
             public int seed;
         }
 
@@ -87,7 +87,7 @@ namespace DiceHero
             switch (t)
             {
                 case Track.Menu: return new Style { bpm = 84, root = 57, chords = new[] { m(0), M(-4), M(3), M(-2) }, scale = new[] { 0, 2, 3, 5, 7, 8, 10 },
-                    hat = "", bass = 0, lead = 0, arp = 1, padCut = 1100f, delay = 0.4f, padGain = 0.045f, seed = 1 };
+                    hat = "", bass = 0, lead = 0, arp = 1, padCut = 1100f, delay = 0.4f, padGain = 0.06f, bassGain = 0.22f, seed = 1 };
                 case Track.Scrap: return new Style { bpm = 112, root = 52, chords = new[] { m(0), M(-4), M(-2), m(0) }, scale = new[] { 0, 3, 5, 7, 10 },
                     kick = "x...x...x...x...", snare = "....x.......x...", hat = "..x...x...x...x.", perc = "..x.....x.x.....", percKind = 1,
                     bass = 1, lead = 1, drive = 0.6f, padCut = 600f, delay = 0.15f, seed = 4 };
@@ -96,7 +96,7 @@ namespace DiceHero
                     bass = 2, lead = 3, padCut = 1000f, delay = 0.25f, padGain = 0.07f, seed = 5 };
                 case Track.Cryo: return new Style { bpm = 90, root = 54, chords = new[] { m(0), M(-4), M(3), M(-2) }, scale = new[] { 0, 2, 3, 7, 8 },
                     kick = "x...............", snare = "............x...", hat = "......x.......x.",
-                    bass = 0, lead = 2, arp = 1, padCut = 2400f, delay = 0.5f, padGain = 0.07f, seed = 6 };
+                    bass = 0, lead = 2, arp = 1, padCut = 2400f, delay = 0.5f, padGain = 0.07f, bassGain = 0.4f, seed = 6 };
                 case Track.Foundry: return new Style { bpm = 126, root = 48, chords = new[] { m(0), M(-4), m(5), M(7) }, scale = new[] { 0, 2, 3, 5, 7, 8, 11 },
                     kick = "x...x...x.x.x...", snare = "....x.......x...", hat = "x.x.x.x.x.x.x.x.", perc = "x...............", percKind = 3,
                     bass = 3, lead = 4, drive = 0.8f, padCut = 500f, delay = 0.12f, seed = 7 };
@@ -163,9 +163,12 @@ namespace DiceHero
                 else if (s.bass == 3) bassEnv = Mathf.Exp(-inStep * 14f);
                 bassPh += hz(bassNote) / MRate;
                 float bp = (float)(bassPh - Math.Floor(bassPh));
-                float braw = s.bass == 2 ? Mathf.Sin(bp * 2f * Mathf.PI) : s.bass == 3 ? (bp < 0.5f ? 1f : -1f) : 2f * bp - 1f;
-                bassY += (braw - bassY) * (1f - Mathf.Exp(-2f * Mathf.PI * (300f + 700f * bassEnv) / MRate));
-                float bass = bassY * (0.4f + 0.6f * bassEnv) * 0.45f;
+                // A held bass (the calm themes) is a rounded sine under a low cutoff: a held saw at 55 Hz just buzzes.
+                float braw = s.bass == 0 ? Mathf.Sin(bp * 2f * Mathf.PI) + 0.2f * Mathf.Sin(bp * 4f * Mathf.PI)
+                    : s.bass == 2 ? Mathf.Sin(bp * 2f * Mathf.PI) : s.bass == 3 ? (bp < 0.5f ? 1f : -1f) : 2f * bp - 1f;
+                float bassCut = s.bass == 0 ? 220f : 300f + 700f * bassEnv;
+                bassY += (braw - bassY) * (1f - Mathf.Exp(-2f * Mathf.PI * bassCut / MRate));
+                float bass = bassY * (0.4f + 0.6f * bassEnv) * 0.45f * s.bassGain;
                 if (s.drive > 0f) bass = (float)Math.Tanh(bass * (1f + s.drive * 4f)) * 0.5f;
                 v += bass;
 
