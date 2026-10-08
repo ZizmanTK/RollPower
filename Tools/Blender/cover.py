@@ -1,11 +1,12 @@
 # itch.io cover art for Roll Power: Pip-6 hovering on its field, surrounded by robots that each show their defence.
-#   blender -b --factory-startup -P cover.py -- cover <out.png>
+#   blender -b --factory-startup -P cover.py -- cover|banner <out.png>
 # Builds Pip with pip_concept.py and the robots with roster.py, then stages and renders them (the title is laid on
 # afterwards in 2D, so the type stays crisp at any size).
 import bpy, math, os, sys
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+MODE = sys.argv[sys.argv.index('--') + 1]
 OUT = sys.argv[sys.argv.index('--') + 2]
 
 g_pip = {'__file__': os.path.join(HERE, 'pip_concept.py'), '__name__': 'pip'}
@@ -98,8 +99,11 @@ light((5, 6, 3), 900, (1.0, 0.45, 0.25), 4)       # warm rim from the blast side
 light((-5, 5, 2.5), 700, (0.35, 0.7, 1.0), 4)     # cool rim
 cd = bpy.data.cameras.new('C'); co = bpy.data.objects.new('C', cd); scene.collection.objects.link(co); scene.camera = co
 co.location = (0.2, -6.4, 4.6); co.rotation_euler = (Vector((0.15, 1.3, 0.45)) - co.location).to_track_quat('-Z', 'Y').to_euler(); cd.lens = 34
+if MODE == 'banner':  # wide page banner: same stage, pulled back, cast pushed right so the title can sit on the left
+    co.location = (-1.0, -11.0, 5.6); co.rotation_euler = (Vector((0.5, 1.9, 1.0)) - co.location).to_track_quat('-Z', 'Y').to_euler(); cd.lens = 25; cd.shift_x = -0.2
+    seam.node_tree.nodes['Principled BSDF'].inputs['Emission Strength'].default_value = 0.45  # quieter grid under the title
 
-r = scene.render; r.engine = 'CYCLES'; r.resolution_x = 1260; r.resolution_y = 1000; r.image_settings.file_format = 'PNG'
+r = scene.render; r.engine = 'CYCLES'; r.resolution_x, r.resolution_y = (2400, 760) if MODE == 'banner' else (1260, 1000); r.image_settings.file_format = 'PNG'
 scene.cycles.samples = 128; scene.cycles.use_denoising = True; scene.view_settings.view_transform = 'Standard'; scene.view_settings.look = 'Medium High Contrast'
 try:
     prefs = bpy.context.preferences.addons['cycles'].preferences
